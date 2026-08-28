@@ -1,33 +1,69 @@
 version: 2
 
 updates:
-  # NPM dependencies
+  # ============================================================
+  # Backend - NPM dependencies
+  # package.json / package-lock.json are located in repository root
+  # ============================================================
   - package-ecosystem: "npm"
     directory: "/"
+
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "daily"
       time: "06:00"
       timezone: "Europe/Berlin"
 
     open-pull-requests-limit: 10
 
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "chore(deps-backend)"
 
     groups:
-      minor-and-patch:
+      backend-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
         update-types:
           - "minor"
           - "patch"
 
+  # ============================================================
+  # Frontend - NPM dependencies
+  # package.json / package-lock.json are located in /Web
+  # ============================================================
+  - package-ecosystem: "npm"
+    directory: "/Web"
+
+    schedule:
+      interval: "daily"
+      time: "06:10"
+      timezone: "Europe/Berlin"
+
+    open-pull-requests-limit: 10
+
+    commit-message:
+      prefix: "chore(deps-frontend)"
+
+    groups:
+      frontend-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+          
+  # ============================================================
   # Docker base images
+  # Dockerfiles located in repository root
+  # ============================================================
   - package-ecosystem: "docker"
     directory: "/"
+
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "06:00"
+      time: "06:20"
       timezone: "Europe/Berlin"
 
     open-pull-requests-limit: 5
@@ -35,13 +71,18 @@ updates:
     commit-message:
       prefix: "chore(docker)"
 
+
+  # ============================================================
   # GitHub Actions
+  # .github/workflows/*
+  # ============================================================
   - package-ecosystem: "github-actions"
     directory: "/"
+
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "06:00"
+      time: "06:30"
       timezone: "Europe/Berlin"
 
     open-pull-requests-limit: 5
