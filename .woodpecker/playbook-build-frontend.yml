@@ -18,7 +18,6 @@ steps:
       context: .
       platforms:
         - linux/amd64
-        - linux/386
       tags:
         - lptracker-frontend
       pull_image: true
