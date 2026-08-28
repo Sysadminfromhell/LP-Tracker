@@ -132,14 +132,6 @@ Stop the stack:
 docker compose down
 ```
 
-To also remove locally created Docker volumes:
-
-```bash
-docker compose down -v
-```
-
-> **Warning:** `docker compose down -v` removes persistent volumes and may delete the PostgreSQL database. Do not use it on a production instance unless you explicitly want to remove the stored data.
-
 ---
 
 ## Updating an existing installation
