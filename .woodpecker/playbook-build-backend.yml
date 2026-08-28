@@ -25,7 +25,7 @@ steps:
       provenance: mode=max
       sbom: true
       cache_images:
-        - safhdev/corosyncdevice:lptrackerbackend-Cache
+        - safhdev/lp-tracker:backend-cache
       buildkit_oci_max_parallelism: 2
       buildkit_debug: true
       labels:
