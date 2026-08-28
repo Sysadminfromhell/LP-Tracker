@@ -14,7 +14,7 @@ steps:
         from_secret: docker_username
       password:
         from_secret: docker_password
-      dockerfile: Dockerfile-backend
+      dockerfile: Dockerfile.frontend
       context: .
       platforms:
         - linux/amd64
