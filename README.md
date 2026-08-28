@@ -11,7 +11,7 @@ A self-hosted leaderboard and event tracker with automatic player data retrieval
 ![Fastify](https://img.shields.io/badge/Fastify-Backend-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
-![Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg)
+![Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg?events=manual,cron)
 
 </div>
 
