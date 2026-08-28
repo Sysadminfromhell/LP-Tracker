@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512" version="1.1">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0D1430"/>
+      <stop offset="100%" stop-color="#040814"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="38%" r="42%">
+      <stop offset="0%" stop-color="#234D9A" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#234D9A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F7E49A"/>
+      <stop offset="35%" stop-color="#D4A945"/>
+      <stop offset="100%" stop-color="#8B5D16"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8C66A"/>
+      <stop offset="100%" stop-color="#A06E1C"/>
+    </linearGradient>
+    <linearGradient id="blueGem" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D8F8FF"/>
+      <stop offset="55%" stop-color="#57B9FF"/>
+      <stop offset="100%" stop-color="#176DFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="110" ry="110" fill="url(#bg)"/>
+  <circle cx="256" cy="205" r="180" fill="url(#halo)"/>
+  <path d="M96 255C96 166 167 95 256 95C345 95 416 166 416 255" fill="none" stroke="#223867" stroke-width="3" opacity="0.65"/>
+
+  <g>
+    <path d="M256 86L314 151L353 145L390 117L369 192L408 237L354 249L336 323L291 347L256 425L221 347L176 323L158 249L104 237L143 192L122 117L159 145L198 151L256 86Z" fill="url(#gold)"/>
+    <path d="M256 122L295 171L334 167L357 150L338 219L370 241L327 252L313 307L280 326L256 380L232 326L199 307L185 252L142 241L174 219L155 150L178 167L217 171L256 122Z" fill="#0C1730"/>
+    <path d="M256 133L286 173L316 170L340 154L322 216L294 230L256 288L218 230L190 216L172 154L196 170L226 173L256 133Z" fill="url(#gold2)"/>
+
+    <path d="M256 186L292 230L292 309L256 358L220 309L220 230L256 186Z" fill="url(#gold)"/>
+    <path d="M256 204L282 236L282 302L256 338L230 302L230 236L256 204Z" fill="url(#blueGem)"/>
+
+    <path d="M191 151L154 174L126 148L159 159L191 151Z" fill="#F4D67D"/>
+    <path d="M321 151L358 174L386 148L353 159L321 151Z" fill="#F4D67D"/>
+  </g>
+</svg>
