@@ -20,12 +20,12 @@ steps:
         - linux/amd64
         - linux/386
       tags:
-        - lptracker-Frontend
+        - lptracker-frontend
       pull_image: true
       provenance: mode=max
       sbom: true
       cache_images:
-        - safhdev/corosyncdevice:lptrackerFrontend-Cache
+        - safhdev/corosyncdevice:lptrackerfrontend-cache
       buildkit_oci_max_parallelism: 2
       buildkit_debug: true
       labels:
