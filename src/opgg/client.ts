@@ -73,7 +73,38 @@ export class OpggClient {
       throw new Error('OP.GG did not return match history as text');
     }
 
-    return parseRecentMatches(textBlock.text);
+    const recentMatches = parseRecentMatches(textBlock.text);
+
+    console.log(
+      `[OP.GG] ${gameName}#${tagLine}: ${recentMatches.length} parsed match(es) returned`,
+    );
+
+    for (const match of recentMatches) {
+      const matchDate = new Date(match.createdAt);
+      console.log(
+        `[OP.GG] Match ${match.id} | ` +
+          `${matchDate.toISOString()} | ` +
+          `${match.gameType} | ` +
+          `${match.champion} ${match.position} | ` +
+          `${match.result} | ` +
+          `${match.kills}/${match.deaths}/${match.assists}`,
+      );
+    }
+
+    if (recentMatches.length === 0) {
+      const rawGameCount = (textBlock.text.match(/GameHistory\(/g) ?? []).length;
+
+      console.warn(
+        `[OP.GG] ${gameName}#${tagLine}: parser returned 0 matches, ` +
+          `raw response contains ${rawGameCount} GameHistory record(s)`,
+      );
+
+      if (rawGameCount > 0) {
+        console.warn(`[OP.GG] Parser likely does not match the current OP.GG response format`);
+      }
+    }
+
+    return recentMatches;
   }
 
   async getSummonerProfile(

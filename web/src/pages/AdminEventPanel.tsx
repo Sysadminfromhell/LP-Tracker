@@ -37,6 +37,12 @@ function toLocalDateTimeValue(date: Date): string {
     pad(date.getMinutes()),
   ].join('');
 }
+function getMinimumScheduleStart(): string {
+  const minimum = new Date();
+  minimum.setSeconds(0, 0);
+  minimum.setMinutes(minimum.getMinutes() + 1);
+  return toLocalDateTimeValue(minimum);
+}
 function createDefaultSchedule(): EventScheduleForm {
   const start = new Date();
   start.setMinutes(start.getMinutes() + 10);
@@ -154,6 +160,14 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       setError('Please enter a valid start and end time.');
       return;
     }
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      setError('Please enter a valid start and end time.');
+      return;
+    }
+    if (startsAt.getTime() < Date.now()) {
+      setError('Event start cannot be in the past.');
+      return;
+    }
     if (endsAt <= startsAt) {
       setError('Event end must be after event start.');
       return;
@@ -242,28 +256,26 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
   }
   async function handleUpdateSchedule(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
-
     if (!event || event.status !== 'draft') {
       return;
     }
-
     const startsAt = new Date(schedule.startsAt);
     const endsAt = new Date(schedule.endsAt);
-
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
       setError('Please enter a valid start and end time.');
       return;
     }
-
+    if (startsAt.getTime() < Date.now()) {
+      setError('Event start cannot be in the past.');
+      return;
+    }
     if (endsAt <= startsAt) {
       setError('Event end must be after event start.');
       return;
     }
-
     setSaving(true);
     setError(null);
     setMessage(null);
-
     try {
       const response = await fetch('/api/admin/event/schedule', {
         method: 'PATCH',
@@ -276,20 +288,16 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
           endsAt: endsAt.toISOString(),
         }),
       });
-
       if (response.status === 401) {
         onUnauthorized();
         return;
       }
-
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-
       const data = (await response.json()) as {
         event: AdminEvent;
       };
-
       setEvent(data.event);
       setEventName(data.event.name);
       setSchedule(createScheduleFromEvent(data.event));
@@ -300,32 +308,25 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       setSaving(false);
     }
   }
-
   async function handleCancelScheduledEvent() {
     if (!event || event.status !== 'draft') {
       return;
     }
-
     const confirmed = window.confirm(`Cancel "${event.name}"?\n\nThe event will not be started.`);
-
     if (!confirmed) {
       return;
     }
-
     setSaving(true);
     setError(null);
     setMessage(null);
-
     try {
       const response = await fetch('/api/admin/event/schedule', {
         method: 'DELETE',
       });
-
       if (response.status === 401) {
         onUnauthorized();
         return;
       }
-
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
@@ -339,6 +340,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     }
   }
   const canSchedule = !event || event.status === 'ended';
+  const minimumStartAt = getMinimumScheduleStart();
   return (
     <div className="admin-section admin-event-section">
       <div className="admin-section-header">
@@ -409,12 +411,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         <form className="admin-schedule-event" onSubmit={handleUpdateSchedule}>
           <div className="admin-schedule-heading">
             <span className="admin-section-eyebrow">SCHEDULED EVENT</span>
-
             <h3>Edit schedule</h3>
-
             <p>Changes are allowed until the event has actually started.</p>
           </div>
-
           <div className="admin-schedule-grid">
             <label>
               Event Name
@@ -431,13 +430,13 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
                 }}
               />
             </label>
-
             <label>
               Start
               <input
                 type="datetime-local"
                 value={schedule.startsAt}
                 disabled={saving}
+                min={minimumStartAt}
                 required
                 onChange={(eventInput) => {
                   setSchedule((current) => ({
@@ -447,13 +446,13 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
                 }}
               />
             </label>
-
             <label>
               End
               <input
                 type="datetime-local"
                 value={schedule.endsAt}
                 disabled={saving}
+                min={schedule.startsAt || minimumStartAt}
                 required
                 onChange={(eventInput) => {
                   setSchedule((current) => ({
@@ -464,12 +463,10 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
               />
             </label>
           </div>
-
           <div className="admin-form-actions">
             <button className="admin-primary-button" type="submit" disabled={saving}>
               {saving ? 'Saving...' : 'Save Schedule'}
             </button>
-
             <button
               className="admin-danger-button"
               type="button"
@@ -507,8 +504,8 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
             <span className="admin-section-eyebrow">NEXT EVENT</span>
             <h3>Schedule event</h3>
             <p>
-              Start and end happen automatically. Enabled players are snapshotted when the event
-              starts.
+              Start must remain in the future. Changes are allowed until the event has actually
+              started.
             </p>
           </div>
           <div className="admin-schedule-grid">
@@ -533,6 +530,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
                 type="datetime-local"
                 value={schedule.startsAt}
                 disabled={saving}
+                min={minimumStartAt}
                 required
                 onChange={(eventInput) => {
                   setSchedule((current) => ({
@@ -548,6 +546,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
                 type="datetime-local"
                 value={schedule.endsAt}
                 disabled={saving}
+                min={schedule.startsAt || minimumStartAt}
                 required
                 onChange={(eventInput) => {
                   setSchedule((current) => ({
