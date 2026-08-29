@@ -89,38 +89,41 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const loadEvent = useCallback(async () => {
-    try {
-      setError(null);
-      const response = await fetch('/api/admin/event');
-      if (response.status === 401) {
-        onUnauthorized();
-        return;
+  const loadEvent = useCallback(
+    async (syncDraftForm = true) => {
+      try {
+        setError(null);
+        const response = await fetch('/api/admin/event');
+        if (response.status === 401) {
+          onUnauthorized();
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(await readApiError(response));
+        }
+        const data = (await response.json()) as AdminEventResponse;
+        setEvent(data.event);
+        setEventName(data.event?.name ?? '');
+        if (syncDraftForm && data.event?.status === 'draft') {
+          setSchedule(createScheduleFromEvent(data.event));
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not load event.');
+      } finally {
+        setLoading(false);
       }
-      if (!response.ok) {
-        throw new Error(await readApiError(response));
-      }
-      const data = (await response.json()) as AdminEventResponse;
-      setEvent(data.event);
-      setEventName(data.event?.name ?? '');
-      if (data.event?.status === 'draft') {
-        setSchedule(createScheduleFromEvent(data.event));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load event.');
-    } finally {
-      setLoading(false);
-    }
-  }, [onUnauthorized]);
+    },
+    [onUnauthorized],
+  );
   useEffect(() => {
     void loadEvent();
   }, [loadEvent]);
   useEffect(() => {
-    if (event?.status !== 'active') {
+    if (!event || (event.status !== 'draft' && event.status !== 'active')) {
       return;
     }
     const interval = window.setInterval(() => {
-      void loadEvent();
+      void loadEvent(false);
     }, 5_000);
     return () => {
       window.clearInterval(interval);
