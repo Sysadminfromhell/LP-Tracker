@@ -11,6 +11,7 @@ A self-hosted leaderboard and event tracker with automatic player data retrieval
 ![Fastify](https://img.shields.io/badge/Fastify-Backend-000000?logo=fastify&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+![Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg?events=manual,cron)
 
 </div>
 
@@ -136,19 +137,21 @@ docker compose down
 
 ## Updating an existing installation
 
-Pull the newest version of your current branch:
+If you built the Application yourself you can update via the following stepts:
+
+Pull the newest version of your current branch.
 
 ```bash
 git pull
 ```
 
-Rebuild the containers:
+Rebuild the containers.
 
 ```bash
 docker compose up -d --build
 ```
 
-Check the logs afterwards:
+Check the logs afterwards.
 
 ```bash
 docker compose logs -f
@@ -156,61 +159,7 @@ docker compose logs -f
 
 For production systems, it is recommended to deploy a tagged release or a known commit instead of blindly following a development branch.
 
----
-
-## Development
-
-The project is split into frontend and backend components.
-
-### Frontend
-
-The frontend is based on:
-
-- React
-- Vite
-- TypeScript
-
-Install dependencies and start the development server from the frontend package directory:
-
-```bash
-npm install
-npm run dev
-```
-
-A production build can be created with:
-
-```bash
-npm run build
-```
-
-### Backend
-
-The backend is based on:
-
-- Node.js
-- TypeScript
-- Fastify
-- PostgreSQL
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Start the configured development script:
-
-```bash
-npm run dev
-```
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-The production backend is compiled to JavaScript and runs from the generated `dist` output.
+If you Installed via the docker container you can pull the newest container as usual and update it.
 
 ---
 
@@ -329,9 +278,9 @@ Please follow these rules when contributing:
 7. Avoid unrelated formatting or refactoring inside a bug-fix PR.
 8. Document new configuration options.
 9. Update the README when a change affects installation or usage.
-10. Include screenshots for visible UI changes where useful.
-11. Explain breaking changes clearly in the Pull Request.
-12. Resolve merge conflicts in the feature branch, not directly on `main`.
+10. Explain breaking changes clearly in the Pull Request.
+11. Resolve merge conflicts in the feature branch, not directly on `main`.
+12. Typos will never be accepted as a PR
 
 ---
 
@@ -355,86 +304,6 @@ npm run build
 ```
 
 Run any available linting or tests as well.
-
----
-
-# Bugs
-
-Found something broken? Please report it through GitHub Issues.
-
-Before opening a new issue:
-
-1. Check whether the bug has already been reported.
-2. Verify that the problem still exists on the version you are running.
-3. Collect the relevant application and container logs.
-4. Remove passwords, tokens, cookies and personal information from logs.
-
-A useful bug report should contain:
-
-```text
-Title:
-Short description of the problem
-
-LP-Tracker version / commit:
-e.g. v1.0.0 or commit SHA
-
-Deployment:
-Docker Compose / Docker Swarm / local development
-
-Browser:
-e.g. Chrome 151
-
-Steps to reproduce:
-1.
-2.
-3.
-
-Expected behavior:
-What should have happened?
-
-Actual behavior:
-What happened instead?
-
-Logs:
-Relevant frontend/backend/container logs
-
-Additional context:
-Screenshots, event ID, player name, timestamps, etc.
-```
-
-## Docker logs
-
-For a Docker Compose deployment:
-
-```bash
-docker compose ps
-docker compose logs --tail=200
-```
-
-To follow logs live:
-
-```bash
-docker compose logs -f
-```
-
-If the problem only affects one service:
-
-```bash
-docker compose logs --tail=200 <service>
-```
-
----
-
-## Bug severity
-
-When reporting an issue, the following severity levels are useful:
-
-| Severity | Meaning | Example |
-|---|---|---|
-| **Critical** | Data loss, security issue or application unusable | Database corruption |
-| **High** | Core feature is broken | Leaderboard cannot load |
-| **Medium** | Feature works incorrectly with a workaround | Sorting incorrect |
-| **Low** | Cosmetic or minor issue | Alignment / typo |
 
 ---
 
@@ -486,29 +355,6 @@ Make sure the database migrations shipped with the installed application version
 
 Do not delete the PostgreSQL volume as a first troubleshooting step.
 
----
-
-## Project structure
-
-A simplified overview:
-
-```text
-LP-Tracker/
-├── web/                    # React / Vite frontend
-│   └── dist/               # Production frontend build
-├── ...                     # Backend source
-│   └── dist/               # Compiled backend
-├── migrations/             # Database migrations
-├── docs/
-│   └── screenshots/        # README screenshots
-├── docker-compose.yml
-└── README.md
-```
-
-> The tree above is intentionally simplified. Keep this section synchronized with the repository if directories are renamed or reorganized.
-
----
-
 ## Roadmap
 
 Ideas that fit the current architecture include:
@@ -520,21 +366,3 @@ Ideas that fit the current architecture include:
 - Better live-update behavior
 - More administration and moderation tools
 - Additional deployment documentation
-
----
-
-## License
-
-No license is assumed by this README.
-
-If the project should be open source, add a `LICENSE` file and update this section with the chosen license.
-
----
-
-<div align="center">
-
-**LP-Tracker**
-
-Built for tracking progress — not spreadsheets.
-
-</div>
