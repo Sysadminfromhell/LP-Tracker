@@ -93,7 +93,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     async (syncDraftForm = true) => {
       try {
         setError(null);
-        const response = await fetch('/api/admin/event');
+        const response = await fetch('/api/admin/event', {
+          cache: 'no-store',
+        });
         if (response.status === 401) {
           onUnauthorized();
           return;
@@ -102,6 +104,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
           throw new Error(await readApiError(response));
         }
         const data = (await response.json()) as AdminEventResponse;
+        console.log(
+          `[ADMIN EVENT] Poll: ${data.event?.id ?? 'none'} | ${data.event?.status ?? 'none'}`,
+        );
         setEvent(data.event);
         setEventName(data.event?.name ?? '');
         if (syncDraftForm && data.event?.status === 'draft') {
