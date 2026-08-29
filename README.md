@@ -137,25 +137,29 @@ docker compose down
 
 ## Updating an existing installation
 
-Pull the newest version of your current branch:
+If you built the Application yourself you can update via the following stepts:
+
+Pull the newest version of your current branch.
 
 ```bash
 git pull
 ```
 
-Rebuild the containers:
+Rebuild the containers.
 
 ```bash
 docker compose up -d --build
 ```
 
-Check the logs afterwards:
+Check the logs afterwards.
 
 ```bash
 docker compose logs -f
 ```
 
 For production systems, it is recommended to deploy a tagged release or a known commit instead of blindly following a development branch.
+
+If you Installed via the docker container you can pull the newest container as usual and update it.
 
 ---
 
