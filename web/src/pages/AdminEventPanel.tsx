@@ -115,6 +115,17 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
   useEffect(() => {
     void loadEvent();
   }, [loadEvent]);
+  useEffect(() => {
+    if (event?.status !== 'active') {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void loadEvent();
+    }, 5_000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [event?.status, loadEvent]);
   async function handleRename(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
     if (!event) {
@@ -126,6 +137,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     try {
       const response = await fetch('/api/admin/event', {
         method: 'PATCH',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -231,14 +243,15 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         onUnauthorized();
         return;
       }
+      if (response.status === 404) {
+        await loadEvent();
+        setMessage('Event has already ended.');
+        return;
+      }
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        event: AdminEvent;
-      };
-      setEvent(data.event);
-      setEventName(data.event.name);
+      await loadEvent();
       setSchedule(createDefaultSchedule());
       setMessage('Event ended. Final standings are now frozen.');
     } catch (err) {
