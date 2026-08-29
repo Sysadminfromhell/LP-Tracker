@@ -19,7 +19,7 @@ import {
 import { updateEventAfterPlayerRefresh } from './db/event-refresh';
 import { OpggClient } from './opgg/client';
 import { calculateRankScore } from './rank';
-import { authenticateAdmin, type Admin } from './db/admins';
+import { authenticateAdmin, ensureInitialAdmin, type Admin } from './db/admins';
 import {
   createAdminSession,
   deleteAdminSession,
@@ -1340,8 +1340,11 @@ async function main(): Promise<void> {
   console.log('LP Tracker');
   console.log('==========');
   console.log();
+
   await testDatabaseConnection();
   await runMigrations();
+  await ensureInitialAdmin();
+
   const deletedSessions = await deleteExpiredAdminSessions();
   if (deletedSessions > 0) {
     console.log(`[ADMIN] Removed ${deletedSessions} expired session(s)`);
