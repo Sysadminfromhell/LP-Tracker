@@ -1,7 +1,5 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-
 import { parseSummonerProfile, parseRecentMatches } from './parser';
-
 import type { SummonerProfile, SummonerMatch } from './types';
 
 const MCP_URL = 'https://mcp-api.op.gg/mcp';

@@ -332,7 +332,8 @@ async function refreshPlayersForSnapshot(players: Player[]): Promise<Player[]> {
   }
   return failedPlayers;
 }
-const TARGET_REFRESH_MS = 90_000;
+/* Timings (WAITS) */
+const TARGET_REFRESH_MS = 10_000;
 const MIN_REFRESH_SPACING_MS = 5_000;
 let playerCursor = 0;
 let refreshInProgress = false;
