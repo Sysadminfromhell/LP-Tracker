@@ -185,7 +185,9 @@ function LeaderboardPage() {
   const [now, setNow] = useState(Date.now());
   async function loadLeaderboard() {
     try {
-      const response = await fetch('/api/leaderboard');
+      const response = await fetch('/api/leaderboard', {
+        cache: 'no-store',
+      });
       if (!response.ok) {
         throw new Error(`API returned HTTP ${response.status}`);
       }
