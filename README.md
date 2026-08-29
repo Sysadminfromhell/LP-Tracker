@@ -278,9 +278,9 @@ Please follow these rules when contributing:
 7. Avoid unrelated formatting or refactoring inside a bug-fix PR.
 8. Document new configuration options.
 9. Update the README when a change affects installation or usage.
-10. Include screenshots for visible UI changes where useful.
-11. Explain breaking changes clearly in the Pull Request.
-12. Resolve merge conflicts in the feature branch, not directly on `main`.
+10. Explain breaking changes clearly in the Pull Request.
+11. Resolve merge conflicts in the feature branch, not directly on `main`.
+12. Typos will never be accepted as a PR
 
 ---
 
