@@ -79,7 +79,7 @@ export class OpggClient {
       `[OP.GG] ${gameName}#${tagLine}: ${recentMatches.length} parsed match(es) returned`,
     );
 
-    for (const match of recentMatches) {
+    /* for (const match of recentMatches) {
       const matchDate = new Date(match.createdAt);
       console.log(
         `[OP.GG] Match ${match.id} | ` +
@@ -89,7 +89,7 @@ export class OpggClient {
           `${match.result} | ` +
           `${match.kills}/${match.deaths}/${match.assists}`,
       );
-    }
+    } */
 
     if (recentMatches.length === 0) {
       const rawGameCount = (textBlock.text.match(/GameHistory\(/g) ?? []).length;

@@ -155,9 +155,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          gameName: editForm.gameName,
-          tagLine: editForm.tagLine,
-          region: editForm.region,
           twitchUsername: editForm.twitchUsername || null,
           twitterUsername: editForm.twitterUsername || null,
           enabled: editForm.enabled,
@@ -273,6 +270,9 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               <span className="admin-section-eyebrow">PARTICIPANTS</span>
               <h2>Players</h2>
               <p>Manage Riot accounts and social links.</p>
+              <p className="admin-form-note">
+                Riot ID and region cannot be changed after a player has been added.
+              </p>
             </div>
             <div className="admin-section-actions">
               <button
@@ -472,51 +472,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                       onSubmit={handleEditPlayer}
                     >
                       <div className="admin-form-grid">
-                        <label>
-                          Game Name
-                          <input
-                            type="text"
-                            value={editForm.gameName}
-                            disabled={saving}
-                            required
-                            onChange={(event) => {
-                              setEditForm({
-                                ...editForm,
-                                gameName: event.target.value,
-                              });
-                            }}
-                          />
-                        </label>
-                        <label>
-                          Tag
-                          <input
-                            type="text"
-                            value={editForm.tagLine}
-                            disabled={saving}
-                            required
-                            onChange={(event) => {
-                              setEditForm({
-                                ...editForm,
-                                tagLine: event.target.value,
-                              });
-                            }}
-                          />
-                        </label>
-                        <label>
-                          Region
-                          <input
-                            type="text"
-                            value={editForm.region}
-                            disabled={saving}
-                            required
-                            onChange={(event) => {
-                              setEditForm({
-                                ...editForm,
-                                region: event.target.value.toUpperCase(),
-                              });
-                            }}
-                          />
-                        </label>
                         <label>
                           Twitch
                           <input

@@ -44,7 +44,6 @@ import {
   updateScheduledEvent,
 } from './db/admin-events';
 import { getEventLeaderboardPlayers, type EventLeaderboardDbPlayer } from './db/event-leaderboard';
-
 const fastify = Fastify({
   logger: {
     level: 'info',
@@ -58,18 +57,13 @@ const fastify = Fastify({
       },
     },
   },
-
   disableRequestLogging: true,
 });
-
 fastify.register(cookie);
-
 fastify.addHook('onResponse', async (request, reply) => {
   request.log.info(`${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`);
 });
-
 const ADMIN_COOKIE_NAME = 'lp_tracker_admin_session';
-
 interface ApiEventMatch {
   id: string;
   createdAt: string;
@@ -339,6 +333,7 @@ let playerCursor = 0;
 let refreshInProgress = false;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let currentRefreshSpacingMs = TARGET_REFRESH_MS;
+let schedulerIdleLogged = false;
 function calculateRefreshSpacing(playerCount: number): number {
   if (playerCount <= 0) {
     return TARGET_REFRESH_MS;
@@ -354,12 +349,27 @@ function scheduleNextRefresh(delay: number = currentRefreshSpacingMs): void {
   }, delay);
 }
 async function schedulerTick(): Promise<void> {
-  if (refreshInProgress) {
+  if (refreshInProgress || lifecycleInProgress) {
     scheduleNextRefresh(MIN_REFRESH_SPACING_MS);
     return;
   }
   refreshInProgress = true;
   try {
+    const activeEvent = await getActiveEvent();
+    if (!activeEvent) {
+      currentRefreshSpacingMs = TARGET_REFRESH_MS;
+      if (!schedulerIdleLogged) {
+        console.log('[SCHEDULER] No active event - automatic OP.GG refresh paused');
+        schedulerIdleLogged = true;
+      }
+      return;
+    }
+    if (schedulerIdleLogged) {
+      console.log(
+        `[SCHEDULER] Event "${activeEvent.name}" active - automatic OP.GG refresh resumed`,
+      );
+      schedulerIdleLogged = false;
+    }
     const players = await getPlayers(true);
     currentRefreshSpacingMs = calculateRefreshSpacing(players.length);
     if (players.length === 0) {
@@ -496,7 +506,6 @@ fastify.register(async (app) => {
   await app.register(rateLimit, {
     global: false,
   });
-
   app.post<{
     Body: {
       username?: string;
@@ -515,23 +524,18 @@ fastify.register(async (app) => {
     async (request, reply) => {
       const username = request.body.username?.trim();
       const password = request.body.password;
-
       if (!username || !password) {
         return reply.code(400).send({
           error: 'Username and password are required',
         });
       }
-
       const admin = await authenticateAdmin(username, password);
-
       if (!admin) {
         return reply.code(401).send({
           error: 'Invalid username or password',
         });
       }
-
       const session = await createAdminSession(admin.id);
-
       reply.setCookie(ADMIN_COOKIE_NAME, session.token, {
         path: '/',
         httpOnly: true,
@@ -539,7 +543,6 @@ fastify.register(async (app) => {
         sameSite: 'strict',
         expires: new Date(session.expiresAt),
       });
-
       return {
         ok: true,
         admin: {
@@ -861,59 +864,45 @@ fastify.post<{
   };
 }>('/api/admin/players/:id/refresh', async (request, reply) => {
   const admin = await requireAdmin(request, reply);
-
   if (!admin) {
     return;
   }
-
   const playerId = Number(request.params.id);
-
   if (!Number.isInteger(playerId) || playerId <= 0) {
     return reply.code(400).send({
       error: 'Invalid player id',
     });
   }
-
   if (refreshInProgress || lifecycleInProgress) {
     return reply.code(409).send({
       error: 'A player refresh or event transition is currently in progress',
     });
   }
-
   refreshInProgress = true;
-
   try {
     const players = await getPlayers(false);
     const player = players.find((entry) => entry.id === playerId);
-
     if (!player) {
       return reply.code(404).send({
         error: 'Player not found',
       });
     }
-
     console.log(`[ADMIN] Manual refresh for ${player.gameName}#${player.tagLine}`);
-
     const refreshed = await refreshPlayer(player);
-
     if (!refreshed) {
       return reply.code(502).send({
         error: `Could not refresh ${player.gameName}#${player.tagLine}`,
       });
     }
-
     const adminPlayers = await getAdminPlayers();
     const refreshedPlayer = adminPlayers.find((entry) => entry.id === playerId);
-
     return {
       ok: true,
       player: refreshedPlayer ?? null,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-
     console.error(`[ADMIN] Manual player refresh failed: ${message}`);
-
     return reply.code(500).send({
       error: 'Could not refresh player',
     });
@@ -923,47 +912,35 @@ fastify.post<{
 });
 fastify.post('/api/admin/players/refresh-all', async (request, reply) => {
   const admin = await requireAdmin(request, reply);
-
   if (!admin) {
     return;
   }
-
   if (refreshInProgress || lifecycleInProgress) {
     return reply.code(409).send({
       error: 'A player refresh or event transition is currently in progress',
     });
   }
-
   refreshInProgress = true;
-
   try {
     const players = await getPlayers(true);
-
     if (players.length === 0) {
       return reply.code(400).send({
         error: 'No enabled players found',
       });
     }
-
     console.log(`[ADMIN] Manual refresh for all ${players.length} enabled player(s)`);
-
     const failedPlayers: Player[] = [];
-
     for (const [index, player] of players.entries()) {
       console.log(
         `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
           `${player.gameName}#${player.tagLine}`,
       );
-
       const refreshed = await refreshPlayer(player);
-
       if (!refreshed) {
         failedPlayers.push(player);
       }
     }
-
     const adminPlayers = await getAdminPlayers();
-
     if (failedPlayers.length > 0) {
       return reply.code(502).send({
         error: `${failedPlayers.length} of ${players.length} ` + `player refreshes failed`,
@@ -976,9 +953,7 @@ fastify.post('/api/admin/players/refresh-all', async (request, reply) => {
         players: adminPlayers,
       });
     }
-
     console.log(`[ADMIN] Refreshed all ${players.length} enabled player(s) ✓`);
-
     return {
       ok: true,
       refreshed: players.length,
@@ -987,9 +962,7 @@ fastify.post('/api/admin/players/refresh-all', async (request, reply) => {
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-
     console.error(`[ADMIN] Manual refresh all failed: ${message}`);
-
     return reply.code(500).send({
       error: 'Could not refresh players',
     });
@@ -1021,13 +994,54 @@ fastify.post<{
   try {
     const client = await getOpggClient();
     const profile = await client.getSummonerProfile(gameName, tagLine, region);
+    console.log(
+      `[ADMIN] Validating new Riot profile ${profile.gameName}#${profile.tagLine} (${region}) | ` +
+        `queues=${profile.queues.length}`,
+    );
+    for (const queue of profile.queues) {
+      console.log(
+        `[OP.GG] Queue ${queue.gameType} | ` +
+          `tier=${queue.tier ?? 'null'} | ` +
+          `division=${queue.division ?? 'null'} | ` +
+          `lp=${queue.lp ?? 'null'} | ` +
+          `wins=${queue.wins ?? 'null'} | ` +
+          `losses=${queue.losses ?? 'null'}`,
+      );
+    }
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
+      console.warn(
+        `[ADMIN] Cannot add ${profile.gameName}#${profile.tagLine}: ` +
+          `OP.GG returned no SOLORANKED queue`,
+      );
       return reply.code(400).send({
         error: 'No Solo Queue information returned by OP.GG',
       });
     }
-    if (!solo.tier || solo.lp === null || solo.wins === null || solo.losses === null) {
+    const missingFields: string[] = [];
+    if (!solo.tier) {
+      missingFields.push('tier');
+    }
+    if (solo.lp === null) {
+      missingFields.push('lp');
+    }
+    if (solo.wins === null) {
+      missingFields.push('wins');
+    }
+    if (solo.losses === null) {
+      missingFields.push('losses');
+    }
+    if (missingFields.length > 0) {
+      console.warn(
+        `[ADMIN] Cannot add ${profile.gameName}#${profile.tagLine}: ` +
+          `incomplete SOLORANKED data | ` +
+          `missing=${missingFields.join(',')} | ` +
+          `tier=${solo.tier ?? 'null'} | ` +
+          `division=${solo.division ?? 'null'} | ` +
+          `lp=${solo.lp ?? 'null'} | ` +
+          `wins=${solo.wins ?? 'null'} | ` +
+          `losses=${solo.losses ?? 'null'}`,
+      );
       return reply.code(400).send({
         error: `${profile.gameName}#${profile.tagLine} is currently unranked in Solo Queue`,
       });
@@ -1340,11 +1354,9 @@ async function main(): Promise<void> {
   console.log('LP Tracker');
   console.log('==========');
   console.log();
-
   await testDatabaseConnection();
   await runMigrations();
   await ensureInitialAdmin();
-
   const deletedSessions = await deleteExpiredAdminSessions();
   if (deletedSessions > 0) {
     console.log(`[ADMIN] Removed ${deletedSessions} expired session(s)`);
