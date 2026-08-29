@@ -487,29 +487,6 @@ Make sure the database migrations shipped with the installed application version
 
 Do not delete the PostgreSQL volume as a first troubleshooting step.
 
----
-
-## Project structure
-
-A simplified overview:
-
-```text
-LP-Tracker/
-├── web/                    # React / Vite frontend
-│   └── dist/               # Production frontend build
-├── ...                     # Backend source
-│   └── dist/               # Compiled backend
-├── migrations/             # Database migrations
-├── docs/
-│   └── screenshots/        # README screenshots
-├── docker-compose.yml
-└── README.md
-```
-
-> The tree above is intentionally simplified. Keep this section synchronized with the repository if directories are renamed or reorganized.
-
----
-
 ## Roadmap
 
 Ideas that fit the current architecture include:
