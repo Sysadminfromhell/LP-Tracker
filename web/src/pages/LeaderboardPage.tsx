@@ -191,6 +191,10 @@ function LeaderboardPage() {
       if (!response.ok) {
         throw new Error(`API returned HTTP ${response.status}`);
       }
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error(`API returned unexpected Content-Type: ${contentType ?? 'unknown'}`);
+      }
       const data = (await response.json()) as LeaderboardResponse;
       setLeaderboard(data);
       setError(null);
@@ -227,28 +231,20 @@ function LeaderboardPage() {
   }, []);
   const players = useMemo(() => leaderboard?.players ?? [], [leaderboard]);
   const eventStatus = leaderboard?.event.status ?? null;
-
   const eventStart = leaderboard?.event.startsAt
     ? new Date(leaderboard.event.startsAt).getTime()
     : null;
-
   const eventEnd = leaderboard?.event.endsAt ? new Date(leaderboard.event.endsAt).getTime() : null;
-
   let countdownLabel = '';
   let countdownValue = '';
-
   if (eventStatus === 'draft' && eventStart !== null) {
     countdownLabel = 'STARTS IN';
-
     countdownValue = eventStart > now ? formatCountdown(eventStart - now) : 'STARTING...';
   }
-
   if (eventStatus === 'active' && eventEnd !== null) {
     countdownLabel = 'TIME REMAINING';
-
     countdownValue = eventEnd > now ? formatCountdown(eventEnd - now) : 'FINALIZING...';
   }
-
   if (eventStatus === 'ended') {
     countdownLabel = 'EVENT ENDED';
     countdownValue = formatEventDate(leaderboard?.event.endsAt ?? null);
@@ -300,9 +296,7 @@ function LeaderboardPage() {
             }`}
           >
             <span className="live-dot" />
-
             {eventStatus === 'draft' ? 'SCHEDULED' : eventStatus === 'ended' ? 'ENDED' : 'LIVE'}
-
             <a className="overlay-link" href="#overlay_generator">
               OBS Overlay
             </a>
@@ -311,7 +305,6 @@ function LeaderboardPage() {
         {eventStatus && (
           <div className={`event-countdown event-countdown-${eventStatus}`}>
             <span>{countdownLabel}</span>
-
             <strong>{countdownValue}</strong>
           </div>
         )}
