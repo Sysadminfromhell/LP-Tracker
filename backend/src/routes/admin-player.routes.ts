@@ -55,7 +55,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           error: 'Player not found',
         });
       }
-      console.log(`[ADMIN] Manual refresh for ${player.gameName}#${player.tagLine}`);
+      console.log(
+        `[ADMIN] ${admin.username} requested manual refresh for ` +
+          `${player.gameName}#${player.tagLine}`,
+      );
       const refreshed = await refreshPlayer(player);
       if (!refreshed) {
         return reply.code(502).send({
@@ -96,7 +99,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           error: 'No enabled players found',
         });
       }
-      console.log(`[ADMIN] Manual refresh for all ${players.length} enabled player(s)`);
+      console.log(
+        `[ADMIN] ${admin.username} requested manual refresh for all ` +
+          `${players.length} enabled player(s)`,
+      );
       const failedPlayers: Player[] = [];
       for (const [index, player] of players.entries()) {
         console.log(
@@ -250,7 +256,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       await loadLeaderboardFromDatabase();
       const players = await getAdminPlayers();
       const createdPlayer = players.find((entry) => entry.id === player.id) ?? player;
-
+      console.log(
+        `[ADMIN] ${admin.username} created player ` +
+          `${createdPlayer.gameName}#${createdPlayer.tagLine} (${createdPlayer.region})`,
+      );
       return reply.code(201).send({
         ok: true,
         player: createdPlayer,
@@ -387,6 +396,39 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           error: 'Player not found',
         });
       }
+      const changes: string[] = [];
+      if (
+        currentPlayer.gameName !== updatedPlayer.gameName ||
+        currentPlayer.tagLine !== updatedPlayer.tagLine ||
+        currentPlayer.region !== updatedPlayer.region
+      ) {
+        changes.push(
+          `riotId=${currentPlayer.gameName}#${currentPlayer.tagLine} (${currentPlayer.region})` +
+            ` -> ${updatedPlayer.gameName}#${updatedPlayer.tagLine} (${updatedPlayer.region})`,
+        );
+      }
+      if (currentPlayer.enabled !== updatedPlayer.enabled) {
+        changes.push(`enabled=${currentPlayer.enabled} -> ${updatedPlayer.enabled}`);
+      }
+      if (currentPlayer.twitchUsername !== updatedPlayer.twitchUsername) {
+        changes.push(
+          `twitch=${currentPlayer.twitchUsername ?? 'none'} -> ` +
+            `${updatedPlayer.twitchUsername ?? 'none'}`,
+        );
+      }
+      if (currentPlayer.twitterUsername !== updatedPlayer.twitterUsername) {
+        changes.push(
+          `twitter=${currentPlayer.twitterUsername ?? 'none'} -> ` +
+            `${updatedPlayer.twitterUsername ?? 'none'}`,
+        );
+      }
+      if (changes.length > 0) {
+        console.log(
+          `[ADMIN] ${admin.username} updated player ` +
+            `${updatedPlayer.gameName}#${updatedPlayer.tagLine} | ` +
+            changes.join(' | '),
+        );
+      }
       if (validatedProfile) {
         await savePlayerCacheSuccess({
           playerId,
@@ -453,6 +495,12 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       playerId,
       request.body.twitchUsername ?? null,
       request.body.twitterUsername ?? null,
+    );
+    console.log(
+      `[ADMIN] ${admin.username} updated socials for ` +
+        `${updatedPlayer.gameName}#${updatedPlayer.tagLine} | ` +
+        `twitch=${updatedPlayer.twitchUsername ?? 'none'} | ` +
+        `twitter=${updatedPlayer.twitterUsername ?? 'none'}`,
     );
     await loadLeaderboardFromDatabase();
     return {
