@@ -3,17 +3,22 @@
 
 .env
 .env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
 !.env.example
 
-node_modules
-web/node_modules
 
-dist
-web/dist
+backend/node_modules
+frontend/node_modules
 
-data
+backend/dist
+frontend/dist
 
-*.log
+backend/data
+
+backend/*.log
 
 .vscode
 .idea
