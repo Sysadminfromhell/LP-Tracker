@@ -50,9 +50,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Invalid event ID',
       });
     }
-
     const event = await getAdminEventById(eventId);
-
     if (!event) {
       return reply.code(404).send({
         error: 'Event not found',
@@ -141,6 +139,16 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       if (message === 'EVENT_END_BEFORE_START') {
         return reply.code(400).send({
           error: 'Event end must be after event start',
+        });
+      }
+      if (message === 'EVENT_SCHEDULE_CONFLICT') {
+        return reply.code(409).send({
+          error: 'Event overlaps another scheduled or active event',
+        });
+      }
+      if (message === 'EVENT_START_IN_PAST') {
+        return reply.code(400).send({
+          error: 'Event start must be in the future',
         });
       }
       console.error(`[ADMIN] Could not update scheduled event ${eventId}: ${message}`);
@@ -394,17 +402,6 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
         return reply.code(409).send({
           error: 'The event is no longer scheduled',
-        });
-      }
-      if (message === 'EVENT_SCHEDULE_CONFLICT') {
-        return reply.code(409).send({
-          error: 'Event overlaps another scheduled or active event',
-        });
-      }
-
-      if (message === 'EVENT_START_IN_PAST') {
-        return reply.code(400).send({
-          error: 'Event start must be in the future',
         });
       }
       console.error(`[ADMIN] Could not cancel scheduled event: ${message}`);
