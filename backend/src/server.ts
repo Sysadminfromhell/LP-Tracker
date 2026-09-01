@@ -1,8 +1,9 @@
 import { createApp } from './app';
-import rateLimit from '@fastify/rate-limit';
 import { closeDatabase, testDatabaseConnection } from './db/client';
 import { runMigrations } from './db/migrations';
 import { getPlayers, updatePlayerSocials, type Player } from './db/players';
+import { requireAdmin } from './auth/admin-auth';
+import { adminAuthRoutes } from './routes/admin-auth.routes';
 import {
   getActiveEvent,
   getDisplayEvent,
@@ -18,13 +19,8 @@ import {
 import { updateEventAfterPlayerRefresh } from './db/event-refresh';
 import { OpggClient } from './opgg/client';
 import { calculateRankScore } from './rank';
-import { authenticateAdmin, ensureInitialAdmin, type Admin } from './db/admins';
-import {
-  createAdminSession,
-  deleteAdminSession,
-  deleteExpiredAdminSessions,
-  getAdminBySessionToken,
-} from './db/admin-sessions';
+import { ensureInitialAdmin } from './db/admins';
+import { deleteExpiredAdminSessions } from './db/admin-sessions';
 import {
   addPlayerToActiveEvent,
   createAdminPlayer,
@@ -44,7 +40,6 @@ import {
 } from './db/admin-events';
 import { getEventLeaderboardPlayers, type EventLeaderboardDbPlayer } from './db/event-leaderboard';
 const fastify = createApp();
-const ADMIN_COOKIE_NAME = 'lp_tracker_admin_session';
 interface ApiEventMatch {
   id: string;
   createdAt: string;
@@ -455,97 +450,7 @@ async function eventLifecycleTick(): Promise<void> {
     scheduleNextLifecycleCheck();
   }
 }
-async function getRequestAdmin(request: {
-  cookies: Record<string, string | undefined>;
-}): Promise<Admin | null> {
-  const token = request.cookies[ADMIN_COOKIE_NAME];
-  if (!token) {
-    return null;
-  }
-  return getAdminBySessionToken(token);
-}
-async function requireAdmin(
-  request: {
-    cookies: Record<string, string | undefined>;
-  },
-  reply: {
-    code: (statusCode: number) => {
-      send: (payload: unknown) => unknown;
-    };
-  },
-): Promise<Admin | null> {
-  const admin = await getRequestAdmin(request);
-  if (!admin) {
-    reply.code(401).send({
-      error: 'Authentication required',
-    });
-    return null;
-  }
-  return admin;
-}
-fastify.register(async (app) => {
-  await app.register(rateLimit, {
-    global: false,
-  });
-  app.post<{
-    Body: {
-      username?: string;
-      password?: string;
-    };
-  }>(
-    '/api/admin/login',
-    {
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '1 minute',
-        },
-      },
-    },
-    async (request, reply) => {
-      const username = request.body.username?.trim();
-      const password = request.body.password;
-      if (!username || !password) {
-        return reply.code(400).send({
-          error: 'Username and password are required',
-        });
-      }
-      const admin = await authenticateAdmin(username, password);
-      if (!admin) {
-        return reply.code(401).send({
-          error: 'Invalid username or password',
-        });
-      }
-      const session = await createAdminSession(admin.id);
-      reply.setCookie(ADMIN_COOKIE_NAME, session.token, {
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        expires: new Date(session.expiresAt),
-      });
-      return {
-        ok: true,
-        admin: {
-          id: admin.id,
-          username: admin.username,
-        },
-      };
-    },
-  );
-});
-fastify.post('/api/admin/logout', async (request, reply) => {
-  const token = request.cookies[ADMIN_COOKIE_NAME];
-  if (token) {
-    await deleteAdminSession(token).catch(() => {});
-  }
-  reply.clearCookie(ADMIN_COOKIE_NAME, {
-    path: '/',
-  });
-  return {
-    ok: true,
-  };
-});
+fastify.register(adminAuthRoutes);
 fastify.get('/api/admin/event', async (request, reply) => {
   const admin = await requireAdmin(request, reply);
   if (!admin) {
@@ -814,20 +719,6 @@ fastify.post('/api/admin/event/end', async (request, reply) => {
   } finally {
     refreshInProgress = false;
   }
-});
-fastify.get('/api/admin/me', async (request, reply) => {
-  const admin = await requireAdmin(request, reply);
-  if (!admin) {
-    return;
-  }
-  return {
-    authenticated: true,
-    admin: {
-      id: admin.id,
-      username: admin.username,
-      lastLoginAt: admin.lastLoginAt,
-    },
-  };
 });
 fastify.get('/api/admin/players', async (request, reply) => {
   const admin = await requireAdmin(request, reply);
