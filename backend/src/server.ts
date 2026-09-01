@@ -39,7 +39,6 @@ import {
   updateScheduledEvent,
 } from './db/admin-events';
 const fastify = createApp();
-/* Timings (WAITS) */
 fastify.register(adminAuthRoutes);
 fastify.get('/api/admin/event', async (request, reply) => {
   const admin = await requireAdmin(request, reply);
