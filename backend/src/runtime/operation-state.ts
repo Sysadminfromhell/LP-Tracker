@@ -1,12 +1,6 @@
 let refreshInProgress = false;
 let lifecycleInProgress = false;
 
-export function isRefreshInProgress(): boolean {
-  return refreshInProgress;
-}
-export function isLifecycleInProgress(): boolean {
-  return lifecycleInProgress;
-}
 export function isOperationBusy(): boolean {
   return refreshInProgress || lifecycleInProgress;
 }
