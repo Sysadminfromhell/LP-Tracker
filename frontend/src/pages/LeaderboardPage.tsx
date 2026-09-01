@@ -177,6 +177,42 @@ function XIcon() {
     </svg>
   );
 }
+function PodiumCard({ player, place }: { player: LeaderboardPlayer; place: 1 | 2 | 3 }) {
+  const winRate = getWinRate(player.record.wins, player.record.losses);
+  return (
+    <div className={`podium-slot podium-place-${place}`}>
+      <article className="podium-card">
+        <span className="podium-label">
+          {place === 1 ? 'EVENT LEADER' : place === 2 ? 'SECOND PLACE' : 'THIRD PLACE'}
+        </span>
+        <img className="podium-profile" src={player.player.profileImageUrl} alt="" />
+        <div className="podium-player">
+          <strong>{player.player.gameName}</strong>
+          <span>#{player.player.tagLine}</span>
+        </div>
+        <div className="podium-rank">
+          <strong>{formatRank(player.current.tier, player.current.division)}</strong>
+          <span>{player.current.lp} LP</span>
+        </div>
+        <div className={`podium-gain ${player.lpGain >= 0 ? 'positive' : 'negative'}`}>
+          {player.lpGain >= 0 ? '+' : ''}
+          {player.lpGain} LP
+        </div>
+        <div className="podium-record">
+          <span className="wins">{player.record.wins}W</span>
+          <span>•</span>
+          <span className="losses">{player.record.losses}L</span>
+          <span>•</span>
+          <span>{winRate}% WR</span>
+        </div>
+      </article>
+
+      <div className="podium-step">
+        <strong>{place}</strong>
+      </div>
+    </div>
+  );
+}
 function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [championIcons, setChampionIcons] = useState<Map<number, string>>(new Map());
@@ -236,6 +272,16 @@ function LeaderboardPage() {
       });
   }, []);
   const players = useMemo(() => leaderboard?.players ?? [], [leaderboard]);
+  const totalMatches = players.reduce((total, player) => total + player.record.games, 0);
+  const averageLpGain =
+    players.length > 0
+      ? Math.round(players.reduce((total, player) => total + player.lpGain, 0) / players.length)
+      : 0;
+  const remainingPlayers = players.slice(3);
+  const lastUpdateText =
+    leaderboard?.lastUpdated && now > 0
+      ? formatUpdatedAgo(leaderboard.lastUpdated, now).replace('Updated ', '')
+      : '—';
   const eventStatus = leaderboard?.event.status ?? null;
   const eventStart = leaderboard?.event.startsAt
     ? new Date(leaderboard.event.startsAt).getTime()
@@ -314,19 +360,66 @@ function LeaderboardPage() {
             <strong>{countdownValue}</strong>
           </div>
         )}
-        <section className="leaderboard">
-          <div className="leaderboard-header">
-            <div>#</div>
-            <div>Player</div>
-            <div>Current</div>
-            <div>LP Gain</div>
-            <div>W / L</div>
-            <div>WR</div>
-          </div>
-          {players.length === 0 ? (
-            <div className="empty-board">Waiting for the first player update...</div>
-          ) : (
-            players.map((player, index) => {
+        {players.length === 0 && (
+          <div className="empty-board">Waiting for the first player update...</div>
+        )}
+        {players.length > 0 && (
+          <>
+            <section className="event-summary-bar">
+              <div className="event-summary-item">
+                <span>Participants</span>
+                <strong>{leaderboard?.totalPlayers ?? players.length}</strong>
+              </div>
+
+              <div className="event-summary-item">
+                <span>Matches Played</span>
+                <strong>{totalMatches}</strong>
+              </div>
+
+              <div className="event-summary-item">
+                <span>Average LP Gain</span>
+                <strong className={averageLpGain >= 0 ? 'positive' : 'negative'}>
+                  {averageLpGain >= 0 ? '+' : ''}
+                  {averageLpGain} LP
+                </strong>
+              </div>
+
+              <div className="event-summary-item">
+                <span>Last Update</span>
+                <strong>{lastUpdateText}</strong>
+              </div>
+            </section>
+
+            <section className="podium-section">
+              <div className="podium-heading">
+                <span className="eyebrow">TOP PLAYERS</span>
+                <h2>Event Leaders</h2>
+              </div>
+
+              <div className="podium">
+                {players[1] && <PodiumCard player={players[1]} place={2} />}
+                {players[0] && <PodiumCard player={players[0]} place={1} />}
+                {players[2] && <PodiumCard player={players[2]} place={3} />}
+              </div>
+            </section>
+          </>
+        )}
+        {remainingPlayers.length > 0 && (
+          <section className="leaderboard">
+            <div className="leaderboard-section-heading">
+              <span className="eyebrow">STANDINGS</span>
+              <h2>Leaderboard</h2>
+            </div>
+
+            <div className="leaderboard-header">
+              <div>#</div>
+              <div>Player</div>
+              <div>Current</div>
+              <div>LP Gain</div>
+              <div>W / L</div>
+              <div>WR</div>
+            </div>
+            {remainingPlayers.map((player, index) => {
               const winRate = getWinRate(player.record.wins, player.record.losses);
               const playerUpdatedMs = new Date(player.lastUpdated).getTime();
               const isStale = Number.isFinite(playerUpdatedMs) && now - playerUpdatedMs > 180_000;
@@ -340,7 +433,7 @@ function LeaderboardPage() {
                   }
                 >
                   <div className="leaderboard-main">
-                    <div className="place">{index + 1}</div>
+                    <div className="place">{index + 4}</div>
                     <div className="player-cell">
                       <img className="profile-icon" src={player.player.profileImageUrl} alt="" />
                       <div className="player-info">
@@ -478,9 +571,9 @@ function LeaderboardPage() {
                   )}
                 </article>
               );
-            })
-          )}
-        </section>
+            })}
+          </section>
+        )}
         <footer>Rankings are based on LP gained since the event started.</footer>
       </section>
     </main>
