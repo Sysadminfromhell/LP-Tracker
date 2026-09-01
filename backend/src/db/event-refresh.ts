@@ -1,5 +1,5 @@
 import { db } from './client';
-import type { SummonerMatch } from '../opgg/types';
+import type { SummonerMatch } from '../providers/league-data.types';
 
 interface ParticipantState {
   id: string;
