@@ -1,11 +1,29 @@
-node_modules/
+# Environment
+.env
+.env.*
+!.env.example
+
 backend/.env
-frontend/.env
 backend/.env.*
+!backend/.env.example
+
+frontend/.env
 frontend/.env.*
-frontend/dist
-backend/dist
-backend/data
-backend/.env
-frontend/node_modules
-backend/node_modules
+!frontend/.env.example
+
+# Dependencies
+**/node_modules/
+
+# Build output
+backend/dist/
+frontend/dist/
+
+# Runtime data
+backend/data/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/

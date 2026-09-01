@@ -1,24 +1,29 @@
 .git
 .gitignore
 
+.github
+.woodpecker
+
 .env
-.env.*
-backend/.env
-backend/.env.*
-frontend/.env
-frontend/.env.*
+.env.\*
 !.env.example
 
+backend/.env
+backend/.env.\*
+!backend/.env.example
 
-backend/node_modules
-frontend/node_modules
+frontend/.env
+frontend/.env.\*
+!frontend/.env.example
+
+\*\*/node_modules
 
 backend/dist
 frontend/dist
 
 backend/data
 
-backend/*.log
+\*_/_.log
 
 .vscode
 .idea
