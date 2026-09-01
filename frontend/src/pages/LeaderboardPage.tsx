@@ -47,11 +47,26 @@ interface LeaderboardPlayer {
   lastUpdated: string;
   error: string | null;
 }
+interface LeaderboardHighlight {
+  player: {
+    id: number;
+    gameName: string;
+    tagLine: string;
+    profileImageUrl: string;
+  };
+  value: number;
+}
+interface LeaderboardHighlights {
+  longestWinStreak: LeaderboardHighlight | null;
+  bestKda: LeaderboardHighlight | null;
+  mostWins: LeaderboardHighlight | null;
+}
 interface LeaderboardResponse {
   ready: boolean;
   totalPlayers: number;
   loadedPlayers: number;
   lastUpdated: string | null;
+  highlights: LeaderboardHighlights;
   players: LeaderboardPlayer[];
   event: {
     id: number | null;
@@ -211,6 +226,41 @@ function PodiumCard({ player, place }: { player: LeaderboardPlayer; place: 1 | 2
         <strong>{place}</strong>
       </div>
     </div>
+  );
+}
+function EventHighlightCard({
+  label,
+  highlight,
+  formatValue,
+}: {
+  label: string;
+  highlight: LeaderboardHighlight | null;
+  formatValue: (value: number) => string;
+}) {
+  return (
+    <article className="event-highlight-card">
+      <span className="event-highlight-label">{label}</span>
+      {highlight ? (
+        <>
+          <div className="event-highlight-player">
+            {highlight.player.profileImageUrl && (
+              <img
+                src={highlight.player.profileImageUrl}
+                alt=""
+                className="event-highlight-profile"
+              />
+            )}
+            <div>
+              <strong>{highlight.player.gameName}</strong>
+              <span>#{highlight.player.tagLine}</span>
+            </div>
+          </div>
+          <strong className="event-highlight-value">{formatValue(highlight.value)}</strong>
+        </>
+      ) : (
+        <div className="event-highlight-empty">Waiting for matches</div>
+      )}
+    </article>
   );
 }
 function LeaderboardPage() {
@@ -400,6 +450,32 @@ function LeaderboardPage() {
                 {players[1] && <PodiumCard player={players[1]} place={2} />}
                 {players[0] && <PodiumCard player={players[0]} place={1} />}
                 {players[2] && <PodiumCard player={players[2]} place={3} />}
+              </div>
+            </section>
+            <section className="event-highlights-section">
+              <div className="event-highlights-heading">
+                <span className="eyebrow">EVENT HIGHLIGHTS</span>
+                <h2>Top Performers</h2>
+              </div>
+
+              <div className="event-highlights">
+                <EventHighlightCard
+                  label="LONGEST WIN STREAK"
+                  highlight={leaderboard?.highlights.longestWinStreak ?? null}
+                  formatValue={(value) => `${value} win${value === 1 ? '' : 's'}`}
+                />
+
+                <EventHighlightCard
+                  label="BEST KDA"
+                  highlight={leaderboard?.highlights.bestKda ?? null}
+                  formatValue={(value) => `${value.toFixed(2)} KDA`}
+                />
+
+                <EventHighlightCard
+                  label="MOST WINS"
+                  highlight={leaderboard?.highlights.mostWins ?? null}
+                  formatValue={(value) => `${value} win${value === 1 ? '' : 's'}`}
+                />
               </div>
             </section>
           </>

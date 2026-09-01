@@ -1,4 +1,4 @@
-import { getDisplayEvent, getRecentEventMatches, type DbEvent } from '../db/events';
+import { getDisplayEvent, getEventMatches, type DbEvent, type DbEventMatch } from '../db/events';
 import { getEventLeaderboardPlayers, type EventLeaderboardDbPlayer } from '../db/event-leaderboard';
 
 interface ApiEventMatch {
@@ -48,14 +48,70 @@ interface LeaderboardPlayer {
   lastUpdated: string;
   error: string | null;
 }
+interface EventPlayerStats {
+  games: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kda: number;
+  longestWinStreak: number;
+}
+export interface LeaderboardHighlight {
+  player: {
+    id: number;
+    gameName: string;
+    tagLine: string;
+    profileImageUrl: string;
+  };
+  value: number;
+}
+export interface LeaderboardHighlights {
+  longestWinStreak: LeaderboardHighlight | null;
+  bestKda: LeaderboardHighlight | null;
+  mostWins: LeaderboardHighlight | null;
+}
 const leaderboardCache = new Map<number, LeaderboardPlayer>();
+const eventStatsCache = new Map<number, EventPlayerStats>();
 let displayEvent: DbEvent | null = null;
 let totalEventPlayers = 0;
+function calculateEventStats(matches: DbEventMatch[]): EventPlayerStats {
+  let kills = 0;
+  let deaths = 0;
+  let assists = 0;
+  let currentWinStreak = 0;
+  let longestWinStreak = 0;
+  const chronologicalMatches = [...matches].sort(
+    (a, b) => new Date(a.gameCreatedAt).getTime() - new Date(b.gameCreatedAt).getTime(),
+  );
+  for (const match of chronologicalMatches) {
+    kills += match.kills;
+    deaths += match.deaths;
+    assists += match.assists;
+    if (match.result === 'WIN') {
+      currentWinStreak += 1;
+      longestWinStreak = Math.max(longestWinStreak, currentWinStreak);
+    } else {
+      currentWinStreak = 0;
+    }
+  }
+  const kda = matches.length === 0 ? 0 : (kills + assists) / Math.max(1, deaths);
+  return {
+    games: matches.length,
+    kills,
+    deaths,
+    assists,
+    kda: Math.round(kda * 100) / 100,
+    longestWinStreak,
+  };
+}
 async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
-  const matches = await getRecentEventMatches(row.eventParticipantId, 3);
+  const matches = await getEventMatches(row.eventParticipantId);
+  const stats = calculateEventStats(matches);
+  eventStatsCache.set(row.playerId, stats);
+  const recentMatchesSource = matches.slice(0, 3);
   const eventWins = Math.max(0, row.currentWins - row.startWins);
   const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
-  const recentMatches: ApiEventMatch[] = matches.map((match) => ({
+  const recentMatches: ApiEventMatch[] = recentMatchesSource.map((match) => ({
     id: match.providerMatchId,
     createdAt: match.gameCreatedAt,
     championId: match.championId,
@@ -108,10 +164,12 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
   if (!displayEvent) {
     totalEventPlayers = 0;
     leaderboardCache.clear();
+    eventStatsCache.clear();
     return;
   }
   const rows = await getEventLeaderboardPlayers(displayEvent.id);
   totalEventPlayers = rows.length;
+  eventStatsCache.clear();
   const nextCache = new Map<number, LeaderboardPlayer>();
   for (const row of rows) {
     const player = await buildLeaderboardPlayer(row);
@@ -132,6 +190,54 @@ export function getLeaderboard(): LeaderboardPlayer[] {
     }
     return a.player.gameName.localeCompare(b.player.gameName);
   });
+}
+function createHighlight(
+  player: LeaderboardPlayer,
+  value: number,
+): LeaderboardHighlight {
+  return {
+    player: {
+      id: player.player.id,
+      gameName: player.player.gameName,
+      tagLine: player.player.tagLine,
+      profileImageUrl: player.player.profileImageUrl,
+    },
+    value,
+  };
+}
+export function getLeaderboardHighlights(): LeaderboardHighlights {
+  const players = getLeaderboard();
+  let longestWinStreak: LeaderboardHighlight | null = null;
+  let bestKda: LeaderboardHighlight | null = null;
+  let mostWins: LeaderboardHighlight | null = null;
+  for (const player of players) {
+    const stats = eventStatsCache.get(player.player.id);
+    if (
+      stats &&
+      stats.longestWinStreak > 0 &&
+      (!longestWinStreak || stats.longestWinStreak > longestWinStreak.value)
+    ) {
+      longestWinStreak = createHighlight(player, stats.longestWinStreak);
+    }
+    if (
+      stats &&
+      stats.games > 0 &&
+      (!bestKda || stats.kda > bestKda.value)
+    ) {
+      bestKda = createHighlight(player, stats.kda);
+    }
+    if (
+      player.record.wins > 0 &&
+      (!mostWins || player.record.wins > mostWins.value)
+    ) {
+      mostWins = createHighlight(player, player.record.wins);
+    }
+  }
+  return {
+    longestWinStreak,
+    bestKda,
+    mostWins,
+  };
 }
 export function getLeaderboardPlayer(playerId: number): LeaderboardPlayer | null {
   return leaderboardCache.get(playerId) ?? null;
