@@ -9,6 +9,11 @@ import {
   getLeaderboardMeta,
   loadLeaderboardFromDatabase,
 } from './services/leaderboard.service';
+import {
+  getRefreshSchedulerStatus,
+  startRefreshScheduler,
+  stopRefreshScheduler,
+} from './jobs/refresh-scheduler';
 import { getActiveEvent, getEventParticipant } from './db/events';
 import { savePlayerCacheSuccess } from './db/player-cache';
 import { disconnectOpgg, getOpggClient, isOpggConnected } from './services/opgg.service';
@@ -40,66 +45,6 @@ import {
 } from './db/admin-events';
 const fastify = createApp();
 /* Timings (WAITS) */
-const TARGET_REFRESH_MS = 10_000;
-const MIN_REFRESH_SPACING_MS = 5_000;
-let playerCursor = 0;
-let schedulerTimer: NodeJS.Timeout | null = null;
-let currentRefreshSpacingMs = TARGET_REFRESH_MS;
-let schedulerIdleLogged = false;
-function calculateRefreshSpacing(playerCount: number): number {
-  if (playerCount <= 0) {
-    return TARGET_REFRESH_MS;
-  }
-  return Math.max(MIN_REFRESH_SPACING_MS, Math.floor(TARGET_REFRESH_MS / playerCount));
-}
-function scheduleNextRefresh(delay: number = currentRefreshSpacingMs): void {
-  if (schedulerTimer) {
-    clearTimeout(schedulerTimer);
-  }
-  schedulerTimer = setTimeout(() => {
-    void schedulerTick();
-  }, delay);
-}
-async function schedulerTick(): Promise<void> {
-  if (isOperationBusy()) {
-    scheduleNextRefresh(MIN_REFRESH_SPACING_MS);
-    return;
-  }
-  setRefreshInProgress(true);
-  try {
-    const activeEvent = await getActiveEvent();
-    if (!activeEvent) {
-      currentRefreshSpacingMs = TARGET_REFRESH_MS;
-      if (!schedulerIdleLogged) {
-        console.log('[SCHEDULER] No active event - automatic OP.GG refresh paused');
-        schedulerIdleLogged = true;
-      }
-      return;
-    }
-    if (schedulerIdleLogged) {
-      console.log(
-        `[SCHEDULER] Event "${activeEvent.name}" active - automatic OP.GG refresh resumed`,
-      );
-      schedulerIdleLogged = false;
-    }
-    const players = await getPlayers(true);
-    currentRefreshSpacingMs = calculateRefreshSpacing(players.length);
-    if (players.length === 0) {
-      return;
-    }
-    if (playerCursor >= players.length) {
-      playerCursor = 0;
-    }
-    const player = players[playerCursor];
-    playerCursor = (playerCursor + 1) % players.length;
-    await refreshPlayer(player);
-  } catch (error) {
-    console.error('[SCHEDULER] Refresh failed:', error);
-  } finally {
-    setRefreshInProgress(false);
-    scheduleNextRefresh();
-  }
-}
 const EVENT_LIFECYCLE_INTERVAL_MS = 5_000;
 let lifecycleTimer: NodeJS.Timeout | null = null;
 function scheduleNextLifecycleCheck(): void {
@@ -951,11 +896,7 @@ fastify.get('/api/health', async () => {
       event: totalPlayers,
       cached: cachedPlayers,
     },
-    scheduler: {
-      targetRefreshMs: TARGET_REFRESH_MS,
-      spacingMs: currentRefreshSpacingMs,
-      spacingSeconds: Math.round(currentRefreshSpacingMs / 1000),
-    },
+    scheduler: getRefreshSchedulerStatus(),
   };
 });
 async function main(): Promise<void> {
@@ -982,7 +923,7 @@ async function main(): Promise<void> {
   console.log('[API] http://localhost:3000 ✓');
   console.log(`[EVENT] ${event ? `${event.name} (${event.status})` : 'No event available'}`);
   console.log();
-  void schedulerTick();
+  startRefreshScheduler();
   void eventLifecycleTick();
 }
 let shuttingDown = false;
@@ -993,10 +934,7 @@ async function shutdown(): Promise<void> {
   shuttingDown = true;
   console.log();
   console.log('[APP] Shutting down...');
-  if (schedulerTimer) {
-    clearTimeout(schedulerTimer);
-    schedulerTimer = null;
-  }
+  stopRefreshScheduler();
   if (lifecycleTimer) {
     clearTimeout(lifecycleTimer);
     lifecycleTimer = null;
