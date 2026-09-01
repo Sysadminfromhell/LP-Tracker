@@ -1,96 +1,22 @@
 import { createApp } from './app';
 import { closeDatabase, testDatabaseConnection } from './db/client';
 import { runMigrations } from './db/migrations';
-import { getPlayers } from './db/players';
 import { adminAuthRoutes } from './routes/admin-auth.routes';
 import { adminEventRoutes } from './routes/admin-event.routes';
 import { adminPlayerRoutes } from './routes/admin-player.routes';
-import {
-  getLeaderboard,
-  getLeaderboardMeta,
-  loadLeaderboardFromDatabase,
-} from './services/leaderboard.service';
-import {
-  getRefreshSchedulerStatus,
-  startRefreshScheduler,
-  stopRefreshScheduler,
-} from './jobs/refresh-scheduler';
+import { publicRoutes } from './routes/public.routes';
+import { getLeaderboardMeta, loadLeaderboardFromDatabase } from './services/leaderboard.service';
+import { startRefreshScheduler, stopRefreshScheduler } from './jobs/refresh-scheduler';
 import { startEventLifecycle, stopEventLifecycle } from './jobs/event-lifecycle';
-import { disconnectOpgg, isOpggConnected } from './services/opgg.service';
+import { disconnectOpgg } from './services/opgg.service';
 import { ensureInitialAdmin } from './db/admins';
 import { deleteExpiredAdminSessions } from './db/admin-sessions';
+
 const fastify = createApp();
 fastify.register(adminAuthRoutes);
 fastify.register(adminEventRoutes);
 fastify.register(adminPlayerRoutes);
-fastify.get('/api/leaderboard', async () => {
-  const leaderboard = getLeaderboard();
-  const { event, totalPlayers } = getLeaderboardMeta();
-  const newestUpdate =
-    leaderboard
-      .map((player) => player.lastUpdated)
-      .sort()
-      .at(-1) ?? null;
-  return {
-    ready: leaderboard.length > 0,
-    event: {
-      id: event?.id ?? null,
-      name: event?.name ?? null,
-      startsAt: event?.startsAt ?? null,
-      endsAt: event?.endsAt ?? null,
-      status: event?.status ?? null,
-    },
-    totalPlayers,
-    loadedPlayers: leaderboard.length,
-    lastUpdated: newestUpdate,
-    players: leaderboard,
-  };
-});
-fastify.get('/api/event', async () => {
-  const leaderboard = getLeaderboard();
-  const first = leaderboard[0];
-  if (!first) {
-    return {
-      ready: false,
-      error: 'No leaderboard data available',
-    };
-  }
-  return {
-    ready: true,
-    player: first.player,
-    startedAt: first.startedAt,
-    start: first.start,
-    current: first.current,
-    lpGain: first.lpGain,
-    record: first.record,
-    recentMatches: first.recentMatches,
-    lastUpdated: first.lastUpdated,
-    error: first.error,
-  };
-});
-fastify.get('/api/health', async () => {
-  const enabledPlayers = await getPlayers(true);
-  const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
-  return {
-    status: 'ok',
-    database: {
-      connected: true,
-    },
-    opgg: {
-      connected: isOpggConnected(),
-    },
-    event: {
-      id: event?.id ?? null,
-      status: event?.status ?? null,
-    },
-    players: {
-      enabled: enabledPlayers.length,
-      event: totalPlayers,
-      cached: cachedPlayers,
-    },
-    scheduler: getRefreshSchedulerStatus(),
-  };
-});
+fastify.register(publicRoutes);
 async function main(): Promise<void> {
   console.log();
   console.log('LP Tracker');
