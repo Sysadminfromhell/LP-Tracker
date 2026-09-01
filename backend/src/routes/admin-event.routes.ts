@@ -76,6 +76,51 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     };
     Body: {
       name?: string;
+    };
+  }>('/api/admin/events/:eventId/name', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const eventId = parseEventId(request.params.eventId);
+    if (eventId === null) {
+      return reply.code(400).send({
+        error: 'Invalid event ID',
+      });
+    }
+    const name = request.body.name?.trim();
+    if (!name) {
+      return reply.code(400).send({
+        error: 'Event name is required',
+      });
+    }
+    try {
+      const event = await updateAdminEventName(eventId, name);
+      if (!event) {
+        return reply.code(404).send({
+          error: 'Event not found',
+        });
+      }
+      await loadLeaderboardFromDatabase();
+      console.log(`[ADMIN] Event ${eventId} renamed to "${event.name}"`);
+      return {
+        ok: true,
+        event,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[ADMIN] Could not rename event ${eventId}: ${message}`);
+      return reply.code(500).send({
+        error: 'Could not update event',
+      });
+    }
+  });
+  app.patch<{
+    Params: {
+      eventId: string;
+    };
+    Body: {
+      name?: string;
       startsAt?: string;
       endsAt?: string;
     };

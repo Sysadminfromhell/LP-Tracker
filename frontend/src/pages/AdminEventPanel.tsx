@@ -160,7 +160,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch('/api/admin/event', {
+      const response = await fetch(`/api/admin/events/${event.id}/name`, {
         method: 'PATCH',
         cache: 'no-store',
         headers: {
