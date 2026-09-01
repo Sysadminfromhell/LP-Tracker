@@ -486,7 +486,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         <div className="admin-scheduled-events">
           <div className="admin-schedule-heading">
             <span className="admin-section-eyebrow">UPCOMING EVENTS</span>
-            <h3>Scheduled events</h3>
+            <h3>Upcoming events</h3>
             <p>
               {draftEvents.length} event{draftEvents.length === 1 ? '' : 's'} scheduled.
             </p>
@@ -526,7 +526,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
                     setMessage(null);
                   }}
                 >
-                  Edit
+                  {selectedDraft?.id === draft.id ? 'Editing' : 'Edit'}
                 </button>
               </div>
             ))}
@@ -621,8 +621,8 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       )}
       <form className="admin-schedule-event admin-schedule-event-create" onSubmit={handleSchedule}>
         <div className="admin-schedule-heading">
-          <span className="admin-section-eyebrow">NEXT EVENT</span>
-          <h3>Schedule event</h3>
+          <span className="admin-section-eyebrow">CREATE EVENT</span>
+          <h3>Schedule new event</h3>
           <p>
             Start must remain in the future. Changes are allowed until the event has actually
             started.

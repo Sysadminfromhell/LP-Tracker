@@ -1077,6 +1077,18 @@ a.social-link.twitch:hover {
 .admin-form-actions .admin-primary-button {
   width: auto;
 }
+.admin-schedule-event-edit .admin-danger-button {
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .admin-schedule-event-edit .admin-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-schedule-event-edit .admin-danger-button {
+    margin-left: 0;
+  }
+}
 .admin-form-note {
   margin: 10px 0 0;
   color: #51576a;
@@ -1443,9 +1455,24 @@ a.social-link.twitch:hover {
 .admin-schedule-event {
   margin-top: 20px;
   padding: 18px;
-  border: 1px solid rgba(99, 217, 157, 0.08);
-  border-radius: 9px;
-  background: rgba(99, 217, 157, 0.018);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.018);
+}
+.admin-schedule-event-edit {
+  border-color: rgba(126, 161, 255, 0.22);
+  background: rgba(126, 161, 255, 0.045);
+}
+.admin-schedule-event-edit .admin-section-eyebrow {
+  color: #7ea1ff;
+}
+.admin-schedule-event-create {
+  margin-top: 28px;
+  border-color: rgba(99, 217, 157, 0.14);
+  background: rgba(99, 217, 157, 0.025);
+}
+.admin-schedule-event-create .admin-section-eyebrow {
+  color: #63d99d;
 }
 .admin-schedule-heading h3 {
   margin: 4px 0;
