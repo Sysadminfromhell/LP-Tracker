@@ -17,6 +17,7 @@ fastify.register(adminAuthRoutes);
 fastify.register(adminEventRoutes);
 fastify.register(adminPlayerRoutes);
 fastify.register(publicRoutes);
+
 async function main(): Promise<void> {
   console.log();
   console.log('LP Tracker');
