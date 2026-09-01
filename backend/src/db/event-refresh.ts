@@ -62,7 +62,7 @@ export async function updateEventAfterPlayerRefresh(
         `
           INSERT INTO event_matches (
             event_participant_id,
-            opgg_match_id,
+            provider_match_id,
             game_created_at,
             champion_id,
             champion,
@@ -92,7 +92,7 @@ export async function updateEventAfterPlayerRefresh(
           )
           ON CONFLICT (
             event_participant_id,
-            opgg_match_id
+            provider_match_id
           )
           DO NOTHING
           RETURNING id

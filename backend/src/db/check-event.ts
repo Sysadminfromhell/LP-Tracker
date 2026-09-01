@@ -30,7 +30,7 @@ interface InvalidMatchRow {
   event_id: string;
   event_name: string;
   participant_id: string;
-  opgg_match_id: string;
+  provider_match_id: string;
   snapshot_captured_at: Date;
   game_created_at: Date;
   event_ends_at: Date | null;
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
         e.id AS event_id,
         e.name AS event_name,
         ep.id AS participant_id,
-        em.opgg_match_id,
+        em.provider_match_id,
         ep.snapshot_captured_at,
         em.game_created_at,
         e.ends_at AS event_ends_at
@@ -249,7 +249,7 @@ async function main(): Promise<void> {
         eventId: match.event_id,
         event: match.event_name,
         participantId: match.participant_id,
-        matchId: match.opgg_match_id,
+        matchId: match.provider_match_id,
         participantStart: match.snapshot_captured_at.toISOString(),
         matchCreatedAt: match.game_created_at.toISOString(),
         eventEndsAt: match.event_ends_at?.toISOString() ?? null,
