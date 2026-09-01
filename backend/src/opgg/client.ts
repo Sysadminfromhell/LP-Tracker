@@ -1,6 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { parseSummonerProfile, parseRecentMatches } from './parser';
-import type { SummonerProfile, SummonerMatch } from './types';
+import { parseRecentMatches, parseSummonerProfile } from './parser';
+import type { SummonerMatch, SummonerProfile } from './types';
 import type { LeagueDataProvider } from '../providers/league-data.provider';
 
 const MCP_URL = 'https://mcp-api.op.gg/mcp';
@@ -51,11 +51,6 @@ export class OpggClient implements LeagueDataProvider {
           'data.game_history[].participants[].stats.neutral_minion_kill',
           'data.game_history[].participants[].stats.total_damage_dealt_to_champions',
           'data.game_history[].participants[].items_names[]',
-          'data.summoner.lp_histories[].created_at',
-          'data.summoner.lp_histories[].elo_point',
-          'data.summoner.lp_histories[].tier_info.tier',
-          'data.summoner.lp_histories[].tier_info.division',
-          'data.summoner.lp_histories[].tier_info.lp',
         ],
       },
     });
@@ -64,9 +59,7 @@ export class OpggClient implements LeagueDataProvider {
       throw new Error('OP.GG did not return match history as text');
     }
     const recentMatches = parseRecentMatches(textBlock.text);
-    console.log(
-      `[OP.GG] ${gameName}#${tagLine}: ${recentMatches.length} parsed match(es) returned`,
-    );
+    console.log(`[OP.GG] ${gameName}#${tagLine}: ` + `${recentMatches.length} match(es) | `);
     for (const match of recentMatches) {
       const matchDate = new Date(match.createdAt);
       console.log(
@@ -105,6 +98,10 @@ export class OpggClient implements LeagueDataProvider {
           'data.summoner.game_name',
           'data.summoner.tagline',
           'data.summoner.profile_image_url',
+          'data.summoner.lp_histories[].created_at',
+          'data.summoner.lp_histories[].tier_info.tier',
+          'data.summoner.lp_histories[].tier_info.division',
+          'data.summoner.lp_histories[].tier_info.lp',
           'data.summoner.league_stats[].game_type',
           'data.summoner.league_stats[].tier_info.tier',
           'data.summoner.league_stats[].tier_info.division',
@@ -118,6 +115,8 @@ export class OpggClient implements LeagueDataProvider {
     if (!textBlock || textBlock.type !== 'text') {
       throw new Error('OP.GG did not return a text response');
     }
-    return parseSummonerProfile(textBlock.text);
+    const profile = parseSummonerProfile(textBlock.text);
+    console.log(`[OP.GG] ${gameName}#${tagLine}: ${profile.lpHistory.length} LP history entries`);
+    return profile;
   }
 }

@@ -12,6 +12,7 @@ export interface SummonerProfile {
   tagLine: string;
   profileImageUrl: string;
   queues: RankedQueue[];
+  lpHistory: RankedLpHistoryEntry[];
 }
 export interface SummonerMatch {
   id: string;
@@ -30,4 +31,10 @@ export interface SummonerMatch {
   jungleCs: number;
   cs: number;
   result: 'WIN' | 'LOSE';
+}
+export interface RankedLpHistoryEntry {
+  createdAt: string;
+  tier: string | null;
+  division: number | null;
+  lp: number | null;
 }
