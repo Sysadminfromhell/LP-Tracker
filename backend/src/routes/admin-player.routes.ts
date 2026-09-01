@@ -9,7 +9,7 @@ import {
   getAdminPlayers,
   updateAdminPlayer,
 } from '../db/admin-management';
-import { getOpggClient } from '../services/opgg.service';
+import { getLeagueDataProvider } from '../services/league-data.service';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { isOperationBusy, setRefreshInProgress } from '../runtime/operation-state';
@@ -166,8 +166,8 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       });
     }
     try {
-      const client = await getOpggClient();
-      const profile = await client.getSummonerProfile(gameName, tagLine, region);
+      const provider = await getLeagueDataProvider();
+      const profile = await provider.getSummonerProfile(gameName, tagLine, region);
       console.log(
         `[ADMIN] Validating new Riot profile ${profile.gameName}#${profile.tagLine} (${region}) | ` +
           `queues=${profile.queues.length}`,
@@ -346,9 +346,9 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         rankScore: number;
       } | null = null;
       if (identityChanged) {
-        const client = await getOpggClient();
+        const provider = await getLeagueDataProvider();
 
-        const profile = await client.getSummonerProfile(gameName, tagLine, region);
+        const profile = await provider.getSummonerProfile(gameName, tagLine, region);
         const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
         if (!solo) {
           return reply.code(400).send({

@@ -7,7 +7,7 @@ import {
 import { getActiveEvent, getEventParticipant } from '../db/events';
 import { updateEventAfterPlayerRefresh } from '../db/event-refresh';
 import { calculateRankScore } from '../rank';
-import { getOpggClient } from './opgg.service';
+import { getLeagueDataProvider } from './league-data.service';
 import {
   getLeaderboardPlayer,
   loadLeaderboardFromDatabase,
@@ -18,9 +18,13 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
   console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
   try {
     await markPlayerFetchAttempt(player.id);
-    const client = await getOpggClient();
-    const profile = await client.getSummonerProfile(player.gameName, player.tagLine, player.region);
-    const recentMatches = await client.getRecentMatches(
+    const provider = await getLeagueDataProvider();
+    const profile = await provider.getSummonerProfile(
+      player.gameName,
+      player.tagLine,
+      player.region,
+    );
+    const recentMatches = await provider.getRecentMatches(
       player.gameName,
       player.tagLine,
       player.region,

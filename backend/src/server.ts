@@ -8,7 +8,7 @@ import { publicRoutes } from './routes/public.routes';
 import { getLeaderboardMeta, loadLeaderboardFromDatabase } from './services/leaderboard.service';
 import { startRefreshScheduler, stopRefreshScheduler } from './jobs/refresh-scheduler';
 import { startEventLifecycle, stopEventLifecycle } from './jobs/event-lifecycle';
-import { disconnectOpgg } from './services/opgg.service';
+import { disconnectLeagueDataProvider } from './services/league-data.service';
 import { ensureInitialAdmin } from './db/admins';
 import { deleteExpiredAdminSessions } from './db/admin-sessions';
 
@@ -55,7 +55,7 @@ async function shutdown(): Promise<void> {
   console.log('[APP] Shutting down...');
   stopRefreshScheduler();
   stopEventLifecycle();
-  await disconnectOpgg();
+  await disconnectLeagueDataProvider();
   await fastify.close().catch(() => {});
   await closeDatabase().catch(() => {});
   console.log('[APP] Shutdown complete ✓');
