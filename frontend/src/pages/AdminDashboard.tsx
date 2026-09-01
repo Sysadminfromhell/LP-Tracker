@@ -89,7 +89,12 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     }
   }, [onLogout]);
   useEffect(() => {
-    void loadPlayers();
+    const timer = window.setTimeout(() => {
+      void loadPlayers();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadPlayers]);
   function startEditing(player: AdminPlayer) {
     setEditingPlayerId(player.id);

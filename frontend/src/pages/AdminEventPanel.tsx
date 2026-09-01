@@ -121,10 +121,16 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     [onUnauthorized],
   );
   useEffect(() => {
-    void loadEvent();
+    const timer = window.setTimeout(() => {
+      void loadEvent();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadEvent]);
+  const eventStatus = event?.status;
   useEffect(() => {
-    if (!event || (event.status !== 'draft' && event.status !== 'active')) {
+    if (eventStatus !== 'draft' && eventStatus !== 'active') {
       return;
     }
     const interval = window.setInterval(() => {
@@ -133,7 +139,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     return () => {
       window.clearInterval(interval);
     };
-  }, [event?.status, loadEvent]);
+  }, [eventStatus, loadEvent]);
   async function handleRename(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
     if (!event) {
@@ -298,7 +304,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch('/api/admin/event/schedule', {
+      const response = await fetch(`/api/admin/events/${event.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -341,7 +347,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch('/api/admin/event/schedule', {
+      const response = await fetch(`/api/admin/events/${event.id}`, {
         method: 'DELETE',
       });
       if (response.status === 401) {

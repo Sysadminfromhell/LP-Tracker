@@ -37,7 +37,12 @@ function AdminPage() {
     }
   }, []);
   useEffect(() => {
-    void checkSession();
+    const timer = window.setTimeout(() => {
+      void checkSession();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [checkSession]);
   async function logout() {
     try {
