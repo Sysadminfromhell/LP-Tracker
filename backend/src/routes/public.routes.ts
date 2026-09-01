@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getPlayers } from '../db/players';
 import { getLeaderboard, getLeaderboardMeta } from '../services/leaderboard.service';
-import { isOpggConnected } from '../services/opgg.service';
+import { isLeagueDataProviderConnected } from '../services/league-data.service';
 import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
@@ -59,7 +59,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         connected: true,
       },
       opgg: {
-        connected: isOpggConnected(),
+        connected: isLeagueDataProviderConnected(),
       },
       event: {
         id: event?.id ?? null,

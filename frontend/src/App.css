@@ -1027,6 +1027,13 @@ a.social-link.twitch:hover {
   border-radius: 9px;
   background: rgba(8, 9, 14, 0.38);
 }
+.admin-current-event-heading {
+  margin-top: 18px;
+  margin-bottom: 14px;
+}
+.admin-event-overview {
+  margin-bottom: 14px;
+}
 .admin-player-edit-form {
   margin: 0;
   border: 0;
@@ -1069,6 +1076,18 @@ a.social-link.twitch:hover {
 }
 .admin-form-actions .admin-primary-button {
   width: auto;
+}
+.admin-schedule-event-edit .admin-danger-button {
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .admin-schedule-event-edit .admin-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-schedule-event-edit .admin-danger-button {
+    margin-left: 0;
+  }
 }
 .admin-form-note {
   margin: 10px 0 0;
@@ -1271,6 +1290,63 @@ a.social-link.twitch:hover {
   color: #555b70;
   font-size: 8px;
 }
+.admin-scheduled-events {
+  margin-top: 28px;
+}
+.admin-scheduled-event-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.admin-scheduled-event-card {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1.4fr)
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.admin-scheduled-event-card.selected {
+  border-color: rgba(111, 151, 255, 0.35);
+  background: rgba(111, 151, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(111, 151, 255, 0.12);
+}
+.admin-scheduled-event-cell {
+  min-width: 0;
+}
+.admin-scheduled-event-cell span {
+  display: block;
+  margin-bottom: 3px;
+  color: #666c80;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.admin-scheduled-event-cell strong {
+  display: block;
+  overflow: hidden;
+  color: #d9dbe4;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .admin-scheduled-event-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .admin-scheduled-event-card {
+    grid-template-columns: 1fr;
+  }
+}
 .admin-danger-button {
   padding: 9px 13px;
   border: 1px solid rgba(237, 113, 130, 0.16);
@@ -1379,9 +1455,24 @@ a.social-link.twitch:hover {
 .admin-schedule-event {
   margin-top: 20px;
   padding: 18px;
-  border: 1px solid rgba(99, 217, 157, 0.08);
-  border-radius: 9px;
-  background: rgba(99, 217, 157, 0.018);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.018);
+}
+.admin-schedule-event-edit {
+  border-color: rgba(126, 161, 255, 0.22);
+  background: rgba(126, 161, 255, 0.045);
+}
+.admin-schedule-event-edit .admin-section-eyebrow {
+  color: #7ea1ff;
+}
+.admin-schedule-event-create {
+  margin-top: 28px;
+  border-color: rgba(99, 217, 157, 0.14);
+  background: rgba(99, 217, 157, 0.025);
+}
+.admin-schedule-event-create .admin-section-eyebrow {
+  color: #63d99d;
 }
 .admin-schedule-heading h3 {
   margin: 4px 0;

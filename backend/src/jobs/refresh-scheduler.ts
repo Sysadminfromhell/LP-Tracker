@@ -44,7 +44,7 @@ async function schedulerTick(): Promise<void> {
       currentRefreshSpacingMs = TARGET_REFRESH_MS;
       if (!schedulerIdleLogged) {
         console.log(
-          '[SCHEDULER] No active event - automatic OP.GG refresh paused',
+          '[SCHEDULER] No active event - automatic player refresh paused',
         );
         schedulerIdleLogged = true;
       }
@@ -52,7 +52,7 @@ async function schedulerTick(): Promise<void> {
     }
     if (schedulerIdleLogged) {
       console.log(
-        `[SCHEDULER] Event "${activeEvent.name}" active - automatic OP.GG refresh resumed`,
+        `[SCHEDULER] Event "${activeEvent.name}" active - automatic player refresh resumed`,
       );
       schedulerIdleLogged = false;
     }

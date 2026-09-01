@@ -9,7 +9,7 @@ import {
   getAdminPlayers,
   updateAdminPlayer,
 } from '../db/admin-management';
-import { getOpggClient } from '../services/opgg.service';
+import { getLeagueDataProvider } from '../services/league-data.service';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { isOperationBusy, setRefreshInProgress } from '../runtime/operation-state';
@@ -166,15 +166,15 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       });
     }
     try {
-      const client = await getOpggClient();
-      const profile = await client.getSummonerProfile(gameName, tagLine, region);
+      const provider = await getLeagueDataProvider();
+      const profile = await provider.getSummonerProfile(gameName, tagLine, region);
       console.log(
         `[ADMIN] Validating new Riot profile ${profile.gameName}#${profile.tagLine} (${region}) | ` +
           `queues=${profile.queues.length}`,
       );
       for (const queue of profile.queues) {
         console.log(
-          `[OP.GG] Queue ${queue.gameType} | ` +
+          `[PROVIDER] Queue ${queue.gameType} | ` +
             `tier=${queue.tier ?? 'null'} | ` +
             `division=${queue.division ?? 'null'} | ` +
             `lp=${queue.lp ?? 'null'} | ` +
@@ -186,10 +186,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       if (!solo) {
         console.warn(
           `[ADMIN] Cannot add ${profile.gameName}#${profile.tagLine}: ` +
-            `OP.GG returned no SOLORANKED queue`,
+            `league data provider returned no SOLORANKED queue`,
         );
         return reply.code(400).send({
-          error: 'No Solo Queue information returned by OP.GG',
+          error: 'No Solo Queue information returned by league data provider',
         });
       }
       const missingFields: string[] = [];
@@ -346,13 +346,13 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         rankScore: number;
       } | null = null;
       if (identityChanged) {
-        const client = await getOpggClient();
+        const provider = await getLeagueDataProvider();
 
-        const profile = await client.getSummonerProfile(gameName, tagLine, region);
+        const profile = await provider.getSummonerProfile(gameName, tagLine, region);
         const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
         if (!solo) {
           return reply.code(400).send({
-            error: 'No Solo Queue information returned by OP.GG',
+            error: 'No Solo Queue information returned by league data provider',
           });
         }
         if (!solo.tier || solo.lp === null || solo.wins === null || solo.losses === null) {

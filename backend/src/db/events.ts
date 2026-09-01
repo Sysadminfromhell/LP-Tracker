@@ -34,7 +34,7 @@ export interface DbEventParticipant {
 export interface DbEventMatch {
   id: number;
   eventParticipantId: number;
-  opggMatchId: string;
+  providerMatchId: string;
   gameCreatedAt: string;
   championId: number;
   champion: string;
@@ -88,7 +88,7 @@ interface EventParticipantRow {
 interface EventMatchRow {
   id: string;
   event_participant_id: string;
-  opgg_match_id: string;
+  provider_match_id: string;
   game_created_at: Date;
   champion_id: number;
   champion: string;
@@ -147,7 +147,7 @@ function mapMatch(row: EventMatchRow): DbEventMatch {
   return {
     id: Number(row.id),
     eventParticipantId: Number(row.event_participant_id),
-    opggMatchId: row.opgg_match_id,
+    providerMatchId: row.provider_match_id,
     gameCreatedAt: row.game_created_at.toISOString(),
     championId: row.champion_id,
     champion: row.champion,
@@ -377,7 +377,7 @@ export async function getEventMatches(eventParticipantId: number): Promise<DbEve
       SELECT
         id,
         event_participant_id,
-        opgg_match_id,
+        provider_match_id,
         game_created_at,
         champion_id,
         champion,
@@ -403,7 +403,7 @@ export async function getEventMatches(eventParticipantId: number): Promise<DbEve
 }
 export interface CreateEventMatchInput {
   eventParticipantId: number;
-  opggMatchId: string;
+  providerMatchId: string;
   gameCreatedAt: string;
   championId: number;
   champion: string;
@@ -421,7 +421,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
     `
       INSERT INTO event_matches (
         event_participant_id,
-        opgg_match_id,
+        provider_match_id,
         game_created_at,
         champion_id,
         champion,
@@ -451,14 +451,14 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
       )
       ON CONFLICT (
         event_participant_id,
-        opgg_match_id
+        provider_match_id
       )
       DO UPDATE SET
         updated_at = NOW()
       RETURNING
         id,
         event_participant_id,
-        opgg_match_id,
+        provider_match_id,
         game_created_at,
         champion_id,
         champion,
@@ -475,7 +475,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
       `,
     [
       input.eventParticipantId,
-      input.opggMatchId,
+      input.providerMatchId,
       input.gameCreatedAt,
       input.championId,
       input.champion,
@@ -501,7 +501,7 @@ export async function getRecentEventMatches(
       SELECT
         id,
         event_participant_id,
-        opgg_match_id,
+        provider_match_id,
         game_created_at,
         champion_id,
         champion,
@@ -540,7 +540,13 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
         WHEN status = 'draft' THEN 1
         ELSE 2
       END,
-      starts_at DESC
+      CASE
+        WHEN status = 'draft' THEN starts_at
+      END ASC,
+      CASE
+        WHEN status = 'ended' THEN starts_at
+      END DESC,
+      id DESC
     LIMIT 1
     `,
   );

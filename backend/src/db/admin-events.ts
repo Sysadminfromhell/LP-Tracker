@@ -26,6 +26,16 @@ export interface ScheduleAdminEventInput {
   startsAt: string;
   endsAt: string;
 }
+function isEventScheduleConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23P01' &&
+    'constraint' in error &&
+    error.constraint === 'events_open_time_no_overlap'
+  );
+}
 export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promise<AdminEvent> {
   const name = input.name.trim();
   const startsAt = new Date(input.startsAt);
@@ -39,21 +49,12 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
   if (endsAt <= startsAt) {
     throw new Error('EVENT_END_BEFORE_START');
   }
+  if (startsAt.getTime() < Date.now()) {
+    throw new Error('EVENT_START_IN_PAST');
+  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const existingEvent = await client.query(
-      `
-      SELECT id
-      FROM events
-      WHERE status IN ('draft', 'active')
-      LIMIT 1
-      FOR UPDATE
-      `,
-    );
-    if (existingEvent.rows.length > 0) {
-      throw new Error('UPCOMING_OR_ACTIVE_EVENT_ALREADY_EXISTS');
-    }
     const result = await client.query<{
       id: string;
     }>(
@@ -76,22 +77,15 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
     );
     await client.query('COMMIT');
     const eventId = Number(result.rows[0].id);
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_SCHEDULE');
     }
     return event;
   } catch (error) {
     await client.query('ROLLBACK');
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === '23505' &&
-      'constraint' in error &&
-      error.constraint === 'events_single_open_event_idx'
-    ) {
-      throw new Error('UPCOMING_OR_ACTIVE_EVENT_ALREADY_EXISTS');
+    if (isEventScheduleConflict(error)) {
+      throw new Error('EVENT_SCHEDULE_CONFLICT');
     }
     throw error;
   } finally {
@@ -105,23 +99,23 @@ export async function updateScheduledEvent(
   const name = input.name.trim();
   const startsAt = new Date(input.startsAt);
   const endsAt = new Date(input.endsAt);
-
   if (!name) {
     throw new Error('EVENT_NAME_REQUIRED');
   }
-
   if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
     throw new Error('INVALID_EVENT_DATE');
   }
-
   if (endsAt <= startsAt) {
     throw new Error('EVENT_END_BEFORE_START');
   }
-
-  const result = await db.query<{
-    id: string;
-  }>(
-    `
+  if (startsAt.getTime() < Date.now()) {
+    throw new Error('EVENT_START_IN_PAST');
+  }
+  try {
+    const result = await db.query<{
+      id: string;
+    }>(
+      `
     UPDATE events
     SET
       name = $2,
@@ -133,22 +127,23 @@ export async function updateScheduledEvent(
       AND status = 'draft'
     RETURNING id
     `,
-    [eventId, name, startsAt, endsAt],
-  );
-
-  if (result.rows.length === 0) {
-    throw new Error('SCHEDULED_EVENT_NOT_FOUND');
+      [eventId, name, startsAt, endsAt],
+    );
+    if (result.rows.length === 0) {
+      throw new Error('SCHEDULED_EVENT_NOT_FOUND');
+    }
+    const event = await getAdminEventById(eventId);
+    if (!event || event.id !== eventId) {
+      throw new Error('EVENT_NOT_FOUND_AFTER_UPDATE');
+    }
+    return event;
+  } catch (error) {
+    if (isEventScheduleConflict(error)) {
+      throw new Error('EVENT_SCHEDULE_CONFLICT');
+    }
+    throw error;
   }
-
-  const event = await getAdminEvent();
-
-  if (!event || event.id !== eventId) {
-    throw new Error('EVENT_NOT_FOUND_AFTER_UPDATE');
-  }
-
-  return event;
 }
-
 export async function cancelScheduledEvent(eventId: number): Promise<void> {
   const result = await db.query<{
     id: string;
@@ -162,7 +157,6 @@ export async function cancelScheduledEvent(eventId: number): Promise<void> {
     `,
     [eventId],
   );
-
   if (result.rows.length === 0) {
     throw new Error('SCHEDULED_EVENT_NOT_FOUND');
   }
@@ -178,6 +172,63 @@ function mapAdminEvent(row: AdminEventRow): AdminEvent {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
+}
+export async function getAdminEvents(): Promise<AdminEvent[]> {
+  const result = await db.query<AdminEventRow>(
+    `
+    SELECT
+      e.id,
+      e.name,
+      e.starts_at,
+      e.ends_at,
+      e.status,
+      e.created_at,
+      e.updated_at,
+      COUNT(ep.id)::TEXT AS participant_count
+    FROM events e
+    LEFT JOIN event_participants ep
+      ON ep.event_id = e.id
+    GROUP BY e.id
+    ORDER BY
+      CASE
+        WHEN e.status = 'active' THEN 0
+        WHEN e.status = 'draft' THEN 1
+        ELSE 2
+      END,
+      e.starts_at ASC,
+      e.id ASC
+    `,
+  );
+
+  return result.rows.map(mapAdminEvent);
+}
+export async function getAdminEventById(eventId: number): Promise<AdminEvent | null> {
+  const result = await db.query<AdminEventRow>(
+    `
+    SELECT
+      e.id,
+      e.name,
+      e.starts_at,
+      e.ends_at,
+      e.status,
+      e.created_at,
+      e.updated_at,
+      COUNT(ep.id)::TEXT AS participant_count
+    FROM events e
+    LEFT JOIN event_participants ep
+      ON ep.event_id = e.id
+    WHERE e.id = $1
+    GROUP BY e.id
+    LIMIT 1
+    `,
+    [eventId],
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return mapAdminEvent(result.rows[0]);
 }
 export async function getAdminEvent(): Promise<AdminEvent | null> {
   const result = await db.query<AdminEventRow>(
@@ -232,7 +283,7 @@ export async function updateAdminEventName(
   if (result.rows.length === 0) {
     return null;
   }
-  return getAdminEvent();
+  return getAdminEventById(eventId);
 }
 export async function startAdminEvent(name: string): Promise<AdminEvent> {
   const trimmedName = name.trim();
@@ -351,7 +402,7 @@ export async function startAdminEvent(name: string): Promise<AdminEvent> {
       throw new Error('EVENT_PARTICIPANT_SNAPSHOT_FAILED');
     }
     await client.query('COMMIT');
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_START');
     }
@@ -437,7 +488,7 @@ export async function endAdminEvent(
       [eventId, scheduledEndsAt],
     );
     await client.query('COMMIT');
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_END');
     }
@@ -609,7 +660,7 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
       [eventId],
     );
     await client.query('COMMIT');
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_ACTIVATION');
     }

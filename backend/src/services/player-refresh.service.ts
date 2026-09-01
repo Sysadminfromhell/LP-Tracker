@@ -7,7 +7,7 @@ import {
 import { getActiveEvent, getEventParticipant } from '../db/events';
 import { updateEventAfterPlayerRefresh } from '../db/event-refresh';
 import { calculateRankScore } from '../rank';
-import { getOpggClient } from './opgg.service';
+import { getLeagueDataProvider } from './league-data.service';
 import {
   getLeaderboardPlayer,
   loadLeaderboardFromDatabase,
@@ -18,9 +18,13 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
   console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
   try {
     await markPlayerFetchAttempt(player.id);
-    const client = await getOpggClient();
-    const profile = await client.getSummonerProfile(player.gameName, player.tagLine, player.region);
-    const recentMatches = await client.getRecentMatches(
+    const provider = await getLeagueDataProvider();
+    const profile = await provider.getSummonerProfile(
+      player.gameName,
+      player.tagLine,
+      player.region,
+    );
+    const recentMatches = await provider.getRecentMatches(
       player.gameName,
       player.tagLine,
       player.region,
@@ -28,7 +32,7 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
     );
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
-      throw new Error('No Solo Queue information returned by OP.GG');
+      throw new Error('No Solo Queue information returned by league data provider');
     }
     if (!solo.tier || solo.lp === null || solo.wins === null || solo.losses === null) {
       throw new Error(`${profile.gameName}#${profile.tagLine} is currently unranked in Solo Queue`);

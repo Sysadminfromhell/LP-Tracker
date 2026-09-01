@@ -56,7 +56,7 @@ async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<Le
   const eventWins = Math.max(0, row.currentWins - row.startWins);
   const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
   const recentMatches: ApiEventMatch[] = matches.map((match) => ({
-    id: match.opggMatchId,
+    id: match.providerMatchId,
     createdAt: match.gameCreatedAt,
     championId: match.championId,
     champion: match.champion,

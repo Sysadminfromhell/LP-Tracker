@@ -182,7 +182,7 @@ function LeaderboardPage() {
   const [championIcons, setChampionIcons] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   async function loadLeaderboard() {
     try {
       const response = await fetch('/api/leaderboard', {
@@ -206,19 +206,25 @@ function LeaderboardPage() {
     }
   }
   useEffect(() => {
-    void loadLeaderboard();
+    const initialTimer = window.setTimeout(() => {
+      void loadLeaderboard();
+    }, 0);
     const timer = window.setInterval(() => {
       void loadLeaderboard();
     }, 10_000);
     return () => {
+      window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
   }, []);
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const updateNow = () => {
       setNow(Date.now());
-    }, 1000);
+    };
+    const initialTimer = window.setTimeout(updateNow, 0);
+    const timer = window.setInterval(updateNow, 1000);
     return () => {
+      window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
   }, []);
