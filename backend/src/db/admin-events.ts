@@ -76,7 +76,7 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
     );
     await client.query('COMMIT');
     const eventId = Number(result.rows[0].id);
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_SCHEDULE');
     }
@@ -105,19 +105,15 @@ export async function updateScheduledEvent(
   const name = input.name.trim();
   const startsAt = new Date(input.startsAt);
   const endsAt = new Date(input.endsAt);
-
   if (!name) {
     throw new Error('EVENT_NAME_REQUIRED');
   }
-
   if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
     throw new Error('INVALID_EVENT_DATE');
   }
-
   if (endsAt <= startsAt) {
     throw new Error('EVENT_END_BEFORE_START');
   }
-
   const result = await db.query<{
     id: string;
   }>(
@@ -135,20 +131,15 @@ export async function updateScheduledEvent(
     `,
     [eventId, name, startsAt, endsAt],
   );
-
   if (result.rows.length === 0) {
     throw new Error('SCHEDULED_EVENT_NOT_FOUND');
   }
-
-  const event = await getAdminEvent();
-
+  const event = await getAdminEventById(eventId);
   if (!event || event.id !== eventId) {
     throw new Error('EVENT_NOT_FOUND_AFTER_UPDATE');
   }
-
   return event;
 }
-
 export async function cancelScheduledEvent(eventId: number): Promise<void> {
   const result = await db.query<{
     id: string;
@@ -162,7 +153,6 @@ export async function cancelScheduledEvent(eventId: number): Promise<void> {
     `,
     [eventId],
   );
-
   if (result.rows.length === 0) {
     throw new Error('SCHEDULED_EVENT_NOT_FOUND');
   }
@@ -289,7 +279,7 @@ export async function updateAdminEventName(
   if (result.rows.length === 0) {
     return null;
   }
-  return getAdminEvent();
+  return getAdminEventById(eventId);
 }
 export async function startAdminEvent(name: string): Promise<AdminEvent> {
   const trimmedName = name.trim();
