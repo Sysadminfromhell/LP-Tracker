@@ -7,7 +7,6 @@ import { adminAuthRoutes } from './routes/admin-auth.routes';
 import {
   getLeaderboard,
   loadLeaderboardFromDatabase,
-  buildLeaderboardPlayer,
   leaderboardCache,
   displayEvent,
   totalEventPlayers,

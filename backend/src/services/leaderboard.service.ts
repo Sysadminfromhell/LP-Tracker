@@ -57,7 +57,7 @@ interface LeaderboardPlayer {
 export const leaderboardCache = new Map<number, LeaderboardPlayer>();
 export let displayEvent: DbEvent | null = null;
 export let totalEventPlayers = 0;
-export async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
+async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
   const matches = await getRecentEventMatches(row.eventParticipantId, 3);
   const eventWins = Math.max(0, row.currentWins - row.startWins);
   const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
