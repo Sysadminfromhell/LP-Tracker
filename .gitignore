@@ -26,5 +26,5 @@ backend/data/
 
 # IDE
 .vscode
-.vscode/
+.vscode/*
 .idea/
