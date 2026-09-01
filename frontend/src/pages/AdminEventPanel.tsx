@@ -10,8 +10,8 @@ interface AdminEvent {
   createdAt: string;
   updatedAt: string;
 }
-interface AdminEventResponse {
-  event: AdminEvent | null;
+interface AdminEventsResponse {
+  events: AdminEvent[];
 }
 interface AdminEventPanelProps {
   onUnauthorized: () => void;
@@ -82,6 +82,7 @@ function formatEventDate(value: string | null): string {
   }).format(new Date(value));
 }
 function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
+  const [events, setEvents] = useState<AdminEvent[]>([]);
   const [event, setEvent] = useState<AdminEvent | null>(null);
   const [eventName, setEventName] = useState('');
   const [schedule, setSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
@@ -93,7 +94,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     async (syncDraftForm = true) => {
       try {
         setError(null);
-        const response = await fetch('/api/admin/event', {
+        const response = await fetch('/api/admin/events', {
           cache: 'no-store',
         });
         if (response.status === 401) {
@@ -103,14 +104,29 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         if (!response.ok) {
           throw new Error(await readApiError(response));
         }
-        const data = (await response.json()) as AdminEventResponse;
+        const data = (await response.json()) as AdminEventsResponse;
+        const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
+        const nextDraftEvent =
+          data.events
+            .filter((item) => item.status === 'draft')
+            .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0] ??
+          null;
+        const latestEndedEvent =
+          data.events
+            .filter((item) => item.status === 'ended')
+            .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime())[0] ??
+          null;
+        const primaryEvent = activeEvent ?? nextDraftEvent ?? latestEndedEvent ?? null;
         console.log(
-          `[ADMIN EVENT] Poll: ${data.event?.id ?? 'none'} | ${data.event?.status ?? 'none'}`,
+          `[ADMIN EVENT] Poll: ${data.events.length} event(s) | ` +
+            `primary=${primaryEvent?.id ?? 'none'} | ` +
+            `${primaryEvent?.status ?? 'none'}`,
         );
-        setEvent(data.event);
-        setEventName(data.event?.name ?? '');
-        if (syncDraftForm && data.event?.status === 'draft') {
-          setSchedule(createScheduleFromEvent(data.event));
+        setEvents(data.events);
+        setEvent(primaryEvent);
+        setEventName(primaryEvent?.name ?? '');
+        if (syncDraftForm && primaryEvent?.status === 'draft') {
+          setSchedule(createScheduleFromEvent(primaryEvent));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load event.');
@@ -149,7 +165,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch('/api/admin/event', {
+      const response = await fetch('/api/admin/events', {
         method: 'PATCH',
         cache: 'no-store',
         headers: {
@@ -170,6 +186,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         event: AdminEvent;
       };
       setEvent(data.event);
+      setEvents((current) =>
+        current.map((item) => (item.id === data.event.id ? data.event : item)),
+      );
       setEventName(data.event.name);
       setMessage('Event name updated.');
     } catch (err) {
@@ -224,6 +243,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         event: AdminEvent;
       };
       setEvent(data.event);
+      setEvents((current) => [...current.filter((item) => item.id !== data.event.id), data.event]);
       setEventName(data.event.name);
       setMessage('Event scheduled successfully.');
     } catch (err) {
@@ -326,6 +346,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         event: AdminEvent;
       };
       setEvent(data.event);
+      setEvents((current) =>
+        current.map((item) => (item.id === data.event.id ? data.event : item)),
+      );
       setEventName(data.event.name);
       setSchedule(createScheduleFromEvent(data.event));
       setMessage('Schedule updated.');
@@ -374,7 +397,10 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         <div>
           <span className="admin-section-eyebrow">EVENT CONTROL</span>
           <h2>Event</h2>
-          <p>Schedule, monitor and control the LP Gain Event.</p>
+          <p>
+            Schedule, monitor and control LP Gain Events.
+            {events.length > 0 ? ` ${events.length} event(s) available.` : ''}
+          </p>
         </div>
         {event && (
           <span className={`admin-event-status admin-event-status-${event.status}`}>
