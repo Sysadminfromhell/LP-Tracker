@@ -1,6 +1,5 @@
-import Fastify from 'fastify';
+import { createApp } from './app';
 import rateLimit from '@fastify/rate-limit';
-import cookie from '@fastify/cookie';
 import { closeDatabase, testDatabaseConnection } from './db/client';
 import { runMigrations } from './db/migrations';
 import { getPlayers, updatePlayerSocials, type Player } from './db/players';
@@ -44,25 +43,7 @@ import {
   updateScheduledEvent,
 } from './db/admin-events';
 import { getEventLeaderboardPlayers, type EventLeaderboardDbPlayer } from './db/event-leaderboard';
-const fastify = Fastify({
-  logger: {
-    level: 'info',
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: 'yyyy-mm-dd HH:MM:ss',
-        ignore: 'pid,reqId',
-        singleLine: true,
-      },
-    },
-  },
-  disableRequestLogging: true,
-});
-fastify.register(cookie);
-fastify.addHook('onResponse', async (request, reply) => {
-  request.log.info(`${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`);
-});
+const fastify = createApp();
 const ADMIN_COOKIE_NAME = 'lp_tracker_admin_session';
 interface ApiEventMatch {
   id: string;
