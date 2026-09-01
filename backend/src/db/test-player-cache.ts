@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     );
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
-      throw new Error('No Solo Queue data returned by OP.GG');
+      throw new Error('No Solo Queue data returned by league data provider');
     }
     if (!solo.tier || solo.lp === null || solo.wins === null || solo.losses === null) {
       throw new Error('Player is currently unranked in Solo Queue');

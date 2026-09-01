@@ -174,7 +174,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       );
       for (const queue of profile.queues) {
         console.log(
-          `[OP.GG] Queue ${queue.gameType} | ` +
+          `[PROVIDER] Queue ${queue.gameType} | ` +
             `tier=${queue.tier ?? 'null'} | ` +
             `division=${queue.division ?? 'null'} | ` +
             `lp=${queue.lp ?? 'null'} | ` +
@@ -186,10 +186,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       if (!solo) {
         console.warn(
           `[ADMIN] Cannot add ${profile.gameName}#${profile.tagLine}: ` +
-            `OP.GG returned no SOLORANKED queue`,
+            `league data provider returned no SOLORANKED queue`,
         );
         return reply.code(400).send({
-          error: 'No Solo Queue information returned by OP.GG',
+          error: 'No Solo Queue information returned by league data provider',
         });
       }
       const missingFields: string[] = [];
@@ -352,7 +352,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
         if (!solo) {
           return reply.code(400).send({
-            error: 'No Solo Queue information returned by OP.GG',
+            error: 'No Solo Queue information returned by league data provider',
           });
         }
         if (!solo.tier || solo.lp === null || solo.wins === null || solo.losses === null) {
