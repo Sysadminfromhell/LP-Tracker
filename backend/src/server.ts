@@ -13,6 +13,11 @@ import { getActiveEvent, getEventParticipant } from './db/events';
 import { savePlayerCacheSuccess } from './db/player-cache';
 import { disconnectOpgg, getOpggClient, isOpggConnected } from './services/opgg.service';
 import { refreshPlayer, refreshPlayersForSnapshot } from './services/player-refresh.service';
+import {
+  isOperationBusy,
+  setLifecycleInProgress,
+  setRefreshInProgress,
+} from './runtime/operation-state';
 import { calculateRankScore } from './rank';
 import { ensureInitialAdmin } from './db/admins';
 import { deleteExpiredAdminSessions } from './db/admin-sessions';
@@ -38,7 +43,6 @@ const fastify = createApp();
 const TARGET_REFRESH_MS = 10_000;
 const MIN_REFRESH_SPACING_MS = 5_000;
 let playerCursor = 0;
-let refreshInProgress = false;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let currentRefreshSpacingMs = TARGET_REFRESH_MS;
 let schedulerIdleLogged = false;
@@ -57,11 +61,11 @@ function scheduleNextRefresh(delay: number = currentRefreshSpacingMs): void {
   }, delay);
 }
 async function schedulerTick(): Promise<void> {
-  if (refreshInProgress || lifecycleInProgress) {
+  if (isOperationBusy()) {
     scheduleNextRefresh(MIN_REFRESH_SPACING_MS);
     return;
   }
-  refreshInProgress = true;
+  setRefreshInProgress(true);
   try {
     const activeEvent = await getActiveEvent();
     if (!activeEvent) {
@@ -92,13 +96,12 @@ async function schedulerTick(): Promise<void> {
   } catch (error) {
     console.error('[SCHEDULER] Refresh failed:', error);
   } finally {
-    refreshInProgress = false;
+    setRefreshInProgress(false);
     scheduleNextRefresh();
   }
 }
 const EVENT_LIFECYCLE_INTERVAL_MS = 5_000;
 let lifecycleTimer: NodeJS.Timeout | null = null;
-let lifecycleInProgress = false;
 function scheduleNextLifecycleCheck(): void {
   if (lifecycleTimer) {
     clearTimeout(lifecycleTimer);
@@ -108,11 +111,11 @@ function scheduleNextLifecycleCheck(): void {
   }, EVENT_LIFECYCLE_INTERVAL_MS);
 }
 async function eventLifecycleTick(): Promise<void> {
-  if (lifecycleInProgress || refreshInProgress) {
+  if (isOperationBusy()) {
     scheduleNextLifecycleCheck();
     return;
   }
-  lifecycleInProgress = true;
+  setLifecycleInProgress(true);
   try {
     const scheduledEvent = await getDueScheduledEvent();
     if (scheduledEvent) {
@@ -122,7 +125,7 @@ async function eventLifecycleTick(): Promise<void> {
         console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no enabled players`);
         return;
       }
-      refreshInProgress = true;
+      setRefreshInProgress(true);
       try {
         const failedPlayers = await refreshPlayersForSnapshot(players);
         if (failedPlayers.length > 0) {
@@ -139,7 +142,7 @@ async function eventLifecycleTick(): Promise<void> {
             `${activatedEvent.participantCount} participant(s)`,
         );
       } finally {
-        refreshInProgress = false;
+        setRefreshInProgress(false);
       }
     }
     const activeEvent = await getActiveEvent();
@@ -155,7 +158,7 @@ async function eventLifecycleTick(): Promise<void> {
         );
         return;
       }
-      refreshInProgress = true;
+      setRefreshInProgress(true);
       try {
         const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
         if (failedPlayers.length > 0) {
@@ -172,13 +175,13 @@ async function eventLifecycleTick(): Promise<void> {
             `${endedEvent.participantCount} participant(s)`,
         );
       } finally {
-        refreshInProgress = false;
+        setRefreshInProgress(false);
       }
     }
   } catch (error) {
     console.error('[EVENT] Lifecycle check failed:', error);
   } finally {
-    lifecycleInProgress = false;
+    setLifecycleInProgress(false);
     scheduleNextLifecycleCheck();
   }
 }
@@ -394,12 +397,12 @@ fastify.post('/api/admin/event/end', async (request, reply) => {
       error: 'No active event found',
     });
   }
-  if (refreshInProgress || lifecycleInProgress) {
+  if (isOperationBusy()) {
     return reply.code(409).send({
       error: 'A player refresh or event transition is currently in progress',
     });
   }
-  refreshInProgress = true;
+  setRefreshInProgress(true);
   try {
     const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
     const allPlayers = await getPlayers(false);
@@ -449,7 +452,7 @@ fastify.post('/api/admin/event/end', async (request, reply) => {
       error: 'Could not end event',
     });
   } finally {
-    refreshInProgress = false;
+    setRefreshInProgress(false);
   }
 });
 fastify.get('/api/admin/players', async (request, reply) => {
@@ -477,12 +480,12 @@ fastify.post<{
       error: 'Invalid player id',
     });
   }
-  if (refreshInProgress || lifecycleInProgress) {
+  if (isOperationBusy()) {
     return reply.code(409).send({
       error: 'A player refresh or event transition is currently in progress',
     });
   }
-  refreshInProgress = true;
+  setRefreshInProgress(true);
   try {
     const players = await getPlayers(false);
     const player = players.find((entry) => entry.id === playerId);
@@ -511,7 +514,7 @@ fastify.post<{
       error: 'Could not refresh player',
     });
   } finally {
-    refreshInProgress = false;
+    setRefreshInProgress(false);
   }
 });
 fastify.post('/api/admin/players/refresh-all', async (request, reply) => {
@@ -519,12 +522,12 @@ fastify.post('/api/admin/players/refresh-all', async (request, reply) => {
   if (!admin) {
     return;
   }
-  if (refreshInProgress || lifecycleInProgress) {
+  if (isOperationBusy()) {
     return reply.code(409).send({
       error: 'A player refresh or event transition is currently in progress',
     });
   }
-  refreshInProgress = true;
+  setRefreshInProgress(true);
   try {
     const players = await getPlayers(true);
     if (players.length === 0) {
@@ -571,7 +574,7 @@ fastify.post('/api/admin/players/refresh-all', async (request, reply) => {
       error: 'Could not refresh players',
     });
   } finally {
-    refreshInProgress = false;
+    setRefreshInProgress(false);
   }
 });
 fastify.post<{
