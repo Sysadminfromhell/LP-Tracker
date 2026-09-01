@@ -540,7 +540,13 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
         WHEN status = 'draft' THEN 1
         ELSE 2
       END,
-      starts_at DESC
+      CASE
+        WHEN status = 'draft' THEN starts_at
+      END ASC,
+      CASE
+        WHEN status = 'ended' THEN starts_at
+      END DESC,
+      id DESC
     LIMIT 1
     `,
   );

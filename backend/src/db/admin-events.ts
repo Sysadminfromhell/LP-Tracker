@@ -402,7 +402,7 @@ export async function startAdminEvent(name: string): Promise<AdminEvent> {
       throw new Error('EVENT_PARTICIPANT_SNAPSHOT_FAILED');
     }
     await client.query('COMMIT');
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_START');
     }
@@ -488,7 +488,7 @@ export async function endAdminEvent(
       [eventId, scheduledEndsAt],
     );
     await client.query('COMMIT');
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_END');
     }
@@ -660,7 +660,7 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
       [eventId],
     );
     await client.query('COMMIT');
-    const event = await getAdminEvent();
+    const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_ACTIVATION');
     }
