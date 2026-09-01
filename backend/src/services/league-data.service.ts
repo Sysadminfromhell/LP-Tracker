@@ -1,13 +1,10 @@
-import { OpggClient } from '../opgg/client';
+import { createLeagueDataProvider } from '../providers/league-data.factory';
 import type { LeagueDataProvider } from '../providers/league-data.provider';
 
 let provider: LeagueDataProvider | null = null;
 let providerConnected = false;
 let providerConnectPromise: Promise<LeagueDataProvider> | null = null;
 
-function createProvider(): LeagueDataProvider {
-  return new OpggClient();
-}
 export async function getLeagueDataProvider(): Promise<LeagueDataProvider> {
   if (provider && providerConnected) {
     return provider;
@@ -16,7 +13,7 @@ export async function getLeagueDataProvider(): Promise<LeagueDataProvider> {
     return providerConnectPromise;
   }
   providerConnectPromise = (async () => {
-    const nextProvider = createProvider();
+    const nextProvider = createLeagueDataProvider();
     try {
       console.log(`[PROVIDER] Connecting ${nextProvider.name}...`);
       await nextProvider.connect();
