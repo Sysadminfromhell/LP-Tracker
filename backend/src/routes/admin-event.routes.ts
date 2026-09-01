@@ -271,9 +271,14 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message === 'UPCOMING_OR_ACTIVE_EVENT_ALREADY_EXISTS') {
+      if (message === 'EVENT_SCHEDULE_CONFLICT') {
         return reply.code(409).send({
-          error: 'An upcoming or active event already exists',
+          error: 'Event overlaps another scheduled or active event',
+        });
+      }
+      if (message === 'EVENT_START_IN_PAST') {
+        return reply.code(400).send({
+          error: 'Event start must be in the future',
         });
       }
       if (message === 'INVALID_EVENT_DATE') {
@@ -349,6 +354,17 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
           error: 'Event end must be after event start',
         });
       }
+      if (message === 'EVENT_SCHEDULE_CONFLICT') {
+        return reply.code(409).send({
+          error: 'Event overlaps another scheduled or active event',
+        });
+      }
+
+      if (message === 'EVENT_START_IN_PAST') {
+        return reply.code(400).send({
+          error: 'Event start must be in the future',
+        });
+      }
       console.error(`[ADMIN] Could not update scheduled event: ${message}`);
       return reply.code(500).send({
         error: 'Could not update scheduled event',
@@ -378,6 +394,17 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
         return reply.code(409).send({
           error: 'The event is no longer scheduled',
+        });
+      }
+      if (message === 'EVENT_SCHEDULE_CONFLICT') {
+        return reply.code(409).send({
+          error: 'Event overlaps another scheduled or active event',
+        });
+      }
+
+      if (message === 'EVENT_START_IN_PAST') {
+        return reply.code(400).send({
+          error: 'Event start must be in the future',
         });
       }
       console.error(`[ADMIN] Could not cancel scheduled event: ${message}`);

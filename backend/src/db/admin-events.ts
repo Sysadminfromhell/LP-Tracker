@@ -26,6 +26,16 @@ export interface ScheduleAdminEventInput {
   startsAt: string;
   endsAt: string;
 }
+function isEventScheduleConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23P01' &&
+    'constraint' in error &&
+    error.constraint === 'events_open_time_no_overlap'
+  );
+}
 export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promise<AdminEvent> {
   const name = input.name.trim();
   const startsAt = new Date(input.startsAt);
@@ -39,21 +49,12 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
   if (endsAt <= startsAt) {
     throw new Error('EVENT_END_BEFORE_START');
   }
+  if (startsAt.getTime() < Date.now()) {
+    throw new Error('EVENT_START_IN_PAST');
+  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const existingEvent = await client.query(
-      `
-      SELECT id
-      FROM events
-      WHERE status IN ('draft', 'active')
-      LIMIT 1
-      FOR UPDATE
-      `,
-    );
-    if (existingEvent.rows.length > 0) {
-      throw new Error('UPCOMING_OR_ACTIVE_EVENT_ALREADY_EXISTS');
-    }
     const result = await client.query<{
       id: string;
     }>(
@@ -83,15 +84,8 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
     return event;
   } catch (error) {
     await client.query('ROLLBACK');
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === '23505' &&
-      'constraint' in error &&
-      error.constraint === 'events_single_open_event_idx'
-    ) {
-      throw new Error('UPCOMING_OR_ACTIVE_EVENT_ALREADY_EXISTS');
+    if (isEventScheduleConflict(error)) {
+      throw new Error('EVENT_SCHEDULE_CONFLICT');
     }
     throw error;
   } finally {
@@ -114,10 +108,14 @@ export async function updateScheduledEvent(
   if (endsAt <= startsAt) {
     throw new Error('EVENT_END_BEFORE_START');
   }
-  const result = await db.query<{
-    id: string;
-  }>(
-    `
+  if (startsAt.getTime() < Date.now()) {
+    throw new Error('EVENT_START_IN_PAST');
+  }
+  try {
+    const result = await db.query<{
+      id: string;
+    }>(
+      `
     UPDATE events
     SET
       name = $2,
@@ -129,16 +127,22 @@ export async function updateScheduledEvent(
       AND status = 'draft'
     RETURNING id
     `,
-    [eventId, name, startsAt, endsAt],
-  );
-  if (result.rows.length === 0) {
-    throw new Error('SCHEDULED_EVENT_NOT_FOUND');
+      [eventId, name, startsAt, endsAt],
+    );
+    if (result.rows.length === 0) {
+      throw new Error('SCHEDULED_EVENT_NOT_FOUND');
+    }
+    const event = await getAdminEventById(eventId);
+    if (!event || event.id !== eventId) {
+      throw new Error('EVENT_NOT_FOUND_AFTER_UPDATE');
+    }
+    return event;
+  } catch (error) {
+    if (isEventScheduleConflict(error)) {
+      throw new Error('EVENT_SCHEDULE_CONFLICT');
+    }
+    throw error;
   }
-  const event = await getAdminEventById(eventId);
-  if (!event || event.id !== eventId) {
-    throw new Error('EVENT_NOT_FOUND_AFTER_UPDATE');
-  }
-  return event;
 }
 export async function cancelScheduledEvent(eventId: number): Promise<void> {
   const result = await db.query<{

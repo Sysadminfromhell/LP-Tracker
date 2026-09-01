@@ -86,31 +86,34 @@ async function main(): Promise<void> {
       participants: Number(latestEvent.participant_count),
     },
   ]);
-  const openEventsResult = await db.query<EventRow>(
+  const activeEventsResult = await db.query<EventRow>(
     `
-    SELECT
-      id,
-      name,
-      status,
-      starts_at,
-      ends_at
-    FROM events
-    WHERE status IN ('draft', 'active')
-    ORDER BY id
-    `,
+  SELECT
+    id,
+    name,
+    status,
+    starts_at,
+    ends_at
+  FROM events
+  WHERE status = 'active'
+  ORDER BY id
+  `,
   );
-  if (openEventsResult.rows.length > 1) {
+
+  if (activeEventsResult.rows.length > 1) {
     failed = true;
-    printFailure(`${openEventsResult.rows.length} draft/active events exist at the same time`);
+
+    printFailure(`${activeEventsResult.rows.length} active events exist at the same time`);
+
     console.table(
-      openEventsResult.rows.map((event) => ({
+      activeEventsResult.rows.map((event) => ({
         id: event.id,
         name: event.name,
         status: event.status,
       })),
     );
   } else {
-    printOk('At most one draft/active event exists');
+    printOk('At most one active event exists');
   }
   const invalidWindowsResult = await db.query<EventRow>(
     `
