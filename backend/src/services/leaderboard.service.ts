@@ -48,12 +48,10 @@ interface LeaderboardPlayer {
   lastUpdated: string;
   error: string | null;
 }
-export const leaderboardCache = new Map<number, LeaderboardPlayer>();
-export let displayEvent: DbEvent | null = null;
-export let totalEventPlayers = 0;
-export async function buildLeaderboardPlayer(
-  row: EventLeaderboardDbPlayer,
-): Promise<LeaderboardPlayer> {
+const leaderboardCache = new Map<number, LeaderboardPlayer>();
+let displayEvent: DbEvent | null = null;
+let totalEventPlayers = 0;
+async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
   const matches = await getRecentEventMatches(row.eventParticipantId, 3);
   const eventWins = Math.max(0, row.currentWins - row.startWins);
   const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
@@ -134,4 +132,30 @@ export function getLeaderboard(): LeaderboardPlayer[] {
     }
     return a.player.gameName.localeCompare(b.player.gameName);
   });
+}
+export function getLeaderboardPlayer(playerId: number): LeaderboardPlayer | null {
+  return leaderboardCache.get(playerId) ?? null;
+}
+export function setLeaderboardPlayerError(playerId: number, error: string): void {
+  const existing = leaderboardCache.get(playerId);
+
+  if (!existing) {
+    return;
+  }
+
+  leaderboardCache.set(playerId, {
+    ...existing,
+    error,
+  });
+}
+export function getLeaderboardMeta(): {
+  event: DbEvent | null;
+  totalPlayers: number;
+  cachedPlayers: number;
+} {
+  return {
+    event: displayEvent,
+    totalPlayers: totalEventPlayers,
+    cachedPlayers: leaderboardCache.size,
+  };
 }

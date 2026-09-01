@@ -8,7 +8,11 @@ import { getActiveEvent, getEventParticipant } from '../db/events';
 import { updateEventAfterPlayerRefresh } from '../db/event-refresh';
 import { calculateRankScore } from '../rank';
 import { getOpggClient } from './opgg.service';
-import { leaderboardCache, loadLeaderboardFromDatabase } from './leaderboard.service';
+import {
+  getLeaderboardPlayer,
+  loadLeaderboardFromDatabase,
+  setLeaderboardPlayerError,
+} from './leaderboard.service';
 
 export async function refreshPlayer(player: Player): Promise<boolean> {
   console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
@@ -69,7 +73,7 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
       }
     }
     await loadLeaderboardFromDatabase();
-    const cached = leaderboardCache.get(player.id);
+    const cached = getLeaderboardPlayer(player.id);
     if (cached) {
       console.log(
         `[PLAYER REFRESH] ${player.gameName}#${player.tagLine}: ` +
@@ -90,13 +94,7 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
     await savePlayerCacheError(player.id, message).catch((dbError) => {
       console.error('[DB] Could not persist player refresh error:', dbError);
     });
-    const existing = leaderboardCache.get(player.id);
-    if (existing) {
-      leaderboardCache.set(player.id, {
-        ...existing,
-        error: message,
-      });
-    }
+    setLeaderboardPlayerError(player.id, message);
     return false;
   }
 }

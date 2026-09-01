@@ -6,10 +6,8 @@ import { requireAdmin } from './auth/admin-auth';
 import { adminAuthRoutes } from './routes/admin-auth.routes';
 import {
   getLeaderboard,
+  getLeaderboardMeta,
   loadLeaderboardFromDatabase,
-  leaderboardCache,
-  displayEvent,
-  totalEventPlayers,
 } from './services/leaderboard.service';
 import { getActiveEvent, getEventParticipant } from './db/events';
 import { savePlayerCacheSuccess } from './db/player-cache';
@@ -887,6 +885,7 @@ fastify.patch<{
 });
 fastify.get('/api/leaderboard', async () => {
   const leaderboard = getLeaderboard();
+  const { event, totalPlayers } = getLeaderboardMeta();
   const newestUpdate =
     leaderboard
       .map((player) => player.lastUpdated)
@@ -895,13 +894,13 @@ fastify.get('/api/leaderboard', async () => {
   return {
     ready: leaderboard.length > 0,
     event: {
-      id: displayEvent?.id ?? null,
-      name: displayEvent?.name ?? null,
-      startsAt: displayEvent?.startsAt ?? null,
-      endsAt: displayEvent?.endsAt ?? null,
-      status: displayEvent?.status ?? null,
+      id: event?.id ?? null,
+      name: event?.name ?? null,
+      startsAt: event?.startsAt ?? null,
+      endsAt: event?.endsAt ?? null,
+      status: event?.status ?? null,
     },
-    totalPlayers: totalEventPlayers,
+    totalPlayers,
     loadedPlayers: leaderboard.length,
     lastUpdated: newestUpdate,
     players: leaderboard,
@@ -931,6 +930,7 @@ fastify.get('/api/event', async () => {
 });
 fastify.get('/api/health', async () => {
   const enabledPlayers = await getPlayers(true);
+  const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
   return {
     status: 'ok',
     database: {
@@ -940,13 +940,13 @@ fastify.get('/api/health', async () => {
       connected: isOpggConnected(),
     },
     event: {
-      id: displayEvent?.id ?? null,
-      status: displayEvent?.status ?? null,
+      id: event?.id ?? null,
+      status: event?.status ?? null,
     },
     players: {
       enabled: enabledPlayers.length,
-      event: totalEventPlayers,
-      cached: leaderboardCache.size,
+      event: totalPlayers,
+      cached: cachedPlayers,
     },
     scheduler: {
       targetRefreshMs: TARGET_REFRESH_MS,
@@ -969,18 +969,15 @@ async function main(): Promise<void> {
   }
   console.log('[CACHE] Loading persistent leaderboard...');
   await loadLeaderboardFromDatabase();
-  console.log(`[CACHE] Loaded ${leaderboardCache.size}/${totalEventPlayers} event player(s) ✓`);
+  const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
+  console.log(`[CACHE] Loaded ${cachedPlayers}/${totalPlayers} event player(s) ✓`);
   await fastify.listen({
     host: '0.0.0.0',
     port: 3000,
   });
   console.log();
   console.log('[API] http://localhost:3000 ✓');
-  console.log(
-    `[EVENT] ${
-      displayEvent ? `${displayEvent.name} (${displayEvent.status})` : 'No event available'
-    }`,
-  );
+  console.log(`[EVENT] ${event ? `${event.name} (${event.status})` : 'No event available'}`);
   console.log();
   void schedulerTick();
   void eventLifecycleTick();
