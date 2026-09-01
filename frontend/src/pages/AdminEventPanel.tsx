@@ -84,78 +84,73 @@ function formatEventDate(value: string | null): string {
 function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [event, setEvent] = useState<AdminEvent | null>(null);
+  const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
   const [eventName, setEventName] = useState('');
   const [schedule, setSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
+  const [draftSchedule, setDraftSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
+  const draftEvents = events
+    .filter((item) => item.status === 'draft')
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  const selectedDraft = draftEvents.find((item) => item.id === selectedDraftId) ?? null;
+  const hasOpenEvents = events.some((item) => item.status === 'draft' || item.status === 'active');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const loadEvent = useCallback(
-    async (syncDraftForm = true) => {
-      try {
-        setError(null);
-        const response = await fetch('/api/admin/events', {
-          cache: 'no-store',
-        });
-        if (response.status === 401) {
-          onUnauthorized();
-          return;
-        }
-        if (!response.ok) {
-          throw new Error(await readApiError(response));
-        }
-        const data = (await response.json()) as AdminEventsResponse;
-        const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
-        const nextDraftEvent =
-          data.events
-            .filter((item) => item.status === 'draft')
-            .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0] ??
-          null;
-        const latestEndedEvent =
-          data.events
-            .filter((item) => item.status === 'ended')
-            .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime())[0] ??
-          null;
-        const primaryEvent = activeEvent ?? nextDraftEvent ?? latestEndedEvent ?? null;
-        console.log(
-          `[ADMIN EVENT] Poll: ${data.events.length} event(s) | ` +
-            `primary=${primaryEvent?.id ?? 'none'} | ` +
-            `${primaryEvent?.status ?? 'none'}`,
-        );
-        setEvents(data.events);
-        setEvent(primaryEvent);
-        setEventName(primaryEvent?.name ?? '');
-        if (syncDraftForm && primaryEvent?.status === 'draft') {
-          setSchedule(createScheduleFromEvent(primaryEvent));
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load event.');
-      } finally {
-        setLoading(false);
+  const loadEvents = useCallback(async () => {
+    try {
+      setError(null);
+      const response = await fetch('/api/admin/events', {
+        cache: 'no-store',
+      });
+      if (response.status === 401) {
+        onUnauthorized();
+        return;
       }
-    },
-    [onUnauthorized],
-  );
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const data = (await response.json()) as AdminEventsResponse;
+      const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
+      const latestEndedEvent =
+        data.events
+          .filter((item) => item.status === 'ended')
+          .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime())[0] ??
+        null;
+      const primaryEvent = activeEvent ?? latestEndedEvent ?? null;
+      console.log(
+        `[ADMIN EVENT] Poll: ${data.events.length} event(s) | ` +
+          `primary=${primaryEvent?.id ?? 'none'} | ` +
+          `${primaryEvent?.status ?? 'none'}`,
+      );
+      setEvents(data.events);
+      setEvent(primaryEvent);
+      setEventName(primaryEvent?.name ?? '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load event.');
+    } finally {
+      setLoading(false);
+    }
+  }, [onUnauthorized]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadEvent();
+      void loadEvents();
     }, 0);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [loadEvent]);
-  const eventStatus = event?.status;
+  }, [loadEvents]);
   useEffect(() => {
-    if (eventStatus !== 'draft' && eventStatus !== 'active') {
+    if (!hasOpenEvents) {
       return;
     }
     const interval = window.setInterval(() => {
-      void loadEvent(false);
+      void loadEvents();
     }, 5_000);
     return () => {
       window.clearInterval(interval);
     };
-  }, [eventStatus, loadEvent]);
+  }, [hasOpenEvents, loadEvents]);
   async function handleRename(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
     if (!event) {
@@ -205,10 +200,6 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       setError('Please enter a valid start and end time.');
       return;
     }
-    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      setError('Please enter a valid start and end time.');
-      return;
-    }
     if (startsAt.getTime() < Date.now()) {
       setError('Event start cannot be in the past.');
       return;
@@ -242,9 +233,8 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       const data = (await response.json()) as {
         event: AdminEvent;
       };
-      setEvent(data.event);
       setEvents((current) => [...current.filter((item) => item.id !== data.event.id), data.event]);
-      setEventName(data.event.name);
+      setSchedule(createDefaultSchedule());
       setMessage('Event scheduled successfully.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not schedule event.');
@@ -278,14 +268,14 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         return;
       }
       if (response.status === 404) {
-        await loadEvent();
+        await loadEvents();
         setMessage('Event has already ended.');
         return;
       }
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      await loadEvent();
+      await loadEvents();
       setSchedule(createDefaultSchedule());
       setMessage('Event ended. Final standings are now frozen.');
     } catch (err) {
@@ -303,11 +293,11 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
   }
   async function handleUpdateSchedule(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
-    if (!event || event.status !== 'draft') {
+    if (!selectedDraft) {
       return;
     }
-    const startsAt = new Date(schedule.startsAt);
-    const endsAt = new Date(schedule.endsAt);
+    const startsAt = new Date(draftSchedule.startsAt);
+    const endsAt = new Date(draftSchedule.endsAt);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
       setError('Please enter a valid start and end time.');
       return;
@@ -324,13 +314,13 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch(`/api/admin/events/${event.id}`, {
+      const response = await fetch(`/api/admin/events/${selectedDraft.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: schedule.name,
+          name: draftSchedule.name,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
         }),
@@ -345,12 +335,10 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       const data = (await response.json()) as {
         event: AdminEvent;
       };
-      setEvent(data.event);
       setEvents((current) =>
         current.map((item) => (item.id === data.event.id ? data.event : item)),
       );
-      setEventName(data.event.name);
-      setSchedule(createScheduleFromEvent(data.event));
+      setDraftSchedule(createScheduleFromEvent(data.event));
       setMessage('Schedule updated.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update schedule.');
@@ -359,10 +347,12 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     }
   }
   async function handleCancelScheduledEvent() {
-    if (!event || event.status !== 'draft') {
+    if (!selectedDraft) {
       return;
     }
-    const confirmed = window.confirm(`Cancel "${event.name}"?\n\nThe event will not be started.`);
+    const confirmed = window.confirm(
+      `Cancel "${selectedDraft.name}"?\n\nThe event will not be started.`,
+    );
     if (!confirmed) {
       return;
     }
@@ -370,7 +360,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch(`/api/admin/events/${event.id}`, {
+      const response = await fetch(`/api/admin/events/${selectedDraft.id}`, {
         method: 'DELETE',
       });
       if (response.status === 401) {
@@ -380,8 +370,8 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      setSchedule(createDefaultSchedule());
-      await loadEvent();
+      setSelectedDraftId(null);
+      await loadEvents();
       setMessage('Scheduled event canceled.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not cancel scheduled event.');
@@ -389,7 +379,6 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       setSaving(false);
     }
   }
-  const canSchedule = !event || event.status === 'ended';
   const minimumStartAt = getMinimumScheduleStart();
   return (
     <div className="admin-section admin-event-section">
@@ -405,16 +394,63 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
         {event && (
           <span className={`admin-event-status admin-event-status-${event.status}`}>
             <span className="admin-event-status-dot" />
-            {event.status === 'draft'
-              ? 'Scheduled'
-              : event.status === 'active'
-                ? 'Active'
-                : 'Ended'}
+            {event.status === 'active' ? 'Active' : 'Ended'}
           </span>
         )}
       </div>
       {error && <div className="admin-message admin-message-error">{error}</div>}
       {message && <div className="admin-message admin-message-success">{message}</div>}
+      {draftEvents.length > 0 && (
+        <div className="admin-scheduled-events">
+          <div className="admin-schedule-heading">
+            <span className="admin-section-eyebrow">UPCOMING EVENTS</span>
+            <h3>Scheduled events</h3>
+            <p>
+              {draftEvents.length} event{draftEvents.length === 1 ? '' : 's'} scheduled.
+            </p>
+          </div>
+
+          <div className="admin-scheduled-event-list">
+            {draftEvents.map((draft) => (
+              <div
+                className={`admin-scheduled-event-card ${
+                  selectedDraft?.id === draft.id ? 'selected' : ''
+                }`}
+                key={draft.id}
+              >
+                <div className="admin-scheduled-event-cell">
+                  <span>Event</span>
+                  <strong>{draft.name}</strong>
+                </div>
+
+                <div className="admin-scheduled-event-cell">
+                  <span>Start</span>
+                  <strong>{formatEventDate(draft.startsAt)}</strong>
+                </div>
+
+                <div className="admin-scheduled-event-cell">
+                  <span>End</span>
+                  <strong>{formatEventDate(draft.endsAt)}</strong>
+                </div>
+
+                <button
+                  className="admin-secondary-button"
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setSelectedDraftId(draft.id);
+                    setDraftSchedule(createScheduleFromEvent(draft));
+                    setError(null);
+                    setMessage(null);
+                  }}
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {event && (
         <>
           <div className="admin-event-overview">
@@ -432,39 +468,37 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
             </div>
             <div className="admin-event-stat">
               <span>Participants</span>
-              <strong>{event.status === 'draft' ? 'Pending' : event.participantCount}</strong>
+              <strong>{event.participantCount}</strong>
             </div>
           </div>
-          {event.status !== 'draft' && (
-            <form className="admin-event-rename" onSubmit={handleRename}>
-              <label>
-                Event Name
-                <input
-                  type="text"
-                  value={eventName}
-                  disabled={saving}
-                  required
-                  onChange={(eventInput) => {
-                    setEventName(eventInput.target.value);
-                  }}
-                />
-              </label>
-              <button
-                className="admin-secondary-button"
-                type="submit"
-                disabled={saving || eventName.trim() === event.name}
-              >
-                Save Name
-              </button>
-            </form>
-          )}
+          <form className="admin-event-rename" onSubmit={handleRename}>
+            <label>
+              Event Name
+              <input
+                type="text"
+                value={eventName}
+                disabled={saving}
+                required
+                onChange={(eventInput) => {
+                  setEventName(eventInput.target.value);
+                }}
+              />
+            </label>
+            <button
+              className="admin-secondary-button"
+              type="submit"
+              disabled={saving || eventName.trim() === event.name}
+            >
+              Save Name
+            </button>
+          </form>
         </>
       )}
-      {event?.status === 'draft' && (
+      {selectedDraft && (
         <form className="admin-schedule-event" onSubmit={handleUpdateSchedule}>
           <div className="admin-schedule-heading">
-            <span className="admin-section-eyebrow">SCHEDULED EVENT</span>
-            <h3>Edit schedule</h3>
+            <span className="admin-section-eyebrow">EDIT EVENT</span>
+            <h3>{selectedDraft.name}</h3>
             <p>Changes are allowed until the event has actually started.</p>
           </div>
           <div className="admin-schedule-grid">
@@ -472,11 +506,11 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
               Event Name
               <input
                 type="text"
-                value={schedule.name}
+                value={draftSchedule.name}
                 disabled={saving}
                 required
                 onChange={(eventInput) => {
-                  setSchedule((current) => ({
+                  setDraftSchedule((current) => ({
                     ...current,
                     name: eventInput.target.value,
                   }));
@@ -487,12 +521,12 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
               Start
               <input
                 type="datetime-local"
-                value={schedule.startsAt}
+                value={draftSchedule.startsAt}
                 disabled={saving}
                 min={minimumStartAt}
                 required
                 onChange={(eventInput) => {
-                  setSchedule((current) => ({
+                  setDraftSchedule((current) => ({
                     ...current,
                     startsAt: eventInput.target.value,
                   }));
@@ -503,12 +537,12 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
               End
               <input
                 type="datetime-local"
-                value={schedule.endsAt}
+                value={draftSchedule.endsAt}
                 disabled={saving}
-                min={schedule.startsAt || minimumStartAt}
+                min={draftSchedule.startsAt || minimumStartAt}
                 required
                 onChange={(eventInput) => {
-                  setSchedule((current) => ({
+                  setDraftSchedule((current) => ({
                     ...current,
                     endsAt: eventInput.target.value,
                   }));
@@ -551,72 +585,70 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
           </button>
         </div>
       )}
-      {canSchedule && (
-        <form className="admin-schedule-event" onSubmit={handleSchedule}>
-          <div className="admin-schedule-heading">
-            <span className="admin-section-eyebrow">NEXT EVENT</span>
-            <h3>Schedule event</h3>
-            <p>
-              Start must remain in the future. Changes are allowed until the event has actually
-              started.
-            </p>
-          </div>
-          <div className="admin-schedule-grid">
-            <label>
-              Event Name
-              <input
-                type="text"
-                value={schedule.name}
-                disabled={saving}
-                required
-                onChange={(eventInput) => {
-                  setSchedule((current) => ({
-                    ...current,
-                    name: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-            <label>
-              Start
-              <input
-                type="datetime-local"
-                value={schedule.startsAt}
-                disabled={saving}
-                min={minimumStartAt}
-                required
-                onChange={(eventInput) => {
-                  setSchedule((current) => ({
-                    ...current,
-                    startsAt: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-            <label>
-              End
-              <input
-                type="datetime-local"
-                value={schedule.endsAt}
-                disabled={saving}
-                min={schedule.startsAt || minimumStartAt}
-                required
-                onChange={(eventInput) => {
-                  setSchedule((current) => ({
-                    ...current,
-                    endsAt: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-          </div>
-          <div className="admin-form-actions">
-            <button className="admin-primary-button" type="submit" disabled={saving}>
-              {saving ? 'Scheduling...' : 'Schedule Event'}
-            </button>
-          </div>
-        </form>
-      )}
+      <form className="admin-schedule-event" onSubmit={handleSchedule}>
+        <div className="admin-schedule-heading">
+          <span className="admin-section-eyebrow">NEXT EVENT</span>
+          <h3>Schedule event</h3>
+          <p>
+            Start must remain in the future. Changes are allowed until the event has actually
+            started.
+          </p>
+        </div>
+        <div className="admin-schedule-grid">
+          <label>
+            Event Name
+            <input
+              type="text"
+              value={schedule.name}
+              disabled={saving}
+              required
+              onChange={(eventInput) => {
+                setSchedule((current) => ({
+                  ...current,
+                  name: eventInput.target.value,
+                }));
+              }}
+            />
+          </label>
+          <label>
+            Start
+            <input
+              type="datetime-local"
+              value={schedule.startsAt}
+              disabled={saving}
+              min={minimumStartAt}
+              required
+              onChange={(eventInput) => {
+                setSchedule((current) => ({
+                  ...current,
+                  startsAt: eventInput.target.value,
+                }));
+              }}
+            />
+          </label>
+          <label>
+            End
+            <input
+              type="datetime-local"
+              value={schedule.endsAt}
+              disabled={saving}
+              min={schedule.startsAt || minimumStartAt}
+              required
+              onChange={(eventInput) => {
+                setSchedule((current) => ({
+                  ...current,
+                  endsAt: eventInput.target.value,
+                }));
+              }}
+            />
+          </label>
+        </div>
+        <div className="admin-form-actions">
+          <button className="admin-primary-button" type="submit" disabled={saving}>
+            {saving ? 'Scheduling...' : 'Schedule Event'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
