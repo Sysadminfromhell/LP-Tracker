@@ -346,6 +346,12 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       setSaving(false);
     }
   }
+  function handleCancelEdit() {
+    setSelectedDraftId(null);
+    setDraftSchedule(createDefaultSchedule());
+    setError(null);
+    setMessage(null);
+  }
   async function handleCancelScheduledEvent() {
     if (!selectedDraft) {
       return;
@@ -380,6 +386,8 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     }
   }
   const minimumStartAt = getMinimumScheduleStart();
+  const activeEventCount = events.filter((item) => item.status === 'active').length;
+  const scheduledEventCount = events.filter((item) => item.status === 'draft').length;
   return (
     <div className="admin-section admin-event-section">
       <div className="admin-section-header">
@@ -388,7 +396,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
           <h2>Event</h2>
           <p>
             Schedule, monitor and control LP Gain Events.
-            {events.length > 0 ? ` ${events.length} event(s) available.` : ''}
+            {activeEventCount > 0 || scheduledEventCount > 0
+              ? ` ${activeEventCount} active, ${scheduledEventCount} scheduled.`
+              : ' No active or scheduled events.'}
           </p>
         </div>
         {event && (
@@ -400,6 +410,78 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       </div>
       {error && <div className="admin-message admin-message-error">{error}</div>}
       {message && <div className="admin-message admin-message-success">{message}</div>}
+      {event && (
+        <>
+          <div className="admin-schedule-heading admin-current-event-heading">
+            <span className="admin-section-eyebrow">
+              {event?.status === 'active' ? 'CURRENT EVENT' : 'LAST EVENT'}
+            </span>
+            <h3>{event?.status === 'active' ? 'Active event' : 'Last completed event'}</h3>
+            <p>
+              {event?.status === 'active'
+                ? 'This event is currently running.'
+                : 'Most recently completed event overview.'}
+            </p>
+          </div>
+          <div className="admin-event-overview">
+            <div className="admin-event-name-block">
+              <span className="admin-event-label">EVENT</span>
+              <strong>{event.name}</strong>
+            </div>
+            <div className="admin-event-stat">
+              <span>Start</span>
+              <strong>{formatEventDate(event.startsAt)}</strong>
+            </div>
+            <div className="admin-event-stat">
+              <span>End</span>
+              <strong>{formatEventDate(event.endsAt)}</strong>
+            </div>
+            <div className="admin-event-stat">
+              <span>Participants</span>
+              <strong>{event.participantCount}</strong>
+            </div>
+          </div>
+          <form className="admin-event-rename" onSubmit={handleRename}>
+            <label>
+              Event Name
+              <input
+                type="text"
+                value={eventName}
+                disabled={saving}
+                required
+                onChange={(eventInput) => {
+                  setEventName(eventInput.target.value);
+                }}
+              />
+            </label>
+            <button
+              className="admin-secondary-button"
+              type="submit"
+              disabled={saving || eventName.trim() === event.name}
+            >
+              Save Name
+            </button>
+          </form>
+        </>
+      )}
+      {event?.status === 'active' && (
+        <div className="admin-event-danger-zone">
+          <div>
+            <strong>End Event Now</strong>
+            <span>The event normally ends automatically at {formatEventDate(event.endsAt)}.</span>
+          </div>
+          <button
+            className="admin-danger-button"
+            type="button"
+            disabled={saving}
+            onClick={() => {
+              void handleEnd();
+            }}
+          >
+            {saving ? 'Working...' : 'End Event Now'}
+          </button>
+        </div>
+      )}
       {draftEvents.length > 0 && (
         <div className="admin-scheduled-events">
           <div className="admin-schedule-heading">
@@ -451,51 +533,11 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
           </div>
         </div>
       )}
-      {event && (
-        <>
-          <div className="admin-event-overview">
-            <div className="admin-event-name-block">
-              <span className="admin-event-label">EVENT</span>
-              <strong>{event.name}</strong>
-            </div>
-            <div className="admin-event-stat">
-              <span>Start</span>
-              <strong>{formatEventDate(event.startsAt)}</strong>
-            </div>
-            <div className="admin-event-stat">
-              <span>End</span>
-              <strong>{formatEventDate(event.endsAt)}</strong>
-            </div>
-            <div className="admin-event-stat">
-              <span>Participants</span>
-              <strong>{event.participantCount}</strong>
-            </div>
-          </div>
-          <form className="admin-event-rename" onSubmit={handleRename}>
-            <label>
-              Event Name
-              <input
-                type="text"
-                value={eventName}
-                disabled={saving}
-                required
-                onChange={(eventInput) => {
-                  setEventName(eventInput.target.value);
-                }}
-              />
-            </label>
-            <button
-              className="admin-secondary-button"
-              type="submit"
-              disabled={saving || eventName.trim() === event.name}
-            >
-              Save Name
-            </button>
-          </form>
-        </>
-      )}
       {selectedDraft && (
-        <form className="admin-schedule-event" onSubmit={handleUpdateSchedule}>
+        <form
+          className="admin-schedule-event admin-schedule-event-edit"
+          onSubmit={handleUpdateSchedule}
+        >
           <div className="admin-schedule-heading">
             <span className="admin-section-eyebrow">EDIT EVENT</span>
             <h3>{selectedDraft.name}</h3>
@@ -554,6 +596,16 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
             <button className="admin-primary-button" type="submit" disabled={saving}>
               {saving ? 'Saving...' : 'Save Schedule'}
             </button>
+
+            <button
+              className="admin-secondary-button"
+              type="button"
+              disabled={saving}
+              onClick={handleCancelEdit}
+            >
+              Cancel Editing
+            </button>
+
             <button
               className="admin-danger-button"
               type="button"
@@ -562,30 +614,12 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
                 void handleCancelScheduledEvent();
               }}
             >
-              Cancel Event
+              Cancel Scheduled Event
             </button>
           </div>
         </form>
       )}
-      {event?.status === 'active' && (
-        <div className="admin-event-danger-zone">
-          <div>
-            <strong>End Event Now</strong>
-            <span>The event normally ends automatically at {formatEventDate(event.endsAt)}.</span>
-          </div>
-          <button
-            className="admin-danger-button"
-            type="button"
-            disabled={saving}
-            onClick={() => {
-              void handleEnd();
-            }}
-          >
-            {saving ? 'Working...' : 'End Event Now'}
-          </button>
-        </div>
-      )}
-      <form className="admin-schedule-event" onSubmit={handleSchedule}>
+      <form className="admin-schedule-event admin-schedule-event-create" onSubmit={handleSchedule}>
         <div className="admin-schedule-heading">
           <span className="admin-section-eyebrow">NEXT EVENT</span>
           <h3>Schedule event</h3>
