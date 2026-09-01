@@ -179,6 +179,63 @@ function mapAdminEvent(row: AdminEventRow): AdminEvent {
     updatedAt: row.updated_at.toISOString(),
   };
 }
+export async function getAdminEvents(): Promise<AdminEvent[]> {
+  const result = await db.query<AdminEventRow>(
+    `
+    SELECT
+      e.id,
+      e.name,
+      e.starts_at,
+      e.ends_at,
+      e.status,
+      e.created_at,
+      e.updated_at,
+      COUNT(ep.id)::TEXT AS participant_count
+    FROM events e
+    LEFT JOIN event_participants ep
+      ON ep.event_id = e.id
+    GROUP BY e.id
+    ORDER BY
+      CASE
+        WHEN e.status = 'active' THEN 0
+        WHEN e.status = 'draft' THEN 1
+        ELSE 2
+      END,
+      e.starts_at ASC,
+      e.id ASC
+    `,
+  );
+
+  return result.rows.map(mapAdminEvent);
+}
+export async function getAdminEventById(eventId: number): Promise<AdminEvent | null> {
+  const result = await db.query<AdminEventRow>(
+    `
+    SELECT
+      e.id,
+      e.name,
+      e.starts_at,
+      e.ends_at,
+      e.status,
+      e.created_at,
+      e.updated_at,
+      COUNT(ep.id)::TEXT AS participant_count
+    FROM events e
+    LEFT JOIN event_participants ep
+      ON ep.event_id = e.id
+    WHERE e.id = $1
+    GROUP BY e.id
+    LIMIT 1
+    `,
+    [eventId],
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return mapAdminEvent(result.rows[0]);
+}
 export async function getAdminEvent(): Promise<AdminEvent | null> {
   const result = await db.query<AdminEventRow>(
     `
