@@ -1,5 +1,30 @@
-node_modules/
+# Environment
 .env
-data/
-dist/
-web/dist/
+.env.*
+!.env.example
+
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Dependencies
+**/node_modules/
+
+# Build output
+backend/dist/
+frontend/dist/
+
+# Runtime data
+backend/data/
+
+# Logs
+*.log
+
+# IDE
+.vscode
+.vscode/*
+.idea/

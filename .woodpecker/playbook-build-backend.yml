@@ -2,6 +2,8 @@ when:
   - event: cron
     cron: 'Daily'
   - event: manual
+  - event: push
+    branch: main
 
 steps:
   - name: docker-build-and-push-alpine
