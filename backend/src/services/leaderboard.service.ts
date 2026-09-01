@@ -1,10 +1,4 @@
-import {
-  getActiveEvent,
-  getDisplayEvent,
-  getEventParticipant,
-  getRecentEventMatches,
-  type DbEvent,
-} from '../db/events';
+import { getDisplayEvent, getRecentEventMatches, type DbEvent } from '../db/events';
 import { getEventLeaderboardPlayers, type EventLeaderboardDbPlayer } from '../db/event-leaderboard';
 
 interface ApiEventMatch {
@@ -57,7 +51,9 @@ interface LeaderboardPlayer {
 export const leaderboardCache = new Map<number, LeaderboardPlayer>();
 export let displayEvent: DbEvent | null = null;
 export let totalEventPlayers = 0;
-async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
+export async function buildLeaderboardPlayer(
+  row: EventLeaderboardDbPlayer,
+): Promise<LeaderboardPlayer> {
   const matches = await getRecentEventMatches(row.eventParticipantId, 3);
   const eventWins = Math.max(0, row.currentWins - row.startWins);
   const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
