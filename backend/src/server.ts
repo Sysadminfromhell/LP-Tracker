@@ -16,8 +16,8 @@ import {
   savePlayerCacheError,
   savePlayerCacheSuccess,
 } from './db/player-cache';
+import { disconnectOpgg, getOpggClient, isOpggConnected } from './services/opgg.service';
 import { updateEventAfterPlayerRefresh } from './db/event-refresh';
-import { OpggClient } from './opgg/client';
 import { calculateRankScore } from './rank';
 import { ensureInitialAdmin } from './db/admins';
 import { deleteExpiredAdminSessions } from './db/admin-sessions';
@@ -90,36 +90,6 @@ interface LeaderboardPlayer {
 const leaderboardCache = new Map<number, LeaderboardPlayer>();
 let displayEvent: DbEvent | null = null;
 let totalEventPlayers = 0;
-let opgg: OpggClient | null = null;
-let opggConnected = false;
-let opggConnectPromise: Promise<OpggClient> | null = null;
-async function getOpggClient(): Promise<OpggClient> {
-  if (opgg && opggConnected) {
-    return opgg;
-  }
-  if (opggConnectPromise) {
-    return opggConnectPromise;
-  }
-  opggConnectPromise = (async () => {
-    const client = new OpggClient();
-    try {
-      console.log('[OP.GG] Connecting...');
-      await client.connect();
-      opgg = client;
-      opggConnected = true;
-      console.log('[OP.GG] Connected ✓');
-      return client;
-    } catch (error) {
-      opggConnected = false;
-      opgg = null;
-      await client.disconnect().catch(() => {});
-      throw error;
-    } finally {
-      opggConnectPromise = null;
-    }
-  })();
-  return opggConnectPromise;
-}
 async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
   const matches = await getRecentEventMatches(row.eventParticipantId, 3);
   const eventWins = Math.max(0, row.currentWins - row.startWins);
@@ -1203,7 +1173,7 @@ fastify.get('/api/health', async () => {
       connected: true,
     },
     opgg: {
-      connected: opggConnected,
+      connected: isOpggConnected(),
     },
     event: {
       id: displayEvent?.id ?? null,
@@ -1267,11 +1237,7 @@ async function shutdown(): Promise<void> {
     clearTimeout(lifecycleTimer);
     lifecycleTimer = null;
   }
-  if (opgg) {
-    await opgg.disconnect().catch(() => {});
-    opgg = null;
-    opggConnected = false;
-  }
+  await disconnectOpgg();
   await fastify.close().catch(() => {});
   await closeDatabase().catch(() => {});
   console.log('[APP] Shutdown complete ✓');
