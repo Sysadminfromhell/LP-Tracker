@@ -1,0 +1,290 @@
+import type { FastifyInstance } from 'fastify';
+import { requireAdmin } from '../auth/admin-auth';
+import { getPlayers } from '../db/players';
+import { getActiveEvent } from '../db/events';
+import {
+  cancelScheduledEvent,
+  endAdminEvent,
+  getAdminEvent,
+  getEventParticipantPlayerIds,
+  scheduleAdminEvent,
+  updateAdminEventName,
+  updateScheduledEvent,
+} from '../db/admin-events';
+import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
+import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
+import { isOperationBusy, setRefreshInProgress } from '../runtime/operation-state';
+
+export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/admin/event', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const event = await getAdminEvent();
+    return {
+      event,
+    };
+  });
+  app.patch<{
+    Body: {
+      name?: string;
+    };
+  }>('/api/admin/event', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const event = await getAdminEvent();
+    if (!event) {
+      return reply.code(404).send({
+        error: 'No event found',
+      });
+    }
+    const name = request.body.name?.trim();
+    if (!name) {
+      return reply.code(400).send({
+        error: 'Event name is required',
+      });
+    }
+    try {
+      const updatedEvent = await updateAdminEventName(event.id, name);
+      if (!updatedEvent) {
+        return reply.code(404).send({
+          error: 'Event not found',
+        });
+      }
+      await loadLeaderboardFromDatabase();
+      return {
+        ok: true,
+        event: updatedEvent,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[ADMIN] Could not update event: ${message}`);
+      return reply.code(500).send({
+        error: 'Could not update event',
+      });
+    }
+  });
+  app.post<{
+    Body: {
+      name?: string;
+      startsAt?: string;
+      endsAt?: string;
+    };
+  }>('/api/admin/event/schedule', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const name = request.body.name?.trim();
+    const startsAt = request.body.startsAt;
+    const endsAt = request.body.endsAt;
+    if (!name || !startsAt || !endsAt) {
+      return reply.code(400).send({
+        error: 'Event name, start and end are required',
+      });
+    }
+    try {
+      const event = await scheduleAdminEvent({
+        name,
+        startsAt,
+        endsAt,
+      });
+      await loadLeaderboardFromDatabase();
+      console.log(
+        `[ADMIN] Event "${event.name}" scheduled from ${event.startsAt} to ${event.endsAt}`,
+      );
+      return reply.code(201).send({
+        ok: true,
+        event,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'UPCOMING_OR_ACTIVE_EVENT_ALREADY_EXISTS') {
+        return reply.code(409).send({
+          error: 'An upcoming or active event already exists',
+        });
+      }
+      if (message === 'INVALID_EVENT_DATE') {
+        return reply.code(400).send({
+          error: 'Invalid event date',
+        });
+      }
+      if (message === 'EVENT_END_BEFORE_START') {
+        return reply.code(400).send({
+          error: 'Event end must be after event start',
+        });
+      }
+      console.error(`[ADMIN] Could not schedule event: ${message}`);
+      return reply.code(500).send({
+        error: 'Could not schedule event',
+      });
+    }
+  });
+  app.patch<{
+    Body: {
+      name?: string;
+      startsAt?: string;
+      endsAt?: string;
+    };
+  }>('/api/admin/event/schedule', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const currentEvent = await getAdminEvent();
+    if (!currentEvent || currentEvent.status !== 'draft') {
+      return reply.code(404).send({
+        error: 'No scheduled event found',
+      });
+    }
+    const name = request.body.name?.trim();
+    const startsAt = request.body.startsAt;
+    const endsAt = request.body.endsAt;
+    if (!name || !startsAt || !endsAt) {
+      return reply.code(400).send({
+        error: 'Event name, start and end are required',
+      });
+    }
+    try {
+      const event = await updateScheduledEvent(currentEvent.id, {
+        name,
+        startsAt,
+        endsAt,
+      });
+      await loadLeaderboardFromDatabase();
+      console.log(
+        `[ADMIN] Scheduled event "${event.name}" updated: ` +
+          `${event.startsAt} -> ${event.endsAt}`,
+      );
+      return {
+        ok: true,
+        event,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
+        return reply.code(409).send({
+          error: 'The event is no longer scheduled',
+        });
+      }
+      if (message === 'INVALID_EVENT_DATE') {
+        return reply.code(400).send({
+          error: 'Invalid event date',
+        });
+      }
+      if (message === 'EVENT_END_BEFORE_START') {
+        return reply.code(400).send({
+          error: 'Event end must be after event start',
+        });
+      }
+      console.error(`[ADMIN] Could not update scheduled event: ${message}`);
+      return reply.code(500).send({
+        error: 'Could not update scheduled event',
+      });
+    }
+  });
+  app.delete('/api/admin/event/schedule', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const currentEvent = await getAdminEvent();
+    if (!currentEvent || currentEvent.status !== 'draft') {
+      return reply.code(404).send({
+        error: 'No scheduled event found',
+      });
+    }
+    try {
+      await cancelScheduledEvent(currentEvent.id);
+      await loadLeaderboardFromDatabase();
+      console.log(`[ADMIN] Scheduled event "${currentEvent.name}" canceled`);
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
+        return reply.code(409).send({
+          error: 'The event is no longer scheduled',
+        });
+      }
+      console.error(`[ADMIN] Could not cancel scheduled event: ${message}`);
+      return reply.code(500).send({
+        error: 'Could not cancel scheduled event',
+      });
+    }
+  });
+  app.post('/api/admin/event/end', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const event = await getActiveEvent();
+    if (!event) {
+      return reply.code(404).send({
+        error: 'No active event found',
+      });
+    }
+    if (isOperationBusy()) {
+      return reply.code(409).send({
+        error: 'A player refresh or event transition is currently in progress',
+      });
+    }
+    setRefreshInProgress(true);
+    try {
+      const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
+      const allPlayers = await getPlayers(false);
+      const eventPlayers = allPlayers.filter((player) => participantIds.has(player.id));
+      if (eventPlayers.length !== participantIds.size) {
+        return reply.code(409).send({
+          error: 'Not every event participant could be loaded',
+        });
+      }
+      console.log(
+        `[ADMIN] Refreshing ${eventPlayers.length} participant(s) ` +
+          `before ending "${event.name}"...`,
+      );
+      const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
+      if (failedPlayers.length > 0) {
+        console.error(
+          `[ADMIN] Could not end "${event.name}": ` +
+            `${failedPlayers.length} player refresh(es) failed`,
+        );
+        return reply.code(502).send({
+          error: 'Could not refresh every participant before ending the event',
+        });
+      }
+      const endedEvent = await endAdminEvent(event.id);
+      await loadLeaderboardFromDatabase();
+      console.log(
+        `[ADMIN] Event "${endedEvent.name}" ended with ` +
+          `${endedEvent.participantCount} participant(s)`,
+      );
+      return {
+        ok: true,
+        event: endedEvent,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'ACTIVE_EVENT_NOT_FOUND') {
+        return reply.code(404).send({
+          error: 'No active event found',
+        });
+      }
+      if (message === 'EVENT_END_SNAPSHOT_INCOMPLETE') {
+        return reply.code(409).send({
+          error: 'Could not create a final snapshot for every participant',
+        });
+      }
+      console.error(`[ADMIN] Could not end event: ${message}`);
+      return reply.code(500).send({
+        error: 'Could not end event',
+      });
+    } finally {
+      setRefreshInProgress(false);
+    }
+  });
+}
