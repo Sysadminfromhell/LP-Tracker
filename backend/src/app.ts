@@ -17,12 +17,9 @@ export function createApp() {
     },
     disableRequestLogging: true,
   });
-
   app.register(cookie);
-
   app.addHook('onResponse', async (request, reply) => {
     request.log.info(`${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`);
   });
-
   return app;
 }

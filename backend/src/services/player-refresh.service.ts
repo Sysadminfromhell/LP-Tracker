@@ -86,7 +86,7 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine} failed: ${message}`);
+    console.error(`[REFRESH] ${player.gameName}#${player.tagLine} failed: ${message}`);
     await savePlayerCacheError(player.id, message).catch((dbError) => {
       console.error('[DB] Could not persist player refresh error:', dbError);
     });
