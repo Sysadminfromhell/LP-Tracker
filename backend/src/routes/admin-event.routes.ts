@@ -1,11 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../auth/admin-auth';
 import { getPlayers } from '../db/players';
-import { getActiveEvent } from '../db/events';
 import {
   cancelScheduledEvent,
   endAdminEvent,
-  getAdminEvent,
   getAdminEventById,
   getAdminEvents,
   getEventParticipantPlayerIds,
@@ -56,16 +54,6 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Event not found',
       });
     }
-    return {
-      event,
-    };
-  });
-  app.get('/api/admin/event', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const event = await getAdminEvent();
     return {
       event,
     };
@@ -248,54 +236,13 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       });
     }
   });
-  app.patch<{
-    Body: {
-      name?: string;
-    };
-  }>('/api/admin/event', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const event = await getAdminEvent();
-    if (!event) {
-      return reply.code(404).send({
-        error: 'No event found',
-      });
-    }
-    const name = request.body.name?.trim();
-    if (!name) {
-      return reply.code(400).send({
-        error: 'Event name is required',
-      });
-    }
-    try {
-      const updatedEvent = await updateAdminEventName(event.id, name);
-      if (!updatedEvent) {
-        return reply.code(404).send({
-          error: 'Event not found',
-        });
-      }
-      await loadLeaderboardFromDatabase();
-      return {
-        ok: true,
-        event: updatedEvent,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[ADMIN] Could not update event: ${message}`);
-      return reply.code(500).send({
-        error: 'Could not update event',
-      });
-    }
-  });
   app.post<{
     Body: {
       name?: string;
       startsAt?: string;
       endsAt?: string;
     };
-  }>('/api/admin/event/schedule', async (request, reply) => {
+  }>('/api/admin/events', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) {
       return;
@@ -350,120 +297,30 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       });
     }
   });
-  app.patch<{
-    Body: {
-      name?: string;
-      startsAt?: string;
-      endsAt?: string;
+  app.post<{
+    Params: {
+      eventId: string;
     };
-  }>('/api/admin/event/schedule', async (request, reply) => {
+  }>('/api/admin/events/:eventId/end', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
     if (!admin) {
       return;
     }
-    const currentEvent = await getAdminEvent();
-    if (!currentEvent || currentEvent.status !== 'draft') {
-      return reply.code(404).send({
-        error: 'No scheduled event found',
-      });
-    }
-    const name = request.body.name?.trim();
-    const startsAt = request.body.startsAt;
-    const endsAt = request.body.endsAt;
-    if (!name || !startsAt || !endsAt) {
+    const eventId = parseEventId(request.params.eventId);
+    if (eventId === null) {
       return reply.code(400).send({
-        error: 'Event name, start and end are required',
+        error: 'Invalid event ID',
       });
     }
-    try {
-      const event = await updateScheduledEvent(currentEvent.id, {
-        name,
-        startsAt,
-        endsAt,
-      });
-      await loadLeaderboardFromDatabase();
-      console.log(
-        `[ADMIN] Scheduled event "${event.name}" updated: ` +
-          `${event.startsAt} -> ${event.endsAt}`,
-      );
-      return {
-        ok: true,
-        event,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
-        return reply.code(409).send({
-          error: 'The event is no longer scheduled',
-        });
-      }
-      if (message === 'INVALID_EVENT_DATE') {
-        return reply.code(400).send({
-          error: 'Invalid event date',
-        });
-      }
-      if (message === 'EVENT_END_BEFORE_START') {
-        return reply.code(400).send({
-          error: 'Event end must be after event start',
-        });
-      }
-      if (message === 'EVENT_SCHEDULE_CONFLICT') {
-        return reply.code(409).send({
-          error: 'Event overlaps another scheduled or active event',
-        });
-      }
-
-      if (message === 'EVENT_START_IN_PAST') {
-        return reply.code(400).send({
-          error: 'Event start must be in the future',
-        });
-      }
-      console.error(`[ADMIN] Could not update scheduled event: ${message}`);
-      return reply.code(500).send({
-        error: 'Could not update scheduled event',
-      });
-    }
-  });
-  app.delete('/api/admin/event/schedule', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const currentEvent = await getAdminEvent();
-    if (!currentEvent || currentEvent.status !== 'draft') {
-      return reply.code(404).send({
-        error: 'No scheduled event found',
-      });
-    }
-    try {
-      await cancelScheduledEvent(currentEvent.id);
-      await loadLeaderboardFromDatabase();
-      console.log(`[ADMIN] Scheduled event "${currentEvent.name}" canceled`);
-      return {
-        ok: true,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
-        return reply.code(409).send({
-          error: 'The event is no longer scheduled',
-        });
-      }
-      console.error(`[ADMIN] Could not cancel scheduled event: ${message}`);
-      return reply.code(500).send({
-        error: 'Could not cancel scheduled event',
-      });
-    }
-  });
-  app.post('/api/admin/event/end', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const event = await getActiveEvent();
+    const event = await getAdminEventById(eventId);
     if (!event) {
       return reply.code(404).send({
-        error: 'No active event found',
+        error: 'Event not found',
+      });
+    }
+    if (event.status !== 'active') {
+      return reply.code(409).send({
+        error: 'Only active events can be ended',
       });
     }
     if (isOperationBusy()) {

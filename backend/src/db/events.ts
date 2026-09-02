@@ -211,37 +211,6 @@ export async function getEventById(eventId: number): Promise<DbEvent | null> {
   }
   return mapEvent(result.rows[0]);
 }
-export async function createActiveEvent(name: string, startsAt: string): Promise<DbEvent> {
-  const result = await db.query<EventRow>(
-    `
-      INSERT INTO events (
-        name,
-        starts_at,
-        status
-      )
-      VALUES (
-        $1,
-        $2,
-        'active'
-      )
-      RETURNING
-        id,
-        name,
-        starts_at,
-        ends_at,
-        status,
-        created_at,
-        updated_at
-      `,
-    [name, startsAt],
-  );
-  return mapEvent(result.rows[0]);
-}
-/*
- * ------------------------------------------------------------
- * Participants
- * ------------------------------------------------------------
- */
 export async function getEventParticipant(
   eventId: number,
   playerId: number,
@@ -533,7 +502,12 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
     `
     SELECT id
     FROM events
-    WHERE status IN ('draft', 'active', 'ended')
+    WHERE
+      status IN ('active', 'ended')
+      OR (
+        status = 'draft'
+        AND ends_at > NOW()
+      )
     ORDER BY
       CASE
         WHEN status = 'active' THEN 0

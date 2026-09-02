@@ -212,7 +212,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch('/api/admin/event/schedule', {
+      const response = await fetch('/api/admin/events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -256,7 +256,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch('/api/admin/event/end', {
+      const response = await fetch(`/api/admin/events/${event.id}/end`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
