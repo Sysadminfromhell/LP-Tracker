@@ -137,4 +137,172 @@ describe('RiotClient', () => {
       });
     }
   });
+  it('builds a summoner profile from Riot APIs', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'test-puuid',
+            gameName: 'FourK',
+            tagLine: 'EUW',
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'test-puuid',
+            profileIconId: 1234,
+            revisionDate: 1,
+            summonerLevel: 100,
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              queueType: 'RANKED_SOLO_5x5',
+              tier: 'GOLD',
+              rank: 'II',
+              leaguePoints: 55,
+              wins: 25,
+              losses: 20,
+            },
+            {
+              queueType: 'RANKED_FLEX_SR',
+              tier: 'PLATINUM',
+              rank: 'IV',
+              leaguePoints: 10,
+              wins: 12,
+              losses: 8,
+            },
+          ]),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(['16.17.1', '16.16.1']), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test');
+    const profile = await client.getSummonerProfile('FourK', 'EUW', 'EUW');
+    expect(profile).toEqual({
+      gameName: 'FourK',
+      tagLine: 'EUW',
+      profileImageUrl: 'https://ddragon.leagueoflegends.com/cdn/16.17.1/img/profileicon/1234.png',
+      queues: [
+        {
+          gameType: 'SOLORANKED',
+          tier: 'GOLD',
+          division: 2,
+          lp: 55,
+          wins: 25,
+          losses: 20,
+        },
+        {
+          gameType: 'FLEXRANKED',
+          tier: 'PLATINUM',
+          division: 4,
+          lp: 10,
+          wins: 12,
+          losses: 8,
+        },
+      ],
+      lpHistory: [],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/test-puuid',
+      expect.anything(),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://euw1.api.riotgames.com/lol/league/v4/entries/by-puuid/test-puuid',
+      expect.anything(),
+    );
+  });
+  it('maps apex tiers without a division', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'test-puuid',
+            gameName: 'FourK',
+            tagLine: 'EUW',
+          }),
+          {
+            status: 200,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'test-puuid',
+            profileIconId: 1234,
+            revisionDate: 1,
+            summonerLevel: 100,
+          }),
+          {
+            status: 200,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              queueType: 'RANKED_SOLO_5x5',
+              tier: 'MASTER',
+              rank: 'I',
+              leaguePoints: 250,
+              wins: 100,
+              losses: 80,
+            },
+          ]),
+          {
+            status: 200,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(['16.17.1']), {
+          status: 200,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test');
+    const profile = await client.getSummonerProfile('FourK', 'EUW', 'EUW');
+    expect(profile.queues[0]).toEqual({
+      gameType: 'SOLORANKED',
+      tier: 'MASTER',
+      division: null,
+      lp: 250,
+      wins: 100,
+      losses: 80,
+    });
+  });
 });

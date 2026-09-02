@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import type { RiotAccount, RiotApiErrorResponse } from './types';
+import type { RiotAccount, RiotApiErrorResponse, RiotLeagueEntry, RiotSummoner } from './types';
+import type { QueueType, RankedQueue, SummonerProfile } from '../league-data.types';
 
 type RiotRegionalRoute = 'americas' | 'asia' | 'europe' | 'sea';
 
@@ -91,6 +92,40 @@ const RIOT_ROUTING: Record<string, RiotRouting> = {
   },
 };
 
+const RIOT_DIVISION: Record<string, number> = {
+  I: 1,
+  II: 2,
+  III: 3,
+  IV: 4,
+};
+const APEX_TIERS = new Set(['MASTER', 'GRANDMASTER', 'CHALLENGER']);
+
+function mapQueueType(queueType: string): QueueType {
+  switch (queueType) {
+    case 'RANKED_SOLO_5x5':
+      return 'SOLORANKED';
+    case 'RANKED_FLEX_SR':
+      return 'FLEXRANKED';
+    default:
+      return queueType;
+  }
+}
+
+function mapLeagueEntry(entry: RiotLeagueEntry): RankedQueue {
+  const tier = entry.tier.trim().toUpperCase();
+  const division = APEX_TIERS.has(tier)
+    ? null
+    : (RIOT_DIVISION[entry.rank.trim().toUpperCase()] ?? null);
+  return {
+    gameType: mapQueueType(entry.queueType),
+    tier,
+    division,
+    lp: entry.leaguePoints,
+    wins: entry.wins,
+    losses: entry.losses,
+  };
+}
+
 function resolveRiotRouting(region: string): RiotRouting {
   const normalized = region.trim().toUpperCase();
   const canonicalRegion = REGION_ALIASES[normalized] ?? normalized;
@@ -114,6 +149,8 @@ export class RiotApiError extends Error {
 export class RiotClient {
   readonly name = 'riot';
   private readonly apiKey: string | null;
+  private dataDragonVersion: Promise<string | null> | null = null;
+
   constructor(apiKey: string | undefined = process.env.RIOT_API_KEY) {
     this.apiKey = apiKey?.trim() || null;
   }
@@ -135,6 +172,75 @@ export class RiotClient {
       routing.regional,
       `/riot/account/v1/accounts/by-riot-id/${encodedGameName}/${encodedTagLine}`,
     );
+  }
+  async getSummonerByPuuid(puuid: string, region: string): Promise<RiotSummoner> {
+    const routing = resolveRiotRouting(region);
+    const encodedPuuid = encodeURIComponent(puuid);
+    return this.request<RiotSummoner>(
+      routing.platform,
+      `/lol/summoner/v4/summoners/by-puuid/${encodedPuuid}`,
+    );
+  }
+  async getLeagueEntriesByPuuid(puuid: string, region: string): Promise<RiotLeagueEntry[]> {
+    const routing = resolveRiotRouting(region);
+    const encodedPuuid = encodeURIComponent(puuid);
+    return this.request<RiotLeagueEntry[]>(
+      routing.platform,
+      `/lol/league/v4/entries/by-puuid/${encodedPuuid}`,
+    );
+  }
+  async getSummonerProfile(
+    gameName: string,
+    tagLine: string,
+    region: string,
+  ): Promise<SummonerProfile> {
+    const account = await this.getAccountByRiotId(gameName, tagLine, region);
+    const [summoner, leagueEntries] = await Promise.all([
+      this.getSummonerByPuuid(account.puuid, region),
+      this.getLeagueEntriesByPuuid(account.puuid, region),
+    ]);
+    const profileImageUrl = await this.getProfileImageUrl(summoner.profileIconId);
+    return {
+      gameName: account.gameName,
+      tagLine: account.tagLine,
+      profileImageUrl,
+      queues: leagueEntries.map(mapLeagueEntry),
+      // Riot does not expose the same
+      // historical LP snapshots as OP.GG.
+      lpHistory: [],
+    };
+  }
+  private async getProfileImageUrl(profileIconId: number): Promise<string> {
+    const version = await this.getDataDragonVersion();
+    if (!version) {
+      return '';
+    }
+    return (
+      'https://ddragon.leagueoflegends.com/' +
+      `cdn/${version}/img/profileicon/` +
+      `${profileIconId}.png`
+    );
+  }
+  private async getDataDragonVersion(): Promise<string | null> {
+    if (this.dataDragonVersion) {
+      return this.dataDragonVersion;
+    }
+    this.dataDragonVersion = (async () => {
+      try {
+        const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+        if (!response.ok) {
+          return null;
+        }
+        const versions = (await response.json()) as unknown;
+        if (!Array.isArray(versions) || typeof versions[0] !== 'string') {
+          return null;
+        }
+        return versions[0];
+      } catch {
+        return null;
+      }
+    })();
+    return this.dataDragonVersion;
   }
   private requireApiKey(): string {
     if (!this.apiKey) {
