@@ -43,6 +43,10 @@ interface LeaderboardPlayer {
     losses: number;
     games: number;
   };
+  rankMovement: {
+    delta: number;
+    changedAt: string | null;
+  };
   recentMatches: EventMatch[];
   lastUpdated: string;
   error: string | null;
@@ -192,7 +196,45 @@ function XIcon() {
     </svg>
   );
 }
-function PodiumCard({ player, place }: { player: LeaderboardPlayer; place: 1 | 2 | 3 }) {
+function RankMovementIndicator({
+  movement,
+  now,
+}: {
+  movement: LeaderboardPlayer['rankMovement'];
+  now: number;
+}) {
+  const changedAt = movement.changedAt ? new Date(movement.changedAt).getTime() : Number.NaN;
+  const isRecent =
+    movement.delta !== 0 && Number.isFinite(changedAt) && now > 0 && now - changedAt <= 180_000;
+  if (!isRecent) {
+    return (
+      <span className="rank-movement neutral" title="No recent rank change">
+        —
+      </span>
+    );
+  }
+  const climbed = movement.delta > 0;
+  const positions = Math.abs(movement.delta);
+  return (
+    <span
+      className={`rank-movement ${climbed ? 'up' : 'down'}`}
+      title={`${climbed ? 'Climbed' : 'Dropped'} ${positions} position${
+        positions === 1 ? '' : 's'
+      }`}
+    >
+      {climbed ? '▲' : '▼'} {positions}
+    </span>
+  );
+}
+function PodiumCard({
+  player,
+  place,
+  now,
+}: {
+  player: LeaderboardPlayer;
+  place: 1 | 2 | 3;
+  now: number;
+}) {
   const winRate = getWinRate(player.record.wins, player.record.losses);
   return (
     <div className={`podium-slot podium-place-${place}`}>
@@ -204,6 +246,9 @@ function PodiumCard({ player, place }: { player: LeaderboardPlayer; place: 1 | 2
         <div className="podium-player">
           <strong>{player.player.gameName}</strong>
           <span>#{player.player.tagLine}</span>
+        </div>
+        <div className="podium-movement">
+          <RankMovementIndicator movement={player.rankMovement} now={now} />
         </div>
         <div className="podium-rank">
           <strong>{formatRank(player.current.tier, player.current.division)}</strong>
@@ -420,12 +465,10 @@ function LeaderboardPage() {
                 <span>Participants</span>
                 <strong>{leaderboard?.totalPlayers ?? players.length}</strong>
               </div>
-
               <div className="event-summary-item">
                 <span>Matches Played</span>
                 <strong>{totalMatches}</strong>
               </div>
-
               <div className="event-summary-item">
                 <span>Average LP Gain</span>
                 <strong className={averageLpGain >= 0 ? 'positive' : 'negative'}>
@@ -433,23 +476,20 @@ function LeaderboardPage() {
                   {averageLpGain} LP
                 </strong>
               </div>
-
               <div className="event-summary-item">
                 <span>Last Update</span>
                 <strong>{lastUpdateText}</strong>
               </div>
             </section>
-
             <section className="podium-section">
               <div className="podium-heading">
                 <span className="eyebrow">TOP PLAYERS</span>
                 <h2>Event Leaders</h2>
               </div>
-
               <div className="podium">
-                {players[1] && <PodiumCard player={players[1]} place={2} />}
-                {players[0] && <PodiumCard player={players[0]} place={1} />}
-                {players[2] && <PodiumCard player={players[2]} place={3} />}
+                {players[1] && <PodiumCard player={players[1]} place={2} now={now} />}
+                {players[0] && <PodiumCard player={players[0]} place={1} now={now} />}
+                {players[2] && <PodiumCard player={players[2]} place={3} now={now} />}
               </div>
             </section>
             <section className="event-highlights-section">
@@ -457,20 +497,17 @@ function LeaderboardPage() {
                 <span className="eyebrow">EVENT HIGHLIGHTS</span>
                 <h2>Top Performers</h2>
               </div>
-
               <div className="event-highlights">
                 <EventHighlightCard
                   label="LONGEST WIN STREAK"
                   highlight={leaderboard?.highlights.longestWinStreak ?? null}
                   formatValue={(value) => `${value} win${value === 1 ? '' : 's'}`}
                 />
-
                 <EventHighlightCard
                   label="BEST KDA"
                   highlight={leaderboard?.highlights.bestKda ?? null}
                   formatValue={(value) => `${value.toFixed(2)} KDA`}
                 />
-
                 <EventHighlightCard
                   label="MOST WINS"
                   highlight={leaderboard?.highlights.mostWins ?? null}
@@ -486,7 +523,6 @@ function LeaderboardPage() {
               <span className="eyebrow">STANDINGS</span>
               <h2>Leaderboard</h2>
             </div>
-
             <div className="leaderboard-header">
               <div>#</div>
               <div>Player</div>
@@ -509,7 +545,10 @@ function LeaderboardPage() {
                   }
                 >
                   <div className="leaderboard-main">
-                    <div className="place">{index + 4}</div>
+                    <div className="place-cell">
+                      <div className="place">{index + 4}</div>
+                      <RankMovementIndicator movement={player.rankMovement} now={now} />
+                    </div>
                     <div className="player-cell">
                       <img className="profile-icon" src={player.player.profileImageUrl} alt="" />
                       <div className="player-info">

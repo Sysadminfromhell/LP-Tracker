@@ -314,11 +314,36 @@ h1 {
   font-weight: 800;
   text-align: center;
 }
-.player-cell {
+.place-cell {
   display: flex;
   align-items: center;
-  min-width: 0;
-  gap: 10px;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+}
+.rank-movement {
+  font-size: 8px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+.rank-movement.up {
+  color: #63d99d;
+}
+.rank-movement.down {
+  color: #ed7182;
+}
+.rank-movement.neutral {
+  color: #484e62;
+}
+.podium-movement {
+  display: flex;
+  justify-content: center;
+  min-height: 10px;
+  margin-top: 5px;
+}
+.podium-movement .rank-movement {
+  font-size: 9px;
 }
 .profile-icon {
   width: 38px;

@@ -44,6 +44,10 @@ interface LeaderboardPlayer {
     losses: number;
     games: number;
   };
+  rankMovement: {
+    delta: number;
+    changedAt: string | null;
+  };
   recentMatches: ApiEventMatch[];
   lastUpdated: string;
   error: string | null;
@@ -109,6 +113,10 @@ async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<Le
   const stats = calculateEventStats(matches);
   eventStatsCache.set(row.playerId, stats);
   const recentMatchesSource = matches.slice(0, 3);
+  const previousMovement = leaderboardCache.get(row.playerId)?.rankMovement ?? {
+    delta: 0,
+    changedAt: null,
+  };
   const eventWins = Math.max(0, row.currentWins - row.startWins);
   const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
   const recentMatches: ApiEventMatch[] = recentMatchesSource.map((match) => ({
@@ -154,34 +162,74 @@ async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<Le
       losses: eventLosses,
       games: eventWins + eventLosses,
     },
+    rankMovement: previousMovement,
     recentMatches,
     lastUpdated: row.lastUpdated,
     error: row.lastError,
   };
 }
 export async function loadLeaderboardFromDatabase(): Promise<void> {
+  const previousEventId = displayEvent?.id ?? null;
+
+  const previousLeaderboard = sortLeaderboardPlayers([...leaderboardCache.values()]);
+
+  const previousPositions = new Map<number, number>(
+    previousLeaderboard.map((player, index) => [player.player.id, index + 1]),
+  );
+
   displayEvent = await getDisplayEvent();
+
   if (!displayEvent) {
     totalEventPlayers = 0;
     leaderboardCache.clear();
     eventStatsCache.clear();
     return;
   }
+
+  const eventChanged = previousEventId !== null && previousEventId !== displayEvent.id;
+
   const rows = await getEventLeaderboardPlayers(displayEvent.id);
+
   totalEventPlayers = rows.length;
   eventStatsCache.clear();
+
   const nextCache = new Map<number, LeaderboardPlayer>();
+
   for (const row of rows) {
     const player = await buildLeaderboardPlayer(row);
     nextCache.set(row.playerId, player);
+  }
+
+  const nextLeaderboard = sortLeaderboardPlayers([...nextCache.values()]);
+
+  const changedAt = new Date().toISOString();
+
+  for (const [index, player] of nextLeaderboard.entries()) {
+    const nextPosition = index + 1;
+    const previousPosition = previousPositions.get(player.player.id);
+    if (eventChanged || previousPosition === undefined) {
+      player.rankMovement = {
+        delta: 0,
+        changedAt: null,
+      };
+
+      continue;
+    }
+    const delta = previousPosition - nextPosition;
+    if (delta !== 0) {
+      player.rankMovement = {
+        delta,
+        changedAt,
+      };
+    }
   }
   leaderboardCache.clear();
   for (const [playerId, player] of nextCache) {
     leaderboardCache.set(playerId, player);
   }
 }
-export function getLeaderboard(): LeaderboardPlayer[] {
-  return [...leaderboardCache.values()].sort((a, b) => {
+function sortLeaderboardPlayers(players: LeaderboardPlayer[]): LeaderboardPlayer[] {
+  return players.sort((a, b) => {
     if (b.lpGain !== a.lpGain) {
       return b.lpGain - a.lpGain;
     }
@@ -191,10 +239,11 @@ export function getLeaderboard(): LeaderboardPlayer[] {
     return a.player.gameName.localeCompare(b.player.gameName);
   });
 }
-function createHighlight(
-  player: LeaderboardPlayer,
-  value: number,
-): LeaderboardHighlight {
+
+export function getLeaderboard(): LeaderboardPlayer[] {
+  return sortLeaderboardPlayers([...leaderboardCache.values()]);
+}
+function createHighlight(player: LeaderboardPlayer, value: number): LeaderboardHighlight {
   return {
     player: {
       id: player.player.id,
@@ -219,17 +268,10 @@ export function getLeaderboardHighlights(): LeaderboardHighlights {
     ) {
       longestWinStreak = createHighlight(player, stats.longestWinStreak);
     }
-    if (
-      stats &&
-      stats.games > 0 &&
-      (!bestKda || stats.kda > bestKda.value)
-    ) {
+    if (stats && stats.games > 0 && (!bestKda || stats.kda > bestKda.value)) {
       bestKda = createHighlight(player, stats.kda);
     }
-    if (
-      player.record.wins > 0 &&
-      (!mostWins || player.record.wins > mostWins.value)
-    ) {
+    if (player.record.wins > 0 && (!mostWins || player.record.wins > mostWins.value)) {
       mostWins = createHighlight(player, player.record.wins);
     }
   }
