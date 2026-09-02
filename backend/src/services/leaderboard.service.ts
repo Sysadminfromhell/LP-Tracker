@@ -10,6 +10,7 @@ import {
   type EventLeaderboardDbPlayer,
 } from '../db/event-leaderboard';
 import { broadcastLiveUpdate } from './live-update.service';
+import { hasLeaderboardPlayerChanged } from './leaderboard-change';
 
 interface ApiEventMatch {
   id: string;
@@ -232,38 +233,6 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
     eventStatsCache.set(playerId, stats);
   }
   broadcastLiveUpdate('leaderboard');
-}
-function hasLeaderboardPlayerChanged(
-  previousPlayer: LeaderboardPlayer,
-  nextPlayer: LeaderboardPlayer,
-  previousStats: EventPlayerStats | undefined,
-  nextStats: EventPlayerStats,
-): boolean {
-  if (
-    previousPlayer.current.tier !== nextPlayer.current.tier ||
-    previousPlayer.current.division !== nextPlayer.current.division ||
-    previousPlayer.current.lp !== nextPlayer.current.lp ||
-    previousPlayer.current.score !== nextPlayer.current.score ||
-    previousPlayer.lpGain !== nextPlayer.lpGain ||
-    previousPlayer.record.wins !== nextPlayer.record.wins ||
-    previousPlayer.record.losses !== nextPlayer.record.losses ||
-    previousPlayer.record.games !== nextPlayer.record.games ||
-    previousPlayer.error !== nextPlayer.error
-  ) {
-    return true;
-  }
-  if (
-    !previousStats ||
-    previousStats.games !== nextStats.games ||
-    previousStats.kills !== nextStats.kills ||
-    previousStats.deaths !== nextStats.deaths ||
-    previousStats.assists !== nextStats.assists ||
-    previousStats.kda !== nextStats.kda ||
-    previousStats.longestWinStreak !== nextStats.longestWinStreak
-  ) {
-    return true;
-  }
-  return JSON.stringify(previousPlayer.recentMatches) !== JSON.stringify(nextPlayer.recentMatches);
 }
 export async function refreshLeaderboardPlayer(eventId: number, playerId: number): Promise<void> {
   if (!displayEvent || displayEvent.id !== eventId || !leaderboardCache.has(playerId)) {

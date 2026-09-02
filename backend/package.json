@@ -8,6 +8,8 @@
     "server": "tsx src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check:event": "tsx src/db/check-event.ts",
     "typecheck": "tsc --noEmit",
     "db:bootstrap": "tsx src/db/bootstrap-cli.ts",
@@ -32,7 +34,8 @@
     "@types/node": "^26.4.0",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
