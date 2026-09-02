@@ -125,6 +125,9 @@ function PlayerOverlay() {
     const tag = params.get('tag');
     async function load() {
       const response = await fetch('/api/leaderboard');
+      if (!response.ok) {
+        throw new Error(`API returned HTTP ${response.status}`);
+      }
       const data = (await response.json()) as LeaderboardResponse;
       const found = data.players.find(
         (item) =>
@@ -135,11 +138,23 @@ function PlayerOverlay() {
       setPlayer(found ?? null);
     }
     void load();
-    const timer = window.setInterval(() => {
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('leaderboard', () => {
       void load();
-    }, 10_000);
+    });
+    let initialConnection = true;
+    eventSource.onopen = () => {
+      if (initialConnection) {
+        initialConnection = false;
+        return;
+      }
+      void load();
+    };
+    eventSource.onerror = () => {
+      console.warn('Player overlay live update connection lost; reconnecting...');
+    };
     return () => {
-      window.clearInterval(timer);
+      eventSource.close();
     };
   }, []);
   if (!player) {
