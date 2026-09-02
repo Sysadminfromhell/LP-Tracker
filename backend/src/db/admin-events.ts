@@ -518,6 +518,7 @@ export async function getDueScheduledEvent(): Promise<AdminEvent | null> {
     WHERE
       e.status = 'draft'
       AND e.starts_at <= NOW()
+      AND e.ends_at > NOW()
     GROUP BY e.id
     ORDER BY e.starts_at ASC
     LIMIT 1
