@@ -1,5 +1,9 @@
 import { getDisplayEvent, getEventMatches, type DbEvent, type DbEventMatch } from '../db/events';
-import { getEventLeaderboardPlayers, type EventLeaderboardDbPlayer } from '../db/event-leaderboard';
+import {
+  getEventLeaderboardPlayer,
+  getEventLeaderboardPlayers,
+  type EventLeaderboardDbPlayer,
+} from '../db/event-leaderboard';
 
 interface ApiEventMatch {
   id: string;
@@ -60,6 +64,10 @@ interface EventPlayerStats {
   kda: number;
   longestWinStreak: number;
 }
+interface BuiltLeaderboardPlayer {
+  player: LeaderboardPlayer;
+  stats: EventPlayerStats;
+}
 export interface LeaderboardHighlight {
   player: {
     id: number;
@@ -108,10 +116,11 @@ function calculateEventStats(matches: DbEventMatch[]): EventPlayerStats {
     longestWinStreak,
   };
 }
-async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<LeaderboardPlayer> {
+async function buildLeaderboardPlayer(
+  row: EventLeaderboardDbPlayer,
+): Promise<BuiltLeaderboardPlayer> {
   const matches = await getEventMatches(row.eventParticipantId);
   const stats = calculateEventStats(matches);
-  eventStatsCache.set(row.playerId, stats);
   const recentMatchesSource = matches.slice(0, 3);
   const previousMovement = leaderboardCache.get(row.playerId)?.rankMovement ?? {
     delta: 0,
@@ -134,85 +143,60 @@ async function buildLeaderboardPlayer(row: EventLeaderboardDbPlayer): Promise<Le
     lpDeltaStatus: match.lpDeltaStatus,
   }));
   return {
+    stats,
     player: {
-      id: row.playerId,
-      gameName: row.gameName,
-      tagLine: row.tagLine,
-      region: row.region,
-      profileImageUrl: row.profileImageUrl ?? '',
-      twitchUsername: row.twitchUsername,
-      twitterUsername: row.twitterUsername,
+      player: {
+        id: row.playerId,
+        gameName: row.gameName,
+        tagLine: row.tagLine,
+        region: row.region,
+        profileImageUrl: row.profileImageUrl ?? '',
+        twitchUsername: row.twitchUsername,
+        twitterUsername: row.twitterUsername,
+      },
+      startedAt: row.eventStartsAt,
+      start: {
+        tier: row.startTier,
+        division: row.startDivision,
+        lp: row.startLp,
+        score: row.startRankScore,
+      },
+      current: {
+        tier: row.currentTier,
+        division: row.currentDivision,
+        lp: row.currentLp,
+        score: row.currentRankScore,
+      },
+      lpGain: row.currentRankScore - row.startRankScore,
+      record: {
+        wins: eventWins,
+        losses: eventLosses,
+        games: eventWins + eventLosses,
+      },
+      rankMovement: previousMovement,
+      recentMatches,
+      lastUpdated: row.lastUpdated,
+      error: row.lastError,
     },
-    startedAt: row.eventStartsAt,
-    start: {
-      tier: row.startTier,
-      division: row.startDivision,
-      lp: row.startLp,
-      score: row.startRankScore,
-    },
-    current: {
-      tier: row.currentTier,
-      division: row.currentDivision,
-      lp: row.currentLp,
-      score: row.currentRankScore,
-    },
-    lpGain: row.currentRankScore - row.startRankScore,
-    record: {
-      wins: eventWins,
-      losses: eventLosses,
-      games: eventWins + eventLosses,
-    },
-    rankMovement: previousMovement,
-    recentMatches,
-    lastUpdated: row.lastUpdated,
-    error: row.lastError,
   };
 }
-export async function loadLeaderboardFromDatabase(): Promise<void> {
-  const previousEventId = displayEvent?.id ?? null;
-
-  const previousLeaderboard = sortLeaderboardPlayers([...leaderboardCache.values()]);
-
-  const previousPositions = new Map<number, number>(
-    previousLeaderboard.map((player, index) => [player.player.id, index + 1]),
-  );
-
-  displayEvent = await getDisplayEvent();
-
-  if (!displayEvent) {
-    totalEventPlayers = 0;
-    leaderboardCache.clear();
-    eventStatsCache.clear();
-    return;
-  }
-
-  const eventChanged = previousEventId !== null && previousEventId !== displayEvent.id;
-
-  const rows = await getEventLeaderboardPlayers(displayEvent.id);
-
-  totalEventPlayers = rows.length;
-  eventStatsCache.clear();
-
-  const nextCache = new Map<number, LeaderboardPlayer>();
-
-  for (const row of rows) {
-    const player = await buildLeaderboardPlayer(row);
-    nextCache.set(row.playerId, player);
-  }
-
-  const nextLeaderboard = sortLeaderboardPlayers([...nextCache.values()]);
-
+function getLeaderboardPositions(players: LeaderboardPlayer[]): Map<number, number> {
+  return new Map(players.map((player, index) => [player.player.id, index + 1]));
+}
+function applyRankMovement(
+  previousPositions: Map<number, number>,
+  players: LeaderboardPlayer[],
+  resetMovement = false,
+): void {
   const changedAt = new Date().toISOString();
-
-  for (const [index, player] of nextLeaderboard.entries()) {
+  for (const [index, player] of players.entries()) {
     const nextPosition = index + 1;
     const previousPosition = previousPositions.get(player.player.id);
-    if (eventChanged || previousPosition === undefined) {
+    if (resetMovement || previousPosition === undefined) {
       player.rankMovement = {
         delta: 0,
         changedAt: null,
       };
-
       continue;
     }
     const delta = previousPosition - nextPosition;
@@ -223,10 +207,63 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
       };
     }
   }
+}
+export async function loadLeaderboardFromDatabase(): Promise<void> {
+  const previousEventId = displayEvent?.id ?? null;
+  const previousLeaderboard = sortLeaderboardPlayers([...leaderboardCache.values()]);
+  const previousPositions = getLeaderboardPositions(previousLeaderboard);
+  const nextDisplayEvent = await getDisplayEvent();
+  if (!nextDisplayEvent) {
+    displayEvent = null;
+    totalEventPlayers = 0;
+    leaderboardCache.clear();
+    eventStatsCache.clear();
+    return;
+  }
+  const eventChanged = previousEventId !== null && previousEventId !== nextDisplayEvent.id;
+  const rows = await getEventLeaderboardPlayers(nextDisplayEvent.id);
+  const nextCache = new Map<number, LeaderboardPlayer>();
+  const nextStatsCache = new Map<number, EventPlayerStats>();
+  for (const row of rows) {
+    const built = await buildLeaderboardPlayer(row);
+    nextCache.set(row.playerId, built.player);
+    nextStatsCache.set(row.playerId, built.stats);
+  }
+  const nextLeaderboard = sortLeaderboardPlayers([...nextCache.values()]);
+  applyRankMovement(previousPositions, nextLeaderboard, eventChanged);
+  displayEvent = nextDisplayEvent;
+  totalEventPlayers = rows.length;
   leaderboardCache.clear();
   for (const [playerId, player] of nextCache) {
     leaderboardCache.set(playerId, player);
   }
+  eventStatsCache.clear();
+  for (const [playerId, stats] of nextStatsCache) {
+    eventStatsCache.set(playerId, stats);
+  }
+}
+export async function refreshLeaderboardPlayer(eventId: number, playerId: number): Promise<void> {
+  if (!displayEvent || displayEvent.id !== eventId || !leaderboardCache.has(playerId)) {
+    await loadLeaderboardFromDatabase();
+    return;
+  }
+  const row = await getEventLeaderboardPlayer(eventId, playerId);
+  if (!row) {
+    await loadLeaderboardFromDatabase();
+    return;
+  }
+  const previousLeaderboard = sortLeaderboardPlayers([...leaderboardCache.values()]);
+  const previousPositions = getLeaderboardPositions(previousLeaderboard);
+  const built = await buildLeaderboardPlayer(row);
+  const nextCache = new Map(leaderboardCache);
+  nextCache.set(playerId, built.player);
+  const nextLeaderboard = sortLeaderboardPlayers([...nextCache.values()]);
+  applyRankMovement(previousPositions, nextLeaderboard);
+  leaderboardCache.clear();
+  for (const [cachedPlayerId, player] of nextCache) {
+    leaderboardCache.set(cachedPlayerId, player);
+  }
+  eventStatsCache.set(playerId, built.stats);
 }
 function sortLeaderboardPlayers(players: LeaderboardPlayer[]): LeaderboardPlayer[] {
   return players.sort((a, b) => {
@@ -239,7 +276,6 @@ function sortLeaderboardPlayers(players: LeaderboardPlayer[]): LeaderboardPlayer
     return a.player.gameName.localeCompare(b.player.gameName);
   });
 }
-
 export function getLeaderboard(): LeaderboardPlayer[] {
   return sortLeaderboardPlayers([...leaderboardCache.values()]);
 }
@@ -286,11 +322,9 @@ export function getLeaderboardPlayer(playerId: number): LeaderboardPlayer | null
 }
 export function setLeaderboardPlayerError(playerId: number, error: string): void {
   const existing = leaderboardCache.get(playerId);
-
   if (!existing) {
     return;
   }
-
   leaderboardCache.set(playerId, {
     ...existing,
     error,

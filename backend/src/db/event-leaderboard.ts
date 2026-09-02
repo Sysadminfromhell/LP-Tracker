@@ -60,6 +60,7 @@ interface EventLeaderboardRow {
 }
 export async function getEventLeaderboardPlayers(
   eventId: number,
+  playerId: number | null = null,
 ): Promise<EventLeaderboardDbPlayer[]> {
   const result = await db.query<EventLeaderboardRow>(
     `
@@ -130,12 +131,17 @@ export async function getEventLeaderboardPlayers(
       ON p.id = ep.player_id
     LEFT JOIN player_cache pc
       ON pc.player_id = p.id
-    WHERE e.id = $1
+    WHERE
+      e.id = $1
+      AND (
+        $2::BIGINT IS NULL
+      OR p.id = $2
+      )
     ORDER BY
       LOWER(p.game_name),
       LOWER(p.tag_line)
     `,
-    [eventId],
+    [eventId, playerId],
   );
   return result.rows.map((row) => ({
     playerId: Number(row.player_id),
@@ -166,4 +172,11 @@ export async function getEventLeaderboardPlayers(
     lastUpdated: row.last_updated.toISOString(),
     lastError: row.last_error,
   }));
+}
+export async function getEventLeaderboardPlayer(
+  eventId: number,
+  playerId: number,
+): Promise<EventLeaderboardDbPlayer | null> {
+  const players = await getEventLeaderboardPlayers(eventId, playerId);
+  return players[0] ?? null;
 }
