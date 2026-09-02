@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { LogController } from 'fastify';
 import cookie from '@fastify/cookie';
 
 export function createApp() {
@@ -15,7 +15,9 @@ export function createApp() {
         },
       },
     },
-    disableRequestLogging: true,
+    logController: new LogController({
+      disableRequestLogging: true,
+    }),
   });
   app.register(cookie);
   app.addHook('onRequest', async (request, reply) => {
