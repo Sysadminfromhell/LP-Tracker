@@ -11,10 +11,19 @@ import { getLeagueDataProvider } from './league-data.service';
 import {
   getLeaderboardPlayer,
   loadLeaderboardFromDatabase,
+  refreshLeaderboardPlayer,
   setLeaderboardPlayerError,
 } from './leaderboard.service';
 
-export async function refreshPlayer(player: Player): Promise<boolean> {
+interface RefreshPlayerOptions {
+  updateLeaderboard?: boolean;
+}
+
+export async function refreshPlayer(
+  player: Player,
+  options: RefreshPlayerOptions = {},
+): Promise<boolean> {
+  const updateLeaderboard = options.updateLeaderboard ?? true;
   console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
   try {
     await markPlayerFetchAttempt(player.id);
@@ -51,6 +60,7 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
       seasonWins: solo.wins,
       seasonLosses: solo.losses,
     });
+    let refreshedEventId: number | null = null;
     const event = await getActiveEvent();
     if (event && event.startsAt) {
       const participant = await getEventParticipant(event.id, player.id);
@@ -62,6 +72,7 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
           recentMatches,
           rankScore,
         );
+        refreshedEventId = event.id;
         if (
           matchResult.newMatches > 0 ||
           matchResult.resolvedMatches > 0 ||
@@ -76,8 +87,14 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
         }
       }
     }
-    await loadLeaderboardFromDatabase();
-    const cached = getLeaderboardPlayer(player.id);
+    if (updateLeaderboard) {
+      if (refreshedEventId !== null) {
+        await refreshLeaderboardPlayer(refreshedEventId, player.id);
+      } else {
+        await loadLeaderboardFromDatabase();
+      }
+    }
+    const cached = updateLeaderboard ? getLeaderboardPlayer(player.id) : null;
     if (cached) {
       console.log(
         `[PLAYER REFRESH] ${player.gameName}#${player.tagLine}: ` +
@@ -105,7 +122,9 @@ export async function refreshPlayer(player: Player): Promise<boolean> {
 export async function refreshPlayersForSnapshot(players: Player[]): Promise<Player[]> {
   const failedPlayers: Player[] = [];
   for (const player of players) {
-    const refreshed = await refreshPlayer(player);
+    const refreshed = await refreshPlayer(player, {
+      updateLeaderboard: false,
+    });
     if (!refreshed) {
       failedPlayers.push(player);
     }
