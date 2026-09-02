@@ -1914,3 +1914,34 @@ a.social-link.twitch:hover {
   padding: 0 12px;
   white-space: nowrap;
 }
+.admin-account {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 3px;
+}
+.admin-account-label {
+  color: #555c71;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+.admin-account-identity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.admin-account-identity strong {
+  color: #dfe2eb;
+  font-size: 12px;
+  font-weight: 800;
+}
+.admin-account-locked {
+  padding: 3px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+  color: #666d82;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
