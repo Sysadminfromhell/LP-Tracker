@@ -11,12 +11,15 @@ import { startEventLifecycle, stopEventLifecycle } from './jobs/event-lifecycle'
 import { disconnectLeagueDataProvider } from './services/league-data.service';
 import { ensureInitialAdmin } from './db/admins';
 import { deleteAllAdminSessions } from './db/admin-sessions';
+import { liveUpdateRoutes } from './routes/live-update.routes';
+import { closeLiveUpdateClients } from './services/live-update.service';
 
 const fastify = createApp();
 fastify.register(adminAuthRoutes);
 fastify.register(adminEventRoutes);
 fastify.register(adminPlayerRoutes);
 fastify.register(publicRoutes);
+fastify.register(liveUpdateRoutes);
 
 async function main(): Promise<void> {
   console.log();
@@ -53,6 +56,7 @@ async function shutdown(): Promise<void> {
   console.log('[APP] Shutting down...');
   stopRefreshScheduler();
   stopEventLifecycle();
+  closeLiveUpdateClients();
   await disconnectLeagueDataProvider();
   await fastify.close().catch(() => {});
   await closeDatabase().catch(() => {});
