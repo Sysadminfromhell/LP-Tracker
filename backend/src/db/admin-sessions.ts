@@ -130,3 +130,11 @@ export async function deleteExpiredAdminSessions(): Promise<number> {
 
   return result.rowCount ?? 0;
 }
+export async function deleteAllAdminSessions(): Promise<number> {
+  const result = await db.query(
+    `
+    DELETE FROM admin_sessions
+    `,
+  );
+  return result.rowCount ?? 0;
+}
