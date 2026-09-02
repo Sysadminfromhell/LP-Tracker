@@ -1,0 +1,14 @@
+when:
+  - event: pull_request
+  - event: push
+    branch: main
+  - event: manual
+
+steps:
+  - name: backend-tests
+    image: node:26-alpine
+    commands:
+      - npm ci --prefix backend
+      - npm --prefix backend run test
+      - npm --prefix backend run typecheck
+      - npm --prefix backend run build
