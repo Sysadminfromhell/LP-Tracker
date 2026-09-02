@@ -502,7 +502,12 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
     `
     SELECT id
     FROM events
-    WHERE status IN ('draft', 'active', 'ended')
+    WHERE
+      status IN ('active', 'ended')
+      OR (
+        status = 'draft'
+        AND ends_at > NOW()
+      )
     ORDER BY
       CASE
         WHEN status = 'active' THEN 0
