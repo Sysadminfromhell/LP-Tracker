@@ -356,9 +356,10 @@ export async function getDueScheduledEvent(): Promise<AdminEvent | null> {
     LEFT JOIN event_participants ep
       ON ep.event_id = e.id
     WHERE
-      e.status = 'draft'
-      AND e.starts_at <= NOW()
-      AND e.ends_at > NOW()
+      id = $1
+      AND status = 'draft'
+      AND starts_at <= NOW()
+      AND ends_at > NOW()
     GROUP BY e.id
     ORDER BY e.starts_at ASC
     LIMIT 1
@@ -395,6 +396,7 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
         id = $1
         AND status = 'draft'
         AND starts_at <= NOW()
+        AND ends_at > NOW()
       LIMIT 1
       FOR UPDATE
       `,

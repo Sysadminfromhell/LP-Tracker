@@ -323,6 +323,11 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Only active events can be ended',
       });
     }
+    if (isOperationBusy()) {
+      return reply.code(409).send({
+        error: 'A player refresh or event transition is currently in progress',
+      });
+    }
     setRefreshInProgress(true);
     try {
       const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
