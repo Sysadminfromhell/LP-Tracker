@@ -340,12 +340,19 @@ function LeaderboardPage() {
     const initialTimer = window.setTimeout(() => {
       void loadLeaderboard();
     }, 0);
-    const timer = window.setInterval(() => {
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('leaderboard', () => {
       void loadLeaderboard();
-    }, 10_000);
+    });
+    eventSource.onopen = () => {
+      void loadLeaderboard();
+    };
+    eventSource.onerror = () => {
+      console.warn('Leaderboard live update connection lost; reconnecting...');
+    };
     return () => {
       window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
+      eventSource.close();
     };
   }, []);
   useEffect(() => {
