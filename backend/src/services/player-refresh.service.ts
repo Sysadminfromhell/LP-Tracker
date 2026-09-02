@@ -14,10 +14,13 @@ import {
   refreshLeaderboardPlayer,
   setLeaderboardPlayerError,
 } from './leaderboard.service';
+import { withTimeout } from '../utils/with-timeout';
 
 interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
 }
+
+const PROVIDER_REQUEST_TIMEOUT_MS = 15_000;
 
 export async function refreshPlayer(
   player: Player,
@@ -28,16 +31,15 @@ export async function refreshPlayer(
   try {
     await markPlayerFetchAttempt(player.id);
     const provider = await getLeagueDataProvider();
-    const profile = await provider.getSummonerProfile(
-      player.gameName,
-      player.tagLine,
-      player.region,
+    const profile = await withTimeout(
+      provider.getSummonerProfile(player.gameName, player.tagLine, player.region),
+      PROVIDER_REQUEST_TIMEOUT_MS,
+      `Provider profile request timed out after ${PROVIDER_REQUEST_TIMEOUT_MS}ms`,
     );
-    const recentMatches = await provider.getRecentMatches(
-      player.gameName,
-      player.tagLine,
-      player.region,
-      20,
+    const recentMatches = await withTimeout(
+      provider.getRecentMatches(player.gameName, player.tagLine, player.region, 20),
+      PROVIDER_REQUEST_TIMEOUT_MS,
+      `Provider match request timed out after ${PROVIDER_REQUEST_TIMEOUT_MS}ms`,
     );
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
