@@ -233,6 +233,38 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
   }
   broadcastLiveUpdate('leaderboard');
 }
+function hasLeaderboardPlayerChanged(
+  previousPlayer: LeaderboardPlayer,
+  nextPlayer: LeaderboardPlayer,
+  previousStats: EventPlayerStats | undefined,
+  nextStats: EventPlayerStats,
+): boolean {
+  if (
+    previousPlayer.current.tier !== nextPlayer.current.tier ||
+    previousPlayer.current.division !== nextPlayer.current.division ||
+    previousPlayer.current.lp !== nextPlayer.current.lp ||
+    previousPlayer.current.score !== nextPlayer.current.score ||
+    previousPlayer.lpGain !== nextPlayer.lpGain ||
+    previousPlayer.record.wins !== nextPlayer.record.wins ||
+    previousPlayer.record.losses !== nextPlayer.record.losses ||
+    previousPlayer.record.games !== nextPlayer.record.games ||
+    previousPlayer.error !== nextPlayer.error
+  ) {
+    return true;
+  }
+  if (
+    !previousStats ||
+    previousStats.games !== nextStats.games ||
+    previousStats.kills !== nextStats.kills ||
+    previousStats.deaths !== nextStats.deaths ||
+    previousStats.assists !== nextStats.assists ||
+    previousStats.kda !== nextStats.kda ||
+    previousStats.longestWinStreak !== nextStats.longestWinStreak
+  ) {
+    return true;
+  }
+  return JSON.stringify(previousPlayer.recentMatches) !== JSON.stringify(nextPlayer.recentMatches);
+}
 export async function refreshLeaderboardPlayer(eventId: number, playerId: number): Promise<void> {
   if (!displayEvent || displayEvent.id !== eventId || !leaderboardCache.has(playerId)) {
     await loadLeaderboardFromDatabase();
@@ -245,7 +277,12 @@ export async function refreshLeaderboardPlayer(eventId: number, playerId: number
   }
   const previousLeaderboard = sortLeaderboardPlayers([...leaderboardCache.values()]);
   const previousPositions = getLeaderboardPositions(previousLeaderboard);
+  const previousPlayer = leaderboardCache.get(playerId);
+  const previousStats = eventStatsCache.get(playerId);
   const built = await buildLeaderboardPlayer(row);
+  const changed =
+    !previousPlayer ||
+    hasLeaderboardPlayerChanged(previousPlayer, built.player, previousStats, built.stats);
   const nextCache = new Map(leaderboardCache);
   nextCache.set(playerId, built.player);
   const nextLeaderboard = sortLeaderboardPlayers([...nextCache.values()]);
@@ -255,7 +292,9 @@ export async function refreshLeaderboardPlayer(eventId: number, playerId: number
     leaderboardCache.set(cachedPlayerId, player);
   }
   eventStatsCache.set(playerId, built.stats);
-  broadcastLiveUpdate('leaderboard');
+  if (changed) {
+    broadcastLiveUpdate('leaderboard');
+  }
 }
 function sortLeaderboardPlayers(players: LeaderboardPlayer[]): LeaderboardPlayer[] {
   return players.sort((a, b) => {
