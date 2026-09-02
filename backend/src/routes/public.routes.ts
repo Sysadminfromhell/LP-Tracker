@@ -1,12 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { getPlayers } from '../db/players';
-import { getLeaderboard, getLeaderboardMeta } from '../services/leaderboard.service';
+import {
+  getLeaderboard,
+  getLeaderboardHighlights,
+  getLeaderboardMeta,
+} from '../services/leaderboard.service';
 import { isLeagueDataProviderConnected } from '../services/league-data.service';
 import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/leaderboard', async () => {
     const leaderboard = getLeaderboard();
+    const highlights = getLeaderboardHighlights();
     const { event, totalPlayers } = getLeaderboardMeta();
     const newestUpdate =
       leaderboard
@@ -25,6 +30,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       totalPlayers,
       loadedPlayers: leaderboard.length,
       lastUpdated: newestUpdate,
+      highlights,
       players: leaderboard,
     };
   });
