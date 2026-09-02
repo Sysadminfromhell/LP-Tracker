@@ -35,6 +35,15 @@ export async function getLeagueDataProvider(): Promise<LeagueDataProvider> {
 export function isLeagueDataProviderConnected(): boolean {
   return providerConnected;
 }
+export function getLeagueDataProviderStatus(): {
+  name: string | null;
+  connected: boolean;
+} {
+  return {
+    name: provider?.name ?? null,
+    connected: providerConnected,
+  };
+}
 export async function disconnectLeagueDataProvider(): Promise<void> {
   if (!provider) {
     return;

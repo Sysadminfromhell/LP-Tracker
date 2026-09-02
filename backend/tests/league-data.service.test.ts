@@ -27,12 +27,26 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
 });
+
 describe('league data service', () => {
+  it('reports disconnected provider status initially', async () => {
+    const service = await loadService();
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
+    expect(service.isLeagueDataProviderConnected()).toBe(false);
+    expect(mocks.createLeagueDataProvider).not.toHaveBeenCalled();
+  });
   it('connects and caches the selected provider', async () => {
     const provider = createProvider('opgg');
     mocks.createLeagueDataProvider.mockReturnValue(provider);
     const service = await loadService();
     expect(service.isLeagueDataProviderConnected()).toBe(false);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
     const first = await service.getLeagueDataProvider();
     const second = await service.getLeagueDataProvider();
     expect(first).toBe(provider);
@@ -40,6 +54,10 @@ describe('league data service', () => {
     expect(mocks.createLeagueDataProvider).toHaveBeenCalledTimes(1);
     expect(provider.connect).toHaveBeenCalledTimes(1);
     expect(service.isLeagueDataProviderConnected()).toBe(true);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'opgg',
+      connected: true,
+    });
   });
   it('shares one connection attempt between concurrent callers', async () => {
     let resolveConnect: (() => void) | undefined;
@@ -54,11 +72,19 @@ describe('league data service', () => {
     const secondPromise = service.getLeagueDataProvider();
     expect(mocks.createLeagueDataProvider).toHaveBeenCalledTimes(1);
     expect(provider.connect).toHaveBeenCalledTimes(1);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
     resolveConnect?.();
     const [first, second] = await Promise.all([firstPromise, secondPromise]);
     expect(first).toBe(provider);
     expect(second).toBe(provider);
     expect(service.isLeagueDataProviderConnected()).toBe(true);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'opgg',
+      connected: true,
+    });
   });
   it('cleans up after a failed connection and allows retrying', async () => {
     const failedProvider = createProvider('broken');
@@ -71,11 +97,19 @@ describe('league data service', () => {
     await expect(service.getLeagueDataProvider()).rejects.toThrow('Provider exploded');
     expect(failedProvider.disconnect).toHaveBeenCalledTimes(1);
     expect(service.isLeagueDataProviderConnected()).toBe(false);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
     const provider = await service.getLeagueDataProvider();
     expect(provider).toBe(workingProvider);
     expect(mocks.createLeagueDataProvider).toHaveBeenCalledTimes(2);
     expect(workingProvider.connect).toHaveBeenCalledTimes(1);
     expect(service.isLeagueDataProviderConnected()).toBe(true);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'working',
+      connected: true,
+    });
   });
   it('disconnects and clears the active provider', async () => {
     const provider = createProvider('opgg');
@@ -83,9 +117,17 @@ describe('league data service', () => {
     const service = await loadService();
     await service.getLeagueDataProvider();
     expect(service.isLeagueDataProviderConnected()).toBe(true);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'opgg',
+      connected: true,
+    });
     await service.disconnectLeagueDataProvider();
     expect(provider.disconnect).toHaveBeenCalledTimes(1);
     expect(service.isLeagueDataProviderConnected()).toBe(false);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
   });
   it('creates a new provider after disconnecting', async () => {
     const firstProvider = createProvider('first');
@@ -96,12 +138,24 @@ describe('league data service', () => {
     const service = await loadService();
     const first = await service.getLeagueDataProvider();
     expect(first).toBe(firstProvider);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'first',
+      connected: true,
+    });
     await service.disconnectLeagueDataProvider();
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
     const second = await service.getLeagueDataProvider();
     expect(second).toBe(secondProvider);
     expect(mocks.createLeagueDataProvider).toHaveBeenCalledTimes(2);
     expect(firstProvider.disconnect).toHaveBeenCalledTimes(1);
     expect(secondProvider.connect).toHaveBeenCalledTimes(1);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'second',
+      connected: true,
+    });
   });
   it('swallows provider disconnect errors and still resets state', async () => {
     const provider = createProvider('broken-disconnect');
@@ -109,13 +163,25 @@ describe('league data service', () => {
     mocks.createLeagueDataProvider.mockReturnValue(provider);
     const service = await loadService();
     await service.getLeagueDataProvider();
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: 'broken-disconnect',
+      connected: true,
+    });
     await expect(service.disconnectLeagueDataProvider()).resolves.toBeUndefined();
     expect(service.isLeagueDataProviderConnected()).toBe(false);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
   });
   it('does nothing when disconnecting without an active provider', async () => {
     const service = await loadService();
     await expect(service.disconnectLeagueDataProvider()).resolves.toBeUndefined();
     expect(mocks.createLeagueDataProvider).not.toHaveBeenCalled();
     expect(service.isLeagueDataProviderConnected()).toBe(false);
+    expect(service.getLeagueDataProviderStatus()).toEqual({
+      name: null,
+      connected: false,
+    });
   });
 });

@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   getLeaderboard: vi.fn(),
   getLeaderboardHighlights: vi.fn(),
   getLeaderboardMeta: vi.fn(),
-  isLeagueDataProviderConnected: vi.fn(),
+  getLeagueDataProviderStatus: vi.fn(),
   getRefreshSchedulerStatus: vi.fn(),
 }));
 
@@ -19,7 +19,7 @@ vi.mock('../src/services/leaderboard.service', () => ({
   getLeaderboardMeta: mocks.getLeaderboardMeta,
 }));
 vi.mock('../src/services/league-data.service', () => ({
-  isLeagueDataProviderConnected: mocks.isLeagueDataProviderConnected,
+  getLeagueDataProviderStatus: mocks.getLeagueDataProviderStatus,
 }));
 vi.mock('../src/jobs/refresh-scheduler', () => ({
   getRefreshSchedulerStatus: mocks.getRefreshSchedulerStatus,
@@ -112,7 +112,10 @@ beforeEach(() => {
     cachedPlayers: 0,
   });
   mocks.getPlayers.mockResolvedValue([]);
-  mocks.isLeagueDataProviderConnected.mockReturnValue(false);
+  mocks.getLeagueDataProviderStatus.mockReturnValue({
+    name: 'opgg',
+    connected: false,
+  });
   mocks.getRefreshSchedulerStatus.mockReturnValue({
     running: true,
     intervalMs: 60_000,
@@ -237,7 +240,10 @@ describe('public routes', () => {
       totalPlayers: 7,
       cachedPlayers: 5,
     });
-    mocks.isLeagueDataProviderConnected.mockReturnValue(true);
+    mocks.getLeagueDataProviderStatus.mockReturnValue({
+      name: 'riot',
+      connected: true,
+    });
     mocks.getRefreshSchedulerStatus.mockReturnValue({
       running: true,
       intervalMs: 30_000,
@@ -255,7 +261,8 @@ describe('public routes', () => {
         database: {
           connected: true,
         },
-        opgg: {
+        provider: {
+          name: 'riot',
           connected: true,
         },
         event: {
