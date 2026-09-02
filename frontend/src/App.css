@@ -321,6 +321,12 @@ h1 {
   flex-direction: column;
   gap: 2px;
 }
+.player-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
 .rank-movement {
   font-size: 8px;
   font-weight: 850;
