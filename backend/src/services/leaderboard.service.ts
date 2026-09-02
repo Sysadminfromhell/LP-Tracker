@@ -9,6 +9,7 @@ import {
   getEventLeaderboardPlayers,
   type EventLeaderboardDbPlayer,
 } from '../db/event-leaderboard';
+import { broadcastLiveUpdate } from './live-update.service';
 
 interface ApiEventMatch {
   id: string;
@@ -206,6 +207,7 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
     totalEventPlayers = 0;
     leaderboardCache.clear();
     eventStatsCache.clear();
+    broadcastLiveUpdate('leaderboard');
     return;
   }
   const eventChanged = previousEventId !== null && previousEventId !== nextDisplayEvent.id;
@@ -229,6 +231,7 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
   for (const [playerId, stats] of nextStatsCache) {
     eventStatsCache.set(playerId, stats);
   }
+  broadcastLiveUpdate('leaderboard');
 }
 export async function refreshLeaderboardPlayer(eventId: number, playerId: number): Promise<void> {
   if (!displayEvent || displayEvent.id !== eventId || !leaderboardCache.has(playerId)) {
@@ -252,6 +255,7 @@ export async function refreshLeaderboardPlayer(eventId: number, playerId: number
     leaderboardCache.set(cachedPlayerId, player);
   }
   eventStatsCache.set(playerId, built.stats);
+  broadcastLiveUpdate('leaderboard');
 }
 function sortLeaderboardPlayers(players: LeaderboardPlayer[]): LeaderboardPlayer[] {
   return players.sort((a, b) => {
