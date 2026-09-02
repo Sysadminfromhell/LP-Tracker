@@ -49,6 +49,13 @@ export interface DbEventMatch {
   discoveredAt: string;
   updatedAt: string;
 }
+export interface DbEventMatchStats {
+  games: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  longestWinStreak: number;
+}
 /*
  * ------------------------------------------------------------
  * DB rows
@@ -102,6 +109,13 @@ interface EventMatchRow {
   lp_delta_status: 'pending' | 'resolved' | 'unknown';
   discovered_at: Date;
   updated_at: Date;
+}
+interface EventMatchStatsRow {
+  games: string;
+  kills: string;
+  deaths: string;
+  assists: string;
+  longest_win_streak: string;
 }
 /*
  * ------------------------------------------------------------
@@ -369,6 +383,75 @@ export async function getEventMatches(eventParticipantId: number): Promise<DbEve
     [eventParticipantId],
   );
   return result.rows.map(mapMatch);
+}
+export async function getEventMatchStats(eventParticipantId: number): Promise<DbEventMatchStats> {
+  const result = await db.query<EventMatchStatsRow>(
+    `
+      WITH participant_matches AS MATERIALIZED (
+        SELECT
+          id,
+          game_created_at,
+          kills,
+          deaths,
+          assists,
+          result
+        FROM event_matches
+        WHERE event_participant_id = $1
+      ),
+      totals AS (
+        SELECT
+          COUNT(*) AS games,
+          COALESCE(SUM(kills), 0) AS kills,
+          COALESCE(SUM(deaths), 0) AS deaths,
+          COALESCE(SUM(assists), 0) AS assists
+        FROM participant_matches
+      ),
+      streak_groups AS (
+        SELECT
+          result,
+          SUM(
+            CASE
+              WHEN result = 'LOSE' THEN 1
+              ELSE 0
+            END
+          ) OVER (
+            ORDER BY
+              game_created_at ASC,
+              id ASC
+          ) AS loss_group
+        FROM participant_matches
+      ),
+      win_streaks AS (
+        SELECT
+          COUNT(*) AS streak
+        FROM streak_groups
+        WHERE result = 'WIN'
+        GROUP BY loss_group
+      )
+      SELECT
+        totals.games,
+        totals.kills,
+        totals.deaths,
+        totals.assists,
+        COALESCE(
+          (
+            SELECT MAX(streak)
+            FROM win_streaks
+          ),
+          0
+        ) AS longest_win_streak
+      FROM totals
+      `,
+    [eventParticipantId],
+  );
+  const row = result.rows[0];
+  return {
+    games: Number(row.games),
+    kills: Number(row.kills),
+    deaths: Number(row.deaths),
+    assists: Number(row.assists),
+    longestWinStreak: Number(row.longest_win_streak),
+  };
 }
 export interface CreateEventMatchInput {
   eventParticipantId: number;
