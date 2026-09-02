@@ -1,4 +1,9 @@
-import { getDisplayEvent, getEventMatches, type DbEvent, type DbEventMatch } from '../db/events';
+import {
+  getDisplayEvent,
+  getEventMatchStats,
+  getRecentEventMatches,
+  type DbEvent,
+} from '../db/events';
 import {
   getEventLeaderboardPlayer,
   getEventLeaderboardPlayers,
@@ -86,42 +91,25 @@ const leaderboardCache = new Map<number, LeaderboardPlayer>();
 const eventStatsCache = new Map<number, EventPlayerStats>();
 let displayEvent: DbEvent | null = null;
 let totalEventPlayers = 0;
-function calculateEventStats(matches: DbEventMatch[]): EventPlayerStats {
-  let kills = 0;
-  let deaths = 0;
-  let assists = 0;
-  let currentWinStreak = 0;
-  let longestWinStreak = 0;
-  const chronologicalMatches = [...matches].sort(
-    (a, b) => new Date(a.gameCreatedAt).getTime() - new Date(b.gameCreatedAt).getTime(),
-  );
-  for (const match of chronologicalMatches) {
-    kills += match.kills;
-    deaths += match.deaths;
-    assists += match.assists;
-    if (match.result === 'WIN') {
-      currentWinStreak += 1;
-      longestWinStreak = Math.max(longestWinStreak, currentWinStreak);
-    } else {
-      currentWinStreak = 0;
-    }
-  }
-  const kda = matches.length === 0 ? 0 : (kills + assists) / Math.max(1, deaths);
-  return {
-    games: matches.length,
-    kills,
-    deaths,
-    assists,
-    kda: Math.round(kda * 100) / 100,
-    longestWinStreak,
-  };
-}
 async function buildLeaderboardPlayer(
   row: EventLeaderboardDbPlayer,
 ): Promise<BuiltLeaderboardPlayer> {
-  const matches = await getEventMatches(row.eventParticipantId);
-  const stats = calculateEventStats(matches);
-  const recentMatchesSource = matches.slice(0, 3);
+  const [matchStats, recentMatchesSource] = await Promise.all([
+    getEventMatchStats(row.eventParticipantId),
+    getRecentEventMatches(row.eventParticipantId, 3),
+  ]);
+  const kda =
+    matchStats.games === 0
+      ? 0
+      : (matchStats.kills + matchStats.assists) / Math.max(1, matchStats.deaths);
+  const stats: EventPlayerStats = {
+    games: matchStats.games,
+    kills: matchStats.kills,
+    deaths: matchStats.deaths,
+    assists: matchStats.assists,
+    kda: Math.round(kda * 100) / 100,
+    longestWinStreak: matchStats.longestWinStreak,
+  };
   const previousMovement = leaderboardCache.get(row.playerId)?.rankMovement ?? {
     delta: 0,
     changedAt: null,
