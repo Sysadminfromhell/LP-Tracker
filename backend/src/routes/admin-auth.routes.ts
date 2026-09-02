@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { authenticateAdmin } from '../db/admins';
 import { createAdminSession, deleteAdminSession } from '../db/admin-sessions';
-import { ADMIN_COOKIE_NAME, requireAdmin } from '../auth/admin-auth';
+import { ADMIN_COOKIE_NAME, getAdminCookieOptions, requireAdmin } from '../auth/admin-auth';
 
 export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
   await app.register(rateLimit, {
@@ -39,10 +39,7 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       }
       const session = await createAdminSession(admin.id);
       reply.setCookie(ADMIN_COOKIE_NAME, session.token, {
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        ...getAdminCookieOptions(),
         expires: new Date(session.expiresAt),
       });
       return {
@@ -59,9 +56,7 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
     if (token) {
       await deleteAdminSession(token).catch(() => {});
     }
-    reply.clearCookie(ADMIN_COOKIE_NAME, {
-      path: '/',
-    });
+    reply.clearCookie(ADMIN_COOKIE_NAME, getAdminCookieOptions());
     return {
       ok: true,
     };

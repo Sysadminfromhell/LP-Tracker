@@ -10,7 +10,7 @@ import { startRefreshScheduler, stopRefreshScheduler } from './jobs/refresh-sche
 import { startEventLifecycle, stopEventLifecycle } from './jobs/event-lifecycle';
 import { disconnectLeagueDataProvider } from './services/league-data.service';
 import { ensureInitialAdmin } from './db/admins';
-import { deleteExpiredAdminSessions } from './db/admin-sessions';
+import { deleteAllAdminSessions } from './db/admin-sessions';
 
 const fastify = createApp();
 fastify.register(adminAuthRoutes);
@@ -26,10 +26,8 @@ async function main(): Promise<void> {
   await testDatabaseConnection();
   await runMigrations();
   await ensureInitialAdmin();
-  const deletedSessions = await deleteExpiredAdminSessions();
-  if (deletedSessions > 0) {
-    console.log(`[ADMIN] Removed ${deletedSessions} expired session(s)`);
-  }
+  const invalidatedSessions = await deleteAllAdminSessions();
+  console.log(`[ADMIN] Invalidated ${invalidatedSessions} existing admin session(s)`);
   console.log('[CACHE] Loading persistent leaderboard...');
   await loadLeaderboardFromDatabase();
   const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
