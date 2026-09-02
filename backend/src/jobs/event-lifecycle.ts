@@ -32,35 +32,6 @@ async function eventLifecycleTick(): Promise<void> {
   }
   setLifecycleInProgress(true);
   try {
-    const scheduledEvent = await getDueScheduledEvent();
-    if (scheduledEvent) {
-      console.log(`[EVENT] Scheduled event "${scheduledEvent.name}" reached its start time`);
-      const players = await getPlayers(true);
-      if (players.length === 0) {
-        console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no enabled players`);
-        return;
-      }
-      setRefreshInProgress(true);
-      try {
-        const failedPlayers = await refreshPlayersForSnapshot(players);
-        if (failedPlayers.length > 0) {
-          console.error(
-            `[EVENT] Cannot start "${scheduledEvent.name}": ` +
-              `${failedPlayers.length} player refresh(es) failed`,
-          );
-
-          return;
-        }
-        const activatedEvent = await activateScheduledEvent(scheduledEvent.id);
-        await loadLeaderboardFromDatabase();
-        console.log(
-          `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
-            `${activatedEvent.participantCount} participant(s)`,
-        );
-      } finally {
-        setRefreshInProgress(false);
-      }
-    }
     const activeEvent = await getActiveEvent();
     if (activeEvent && activeEvent.endsAt && new Date(activeEvent.endsAt).getTime() <= Date.now()) {
       console.log(`[EVENT] "${activeEvent.name}" reached its scheduled end time`);
@@ -89,6 +60,34 @@ async function eventLifecycleTick(): Promise<void> {
         console.log(
           `[EVENT] "${endedEvent.name}" is now ENDED with ` +
             `${endedEvent.participantCount} participant(s)`,
+        );
+      } finally {
+        setRefreshInProgress(false);
+      }
+    }
+    const scheduledEvent = await getDueScheduledEvent();
+    if (scheduledEvent) {
+      console.log(`[EVENT] Scheduled event "${scheduledEvent.name}" reached its start time`);
+      const players = await getPlayers(true);
+      if (players.length === 0) {
+        console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no enabled players`);
+        return;
+      }
+      setRefreshInProgress(true);
+      try {
+        const failedPlayers = await refreshPlayersForSnapshot(players);
+        if (failedPlayers.length > 0) {
+          console.error(
+            `[EVENT] Cannot start "${scheduledEvent.name}": ` +
+              `${failedPlayers.length} player refresh(es) failed`,
+          );
+          return;
+        }
+        const activatedEvent = await activateScheduledEvent(scheduledEvent.id);
+        await loadLeaderboardFromDatabase();
+        console.log(
+          `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
+            `${activatedEvent.participantCount} participant(s)`,
         );
       } finally {
         setRefreshInProgress(false);
