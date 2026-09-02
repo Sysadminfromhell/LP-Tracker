@@ -167,4 +167,25 @@ describe('event lifecycle reliability', () => {
       expect.stringContaining('1 player refresh(es) failed'),
     );
   });
+  it('keeps an existing active event running after a restart', async () => {
+    const runningEvent: DbEvent = {
+      ...expiredActiveEvent,
+      endsAt: '2026-09-02T22:00:00.000Z',
+    };
+
+    mocks.getActiveEvent.mockResolvedValue(runningEvent);
+    mocks.getDueScheduledEvent.mockResolvedValue(null);
+
+    startEventLifecycle();
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(mocks.getActiveEvent).toHaveBeenCalledTimes(1);
+
+    expect(mocks.endAdminEvent).not.toHaveBeenCalled();
+    expect(mocks.activateScheduledEvent).not.toHaveBeenCalled();
+
+    expect(mocks.refreshPlayersForSnapshot).not.toHaveBeenCalled();
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+  });
 });
