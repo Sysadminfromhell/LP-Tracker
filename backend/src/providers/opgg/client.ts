@@ -1,7 +1,7 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { parseRecentMatches, parseSummonerProfile } from './parser';
-import type { SummonerMatch, SummonerProfile } from './types';
-import type { LeagueDataProvider } from '../providers/league-data.provider';
+import type { SummonerMatch, SummonerProfile } from '../league-data.types';
+import type { LeagueDataProvider } from '../league-data.provider';
 
 const MCP_URL = 'https://mcp-api.op.gg/mcp';
 

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { OpggClient } from '../opgg/client';
+import { OpggClient } from './opgg/client';
 import type { LeagueDataProvider } from './league-data.provider';
 
 const DEFAULT_PROVIDER = 'opgg';

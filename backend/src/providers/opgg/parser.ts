@@ -1,4 +1,9 @@
-import type { RankedLpHistoryEntry, RankedQueue, SummonerProfile, SummonerMatch } from './types';
+import type {
+  RankedLpHistoryEntry,
+  RankedQueue,
+  SummonerProfile,
+  SummonerMatch,
+} from '../league-data.types';
 
 function parseNullableString(value: string): string | null {
   if (value === 'null') {
