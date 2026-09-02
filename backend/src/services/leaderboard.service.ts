@@ -353,13 +353,14 @@ export function getLeaderboardPlayer(playerId: number): LeaderboardPlayer | null
 }
 export function setLeaderboardPlayerError(playerId: number, error: string): void {
   const existing = leaderboardCache.get(playerId);
-  if (!existing) {
+  if (!existing || existing.error === error) {
     return;
   }
   leaderboardCache.set(playerId, {
     ...existing,
     error,
   });
+  broadcastLiveUpdate('leaderboard');
 }
 export function getLeaderboardMeta(): {
   event: DbEvent | null;
