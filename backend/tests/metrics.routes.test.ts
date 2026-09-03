@@ -45,6 +45,8 @@ beforeEach(() => {
     playerRefreshAttempts: 25,
     playerRefreshSuccesses: 23,
     playerRefreshFailures: 2,
+    playerRefreshLastDurationSeconds: 3.25,
+    playerRefreshLastSuccessTimestampSeconds: 1_788_456_789,
     riotRequests: 150,
     riotRateLimitHits: 3,
     riotRetries: 2,
@@ -100,6 +102,10 @@ describe('metrics routes', () => {
     expect(response.body).toContain('lp_tracker_riot_retries_total 2');
     expect(response.body).toContain('lp_tracker_up 1');
     expect(response.body).toContain('lp_tracker_players_enabled 2');
+    expect(response.body).toContain('lp_tracker_player_refresh_last_duration_seconds 3.25');
+    expect(response.body).toContain(
+      'lp_tracker_player_refresh_last_success_timestamp_seconds 1788456789',
+    );
     expect(response.body).toContain('lp_tracker_players_event 2');
     expect(response.body).toContain('lp_tracker_players_cached 1');
     expect(response.body).toContain('lp_tracker_provider_connected{provider="riot"} 1');

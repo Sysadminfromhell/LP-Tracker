@@ -103,6 +103,15 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
       '# TYPE lp_tracker_riot_retries_total counter',
       `lp_tracker_riot_retries_total ${monitoring.riotRetries}`,
     );
+    lines.push(
+      '# HELP lp_tracker_player_refresh_last_duration_seconds Duration of the most recently completed player refresh.',
+      '# TYPE lp_tracker_player_refresh_last_duration_seconds gauge',
+      `lp_tracker_player_refresh_last_duration_seconds ${monitoring.playerRefreshLastDurationSeconds}`,
+
+      '# HELP lp_tracker_player_refresh_last_success_timestamp_seconds Unix timestamp of the most recent successful player refresh.',
+      '# TYPE lp_tracker_player_refresh_last_success_timestamp_seconds gauge',
+      `lp_tracker_player_refresh_last_success_timestamp_seconds ${monitoring.playerRefreshLastSuccessTimestampSeconds}`,
+    );
     if (rateLimit) {
       lines.push(
         '# HELP lp_tracker_riot_rate_limit Riot API application request limit.',

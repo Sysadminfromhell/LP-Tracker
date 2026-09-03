@@ -15,6 +15,8 @@ describe('monitoring state', () => {
       playerRefreshAttempts: 0,
       playerRefreshSuccesses: 0,
       playerRefreshFailures: 0,
+      playerRefreshLastDurationSeconds: 0,
+      playerRefreshLastSuccessTimestampSeconds: 0,
       riotRequests: 0,
       riotRateLimitHits: 0,
       riotRetries: 0,
@@ -46,11 +48,19 @@ describe('monitoring state', () => {
       riotRetries: 2,
     });
   });
-
   it('returns a snapshot instead of mutable internal state', async () => {
     const monitoring = await loadMonitoringState();
     const snapshot = monitoring.getMonitoringState();
     snapshot.playerRefreshAttempts = 999;
     expect(monitoring.getMonitoringState().playerRefreshAttempts).toBe(0);
+  });
+  it('tracks refresh duration and last success timestamp', async () => {
+    const monitoring = await loadMonitoringState();
+    monitoring.recordPlayerRefreshDuration(2.75);
+    monitoring.recordPlayerRefreshSuccessTimestamp(1_788_456_789);
+    expect(monitoring.getMonitoringState()).toMatchObject({
+      playerRefreshLastDurationSeconds: 2.75,
+      playerRefreshLastSuccessTimestampSeconds: 1_788_456_789,
+    });
   });
 });
