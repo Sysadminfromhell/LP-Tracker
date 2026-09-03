@@ -20,7 +20,9 @@ interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
 }
 
-const PROVIDER_REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_PROVIDER_REQUEST_TIMEOUT_MS = 15_000;
+const RIOT_PROFILE_REQUEST_TIMEOUT_MS = 60_000;
+const RIOT_MATCH_REQUEST_TIMEOUT_MS = 120_000;
 
 export async function refreshPlayer(
   player: Player,
@@ -31,15 +33,23 @@ export async function refreshPlayer(
   try {
     await markPlayerFetchAttempt(player.id);
     const provider = await getLeagueDataProvider();
+    const profileTimeoutMs =
+      provider.name === 'riot'
+        ? RIOT_PROFILE_REQUEST_TIMEOUT_MS
+        : DEFAULT_PROVIDER_REQUEST_TIMEOUT_MS;
+    const matchTimeoutMs =
+      provider.name === 'riot'
+        ? RIOT_MATCH_REQUEST_TIMEOUT_MS
+        : DEFAULT_PROVIDER_REQUEST_TIMEOUT_MS;
     const profile = await withTimeout(
       provider.getSummonerProfile(player.gameName, player.tagLine, player.region),
-      PROVIDER_REQUEST_TIMEOUT_MS,
-      `Provider profile request timed out after ${PROVIDER_REQUEST_TIMEOUT_MS}ms`,
+      profileTimeoutMs,
+      `Provider profile request timed out after ${profileTimeoutMs}ms`,
     );
     const recentMatches = await withTimeout(
       provider.getRecentMatches(player.gameName, player.tagLine, player.region, 20),
-      PROVIDER_REQUEST_TIMEOUT_MS,
-      `Provider match request timed out after ${PROVIDER_REQUEST_TIMEOUT_MS}ms`,
+      matchTimeoutMs,
+      `Provider match request timed out after ${matchTimeoutMs}ms`,
     );
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
