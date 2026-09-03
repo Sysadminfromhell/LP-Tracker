@@ -13,6 +13,7 @@ import { ensureInitialAdmin } from './db/admins';
 import { deleteAllAdminSessions } from './db/admin-sessions';
 import { liveUpdateRoutes } from './routes/live-update.routes';
 import { closeLiveUpdateClients } from './services/live-update.service';
+import { metricsRoutes } from './routes/metrics.routes';
 
 const fastify = createApp();
 fastify.register(adminAuthRoutes);
@@ -20,6 +21,7 @@ fastify.register(adminEventRoutes);
 fastify.register(adminPlayerRoutes);
 fastify.register(publicRoutes);
 fastify.register(liveUpdateRoutes);
+fastify.register(metricsRoutes);
 
 async function main(): Promise<void> {
   console.log();

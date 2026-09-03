@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RiotApiError, RiotClient } from '../src/providers/riot/client';
 import { RiotRateLimiter } from '../src/providers/riot/rate-limiter';
+import { getMonitoringState } from '../src/runtime/monitoring-state';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -354,6 +355,7 @@ describe('RiotClient', () => {
     warnSpy.mockRestore();
   });
   it('retries HTTP 429 responses after Retry-After', async () => {
+    const monitoringBefore = getMonitoringState();
     let now = 1_000;
     const sleep = vi.fn(async (milliseconds: number) => {
       now += milliseconds;
@@ -403,6 +405,10 @@ describe('RiotClient', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(7_000);
+    const monitoringAfter = getMonitoringState();
+    expect(monitoringAfter.riotRequests - monitoringBefore.riotRequests).toBe(2);
+    expect(monitoringAfter.riotRateLimitHits - monitoringBefore.riotRateLimitHits).toBe(1);
+    expect(monitoringAfter.riotRetries - monitoringBefore.riotRetries).toBe(1);
   });
   it('throws after the maximum number of Riot rate limit retries', async () => {
     let now = 1_000;

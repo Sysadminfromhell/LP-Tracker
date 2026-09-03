@@ -11,6 +11,11 @@ import type { LeagueDataProvider } from '../league-data.provider';
 import type { QueueType, RankedQueue, SummonerMatch, SummonerProfile } from '../league-data.types';
 import { parseRiotRateLimit, type RiotRateLimitStatus } from './rate-limit';
 import { RiotRateLimiter } from './rate-limiter';
+import {
+  recordRiotRateLimitHit,
+  recordRiotRequest,
+  recordRiotRetry,
+} from '../../runtime/monitoring-state';
 
 type RiotRegionalRoute = 'americas' | 'asia' | 'europe' | 'sea';
 
@@ -427,15 +432,16 @@ export class RiotClient implements LeagueDataProvider {
     return this.requestWithRetry<T>(route, path, 0);
   }
   private async requestWithRetry<T>(route: string, path: string, retryCount: number): Promise<T> {
-    const response = await this.rateLimiter.schedule(() =>
-      fetch(`https://${route}.api.riotgames.com${path}`, {
+    const response = await this.rateLimiter.schedule(() => {
+      recordRiotRequest();
+      return fetch(`https://${route}.api.riotgames.com${path}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
           'X-Riot-Token': this.requireApiKey(),
         },
-      }),
-    );
+      });
+    });
     this.captureRateLimitStatus(response.headers);
     if (response.ok) {
       return (await response.json()) as T;
@@ -443,7 +449,6 @@ export class RiotClient implements LeagueDataProvider {
     let message = `Riot API request failed with HTTP ${response.status}`;
     try {
       const body = (await response.json()) as RiotApiErrorResponse;
-
       if (body.status?.message) {
         message = body.status.message;
       }
@@ -453,6 +458,9 @@ export class RiotClient implements LeagueDataProvider {
     const retryAfterHeader = response.headers.get('retry-after');
     const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : Number.NaN;
     const retryAfterSeconds = Number.isFinite(retryAfter) ? retryAfter : null;
+    if (response.status === 429) {
+      recordRiotRateLimitHit();
+    }
     if (
       response.status === 429 &&
       retryAfterSeconds !== null &&
@@ -460,6 +468,7 @@ export class RiotClient implements LeagueDataProvider {
       retryCount < MAX_RATE_LIMIT_RETRIES
     ) {
       this.rateLimiter.blockFor(retryAfterSeconds);
+      recordRiotRetry();
       console.warn(
         `[RIOT] HTTP 429 rate limit reached. ` +
           `Retrying after ${retryAfterSeconds}s ` +

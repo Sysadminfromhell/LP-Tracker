@@ -15,6 +15,13 @@ import {
   setLeaderboardPlayerError,
 } from './leaderboard.service';
 import { withTimeout } from '../utils/with-timeout';
+import {
+  recordPlayerRefreshAttempt,
+  recordPlayerRefreshDuration,
+  recordPlayerRefreshFailure,
+  recordPlayerRefreshSuccess,
+  recordPlayerRefreshSuccessTimestamp,
+} from '../runtime/monitoring-state';
 
 interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
@@ -28,8 +35,10 @@ export async function refreshPlayer(
   player: Player,
   options: RefreshPlayerOptions = {},
 ): Promise<boolean> {
+  const startedAt = Date.now();
   const updateLeaderboard = options.updateLeaderboard ?? true;
   console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
+  recordPlayerRefreshAttempt();
   try {
     await markPlayerFetchAttempt(player.id);
     const provider = await getLeagueDataProvider();
@@ -120,9 +129,15 @@ export async function refreshPlayer(
     } else {
       console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine} updated ✓`);
     }
+    const completedAt = Date.now();
+    recordPlayerRefreshDuration((completedAt - startedAt) / 1000);
+    recordPlayerRefreshSuccessTimestamp(completedAt / 1000);
+    recordPlayerRefreshSuccess();
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    recordPlayerRefreshDuration((Date.now() - startedAt) / 1000);
+    recordPlayerRefreshFailure();
     console.error(`[REFRESH] ${player.gameName}#${player.tagLine} failed: ${message}`);
     await savePlayerCacheError(player.id, message).catch((dbError) => {
       console.error('[DB] Could not persist player refresh error:', dbError);
