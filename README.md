@@ -81,7 +81,7 @@ The frontend expects API requests under `/api`, so a reverse proxy or ingress la
 
 ---
 
-# Usage
+# Deployment
 
 ## Requirements
 
@@ -154,15 +154,25 @@ CI injects this automatically. Local builds fall back to `dev` when no commit SH
 
 ---
 
-#---
+# Configuration
 
-## Application
+## Environment file
 
-```env
-NODE_ENV=production
+An example backend configuration is provided in:
+
+```text
+backend/.env.example
 ```
 
-Use `production` for production deployments. Production mode enables production-specific request and cookie security behavior.
+For local development:
+```text
+cp backend/.env.example backend/.env
+```
+
+On Windows PowerShell:
+```text
+Copy-Item backend/.env.example backend/.env
+```
 
 ---
 
