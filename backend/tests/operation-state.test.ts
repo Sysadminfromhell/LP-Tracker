@@ -48,4 +48,18 @@ describe('operation state', () => {
     state.setLifecycleInProgress(false);
     expect(state.isOperationBusy()).toBe(false);
   });
+  it('exposes the individual operation states', async () => {
+    const state = await loadOperationState();
+    state.setRefreshInProgress(true);
+    expect(state.getOperationState()).toEqual({
+      refreshInProgress: true,
+      lifecycleInProgress: false,
+    });
+    state.setRefreshInProgress(false);
+    state.setLifecycleInProgress(true);
+    expect(state.getOperationState()).toEqual({
+      refreshInProgress: false,
+      lifecycleInProgress: true,
+    });
+  });
 });
