@@ -286,6 +286,10 @@ describe('public routes', () => {
       expect(mocks.getPlayers).toHaveBeenCalledWith(true);
       expect(response.json()).toEqual({
         status: 'ok',
+        build: {
+          version: '2.0.0',
+          gitHead: 'dev',
+        },
         database: {
           connected: true,
         },

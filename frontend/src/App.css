@@ -527,6 +527,41 @@ footer {
   font-size: 10px;
   text-align: center;
 }
+.build-info {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  opacity: 0.75;
+}
+.build-separator {
+  opacity: 0.55;
+}
+.github-build-link,
+.git-head-link {
+  color: inherit;
+  text-decoration: none;
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+.github-build-link {
+  display: inline-flex;
+  align-items: center;
+}
+.github-build-link svg {
+  width: 12px;
+  height: 12px;
+}
+.github-build-link:hover,
+.git-head-link:hover {
+  color: #f3f4f8;
+  opacity: 1;
+}
+.git-head-link {
+  font-family: monospace;
+}
 .status-screen {
   width: 100%;
   padding-top: 150px;

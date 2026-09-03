@@ -10,6 +10,7 @@ import {
   getLeagueDataProviderStatus,
 } from '../services/league-data.service';
 import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
+import { getBuildInfo } from '../runtime/build-info';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/leaderboard', async () => {
@@ -66,6 +67,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     const providerDiagnostics = getLeagueDataProviderDiagnostics();
     return {
       status: 'ok',
+      build: getBuildInfo(),
       database: {
         connected: true,
       },
