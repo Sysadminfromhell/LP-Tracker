@@ -590,3 +590,15 @@ Security issues and vulnerability reporting are documented in [SECURITY.md](SECU
 Project repository:
 
 https://github.com/Sysadminfromhell/LP-Tracker
+
+---
+
+# License
+
+Copyright (C) 2026 Sysadminfromhell.
+
+LP-Tracker is licensed under the [GNU Affero General Public License v3.0](LICENSE), version 3 only.
+
+You are free to use, modify and redistribute LP-Tracker under the terms of the AGPL-3.0.
+
+If you modify LP-Tracker and make the modified software available to users over a network, you must make the corresponding source code of that modified version available under the same license.
