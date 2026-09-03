@@ -10,6 +10,7 @@ import type {
 import type { LeagueDataProvider } from '../league-data.provider';
 import type { QueueType, RankedQueue, SummonerMatch, SummonerProfile } from '../league-data.types';
 import { parseRiotRateLimit, type RiotRateLimitStatus } from './rate-limit';
+import { RiotRateLimiter } from './rate-limiter';
 
 type RiotRegionalRoute = 'americas' | 'asia' | 'europe' | 'sea';
 
@@ -110,6 +111,7 @@ const APEX_TIERS = new Set(['MASTER', 'GRANDMASTER', 'CHALLENGER']);
 const DEFAULT_MATCH_LIMIT = 20;
 const MAX_MATCH_LIMIT = 100;
 const MAX_MATCH_CACHE_SIZE = 500;
+const MAX_RATE_LIMIT_RETRIES = 2;
 
 function resolveRiotRouting(region: string): RiotRouting {
   const normalized = region.trim().toUpperCase();
@@ -185,6 +187,7 @@ export class RiotApiError extends Error {
 export class RiotClient implements LeagueDataProvider {
   readonly name = 'riot';
   private readonly apiKey: string | null;
+  private readonly rateLimiter: RiotRateLimiter;
   private dataDragonVersion: Promise<string | null> | null = null;
   private readonly accountCache = new Map<string, RiotAccount>();
   private readonly matchCache = new Map<string, RiotMatch>();
@@ -193,8 +196,12 @@ export class RiotClient implements LeagueDataProvider {
   getRateLimitStatus(): RiotRateLimitStatus | null {
     return this.rateLimitStatus;
   }
-  constructor(apiKey: string | undefined = process.env.RIOT_API_KEY) {
+  constructor(
+    apiKey: string | undefined = process.env.RIOT_API_KEY,
+    rateLimiter: RiotRateLimiter = new RiotRateLimiter(),
+  ) {
     this.apiKey = apiKey?.trim() || null;
+    this.rateLimiter = rateLimiter;
   }
   async connect(): Promise<void> {
     this.requireApiKey();
@@ -396,6 +403,7 @@ export class RiotClient implements LeagueDataProvider {
       return;
     }
     this.rateLimitStatus = status;
+    this.rateLimiter.update(status);
     if (status.restricted && !this.rateLimitWarningLogged) {
       this.rateLimitWarningLogged = true;
       const limits = status.buckets
@@ -416,32 +424,49 @@ export class RiotClient implements LeagueDataProvider {
     return this.apiKey;
   }
   private async request<T>(route: string, path: string): Promise<T> {
-    const response = await fetch(`https://${route}.api.riotgames.com${path}`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'X-Riot-Token': this.requireApiKey(),
-      },
-    });
+    return this.requestWithRetry<T>(route, path, 0);
+  }
+  private async requestWithRetry<T>(route: string, path: string, retryCount: number): Promise<T> {
+    const response = await this.rateLimiter.schedule(() =>
+      fetch(`https://${route}.api.riotgames.com${path}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Riot-Token': this.requireApiKey(),
+        },
+      }),
+    );
     this.captureRateLimitStatus(response.headers);
-    if (!response.ok) {
-      let message = `Riot API request failed with HTTP ` + `${response.status}`;
-      try {
-        const body = (await response.json()) as RiotApiErrorResponse;
-        if (body.status?.message) {
-          message = body.status.message;
-        }
-      } catch {
-        /* Keep the generic HTTP */
-      }
-      const retryAfterHeader = response.headers.get('retry-after');
-      const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : Number.NaN;
-      throw new RiotApiError(
-        message,
-        response.status,
-        Number.isFinite(retryAfter) ? retryAfter : null,
-      );
+    if (response.ok) {
+      return (await response.json()) as T;
     }
-    return (await response.json()) as T;
+    let message = `Riot API request failed with HTTP ${response.status}`;
+    try {
+      const body = (await response.json()) as RiotApiErrorResponse;
+
+      if (body.status?.message) {
+        message = body.status.message;
+      }
+    } catch {
+      /* Keep generic HTTP message. */
+    }
+    const retryAfterHeader = response.headers.get('retry-after');
+    const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : Number.NaN;
+    const retryAfterSeconds = Number.isFinite(retryAfter) ? retryAfter : null;
+    if (
+      response.status === 429 &&
+      retryAfterSeconds !== null &&
+      retryAfterSeconds >= 0 &&
+      retryCount < MAX_RATE_LIMIT_RETRIES
+    ) {
+      this.rateLimiter.blockFor(retryAfterSeconds);
+      console.warn(
+        `[RIOT] HTTP 429 rate limit reached. ` +
+          `Retrying after ${retryAfterSeconds}s ` +
+          `(${retryCount + 1}/${MAX_RATE_LIMIT_RETRIES}).`,
+      );
+      return this.requestWithRetry<T>(route, path, retryCount + 1);
+    }
+    throw new RiotApiError(message, response.status, retryAfterSeconds);
   }
 }

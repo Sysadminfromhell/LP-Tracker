@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RiotApiError, RiotClient } from '../src/providers/riot/client';
+import { RiotRateLimiter } from '../src/providers/riot/rate-limiter';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
 describe('RiotClient', () => {
   it('requires an API key', async () => {
     const client = new RiotClient('');
@@ -103,37 +105,6 @@ describe('RiotClient', () => {
         message: 'Data not found',
         status: 404,
         retryAfterSeconds: null,
-      });
-    }
-  });
-  it('preserves Riot rate limit information', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          status: {
-            message: 'Rate limit exceeded',
-            status_code: 429,
-          },
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': '7',
-          },
-        },
-      ),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-    const client = new RiotClient('RGAPI-test');
-    try {
-      await client.getAccountByRiotId('FourK', 'EUW', 'EUW');
-      throw new Error('Expected Riot request to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(RiotApiError);
-      expect(error).toMatchObject({
-        status: 429,
-        retryAfterSeconds: 7,
       });
     }
   });
@@ -381,5 +352,140 @@ describe('RiotClient', () => {
     });
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+  it('retries HTTP 429 responses after Retry-After', async () => {
+    let now = 1_000;
+    const sleep = vi.fn(async (milliseconds: number) => {
+      now += milliseconds;
+    });
+    const rateLimiter = new RiotRateLimiter(sleep, () => now);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: {
+              message: 'Rate limit exceeded',
+              status_code: 429,
+            },
+          }),
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': '7',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'test-puuid',
+            gameName: 'FourK',
+            tagLine: 'EUW',
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test', rateLimiter);
+    const account = await client.getAccountByRiotId('FourK', 'EUW', 'EUW');
+    expect(account).toEqual({
+      puuid: 'test-puuid',
+      gameName: 'FourK',
+      tagLine: 'EUW',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(7_000);
+  });
+  it('throws after the maximum number of Riot rate limit retries', async () => {
+    let now = 1_000;
+    const sleep = vi.fn(async (milliseconds: number) => {
+      now += milliseconds;
+    });
+    const rateLimiter = new RiotRateLimiter(sleep, () => now);
+    const createRateLimitResponse = () =>
+      new Response(
+        JSON.stringify({
+          status: {
+            message: 'Rate limit exceeded',
+            status_code: 429,
+          },
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '2',
+          },
+        },
+      );
+    const fetchMock = vi.fn(async () => createRateLimitResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test', rateLimiter);
+    try {
+      await client.getAccountByRiotId('FourK', 'EUW', 'EUW');
+      throw new Error('Expected Riot request to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(RiotApiError);
+      expect(error).toMatchObject({
+        status: 429,
+        retryAfterSeconds: 2,
+      });
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenNthCalledWith(1, 2_000);
+    expect(sleep).toHaveBeenNthCalledWith(2, 2_000);
+  });
+  it('uses discovered Riot rate limits to pace later requests', async () => {
+    let now = 1_000;
+    const sleep = vi.fn(async (milliseconds: number) => {
+      now += milliseconds;
+    });
+    const rateLimiter = new RiotRateLimiter(sleep, () => now);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'test-puuid',
+            gameName: 'FourK',
+            tagLine: 'EUW',
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-App-Rate-Limit': '100:120,20:1',
+              'X-App-Rate-Limit-Count': '1:120,1:1',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'second-puuid',
+            gameName: 'Second',
+            tagLine: 'EUW',
+          }),
+          {
+            status: 200,
+          },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test', rateLimiter);
+    await client.getAccountByRiotId('FourK', 'EUW', 'EUW');
+    await client.getAccountByRiotId('Second', 'EUW', 'EUW');
+    expect(sleep).toHaveBeenCalledWith(1_260);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

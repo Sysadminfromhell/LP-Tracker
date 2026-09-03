@@ -7,13 +7,10 @@ const mocks = vi.hoisted(() => ({
   markPlayerFetchAttempt: vi.fn(),
   savePlayerCacheError: vi.fn(),
   savePlayerCacheSuccess: vi.fn(),
-
   getActiveEvent: vi.fn(),
   getEventParticipant: vi.fn(),
   updateEventAfterPlayerRefresh: vi.fn(),
-
   getLeagueDataProvider: vi.fn(),
-
   getLeaderboardPlayer: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   refreshLeaderboardPlayer: vi.fn(),
@@ -74,9 +71,10 @@ const profile: SummonerProfile = {
 function mockProvider(
   getSummonerProfile: LeagueDataProvider['getSummonerProfile'],
   getRecentMatches: LeagueDataProvider['getRecentMatches'],
+  name = 'test',
 ): void {
   mocks.getLeagueDataProvider.mockResolvedValue({
-    name: 'test',
+    name,
     connect: vi.fn(),
     disconnect: vi.fn(),
     getSummonerProfile,
@@ -129,6 +127,22 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.setLeaderboardPlayerError).toHaveBeenCalledWith(
       player.id,
       'Provider match request timed out after 15000ms',
+    );
+  });
+  it('allows longer match requests for the Riot provider', async () => {
+    vi.useFakeTimers();
+    mockProvider(vi.fn().mockResolvedValue(profile), () => new Promise(() => {}), 'riot');
+    const result = refreshPlayer(player);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(120_000);
+    await expect(result).resolves.toBe(false);
+    expect(mocks.savePlayerCacheError).toHaveBeenCalledWith(
+      player.id,
+      'Provider match request timed out after 120000ms',
+    );
+    expect(mocks.setLeaderboardPlayerError).toHaveBeenCalledWith(
+      player.id,
+      'Provider match request timed out after 120000ms',
     );
   });
 });
