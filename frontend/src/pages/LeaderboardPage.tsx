@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadChampionIcons } from '../championIcons';
+
+interface HealthResponse {
+  build?: {
+    version?: string;
+    gitHead?: string;
+  };
+}
 interface EventMatch {
   id: string;
   createdAt: string;
@@ -86,6 +93,16 @@ const divisions: Record<number, string> = {
   3: 'III',
   4: 'IV',
 };
+
+function formatVersion(version: string): string {
+  return version.replace(/^(\d+\.\d+)\.0$/, '$1');
+}
+function formatGitHead(gitHead: string): string {
+  if (gitHead === 'dev') {
+    return 'dev';
+  }
+  return gitHead.slice(0, 7);
+}
 function formatEventDate(date: string | null): string {
   if (!date) {
     return 'Open';
@@ -192,6 +209,16 @@ function XIcon() {
       <path
         fill="currentColor"
         d="M18.24 2H21l-6.03 6.89L22 22h-5.5l-4.31-5.64L7.26 22H4.5l6.4-7.31L4.16 2h5.64l3.89 5.14L18.24 2zm-.97 17.7h1.53L8.97 4.18H7.33L17.27 19.7z"
+      />
+    </svg>
+  );
+}
+function GitHubIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.49 0-.24-.01-1.04-.02-1.88-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.3 9.3 0 0 1 12 6.96a9.3 9.3 0 0 1 2.5.35c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.35 4.81-4.58 5.07.36.32.68.95.68 1.91 0 1.38-.01 2.49-.01 2.83 0 .27.18.6.69.49A10.27 10.27 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"
       />
     </svg>
   );
@@ -314,6 +341,7 @@ function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(0);
+  const [buildInfo, setBuildInfo] = useState<HealthResponse['build']>();
   async function loadLeaderboard() {
     try {
       const response = await fetch('/api/leaderboard', {
@@ -336,6 +364,24 @@ function LeaderboardPage() {
       setLoading(false);
     }
   }
+  useEffect(() => {
+    async function loadBuildInfo() {
+      try {
+        const response = await fetch('/api/health', {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error(`Health API returned HTTP ${response.status}`);
+        }
+        const data = (await response.json()) as HealthResponse;
+        setBuildInfo(data.build);
+      } catch (err) {
+        console.warn('Failed to load build information:', err);
+      }
+    }
+
+    void loadBuildInfo();
+  }, []);
   useEffect(() => {
     const initialTimer = window.setTimeout(() => {
       void loadLeaderboard();
@@ -391,6 +437,11 @@ function LeaderboardPage() {
   const eventEnd = leaderboard?.event.endsAt ? new Date(leaderboard.event.endsAt).getTime() : null;
   let countdownLabel = '';
   let countdownValue = '';
+
+  const frontendVersion = formatVersion(import.meta.env.VITE_APP_VERSION);
+  const backendVersion = buildInfo?.version ? formatVersion(buildInfo.version) : '—';
+  const gitHead = buildInfo?.gitHead ? formatGitHead(buildInfo.gitHead) : '—';
+
   if (eventStatus === 'draft' && eventStart !== null) {
     countdownLabel = 'STARTS IN';
     countdownValue = eventStart > now ? formatCountdown(eventStart - now) : 'STARTING...';
@@ -696,7 +747,38 @@ function LeaderboardPage() {
             })}
           </section>
         )}
-        <footer>Rankings are based on LP gained since the event started.</footer>
+        <footer>
+          <div>Rankings are based on LP gained since the event started.</div>
+          <div className="build-info">
+            <span>Frontend: {frontendVersion}</span>
+            <span className="build-separator">·</span>
+            <span>Backend: {backendVersion}</span>
+            <span className="build-separator">·</span>
+            <a
+              className="github-build-link"
+              href="https://github.com/Sysadminfromhell/LP-Tracker"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LP-Tracker on GitHub"
+              title="Open LP-Tracker on GitHub"
+            >
+              <GitHubIcon />
+            </a>
+            {buildInfo?.gitHead && buildInfo.gitHead !== 'dev' ? (
+              <a
+                className="git-head-link"
+                href={`https://github.com/Sysadminfromhell/LP-Tracker/commit/${buildInfo.gitHead}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open commit ${buildInfo.gitHead}`}
+              >
+                {gitHead}
+              </a>
+            ) : (
+              <span className="git-head">{gitHead}</span>
+            )}
+          </div>
+        </footer>
       </section>
     </main>
   );

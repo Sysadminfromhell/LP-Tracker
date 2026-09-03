@@ -1,6 +1,8 @@
 {
   "name": "lp-tracker",
-  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "version": "2.0.0",
   "description": "",
   "main": "dist/server.js",
   "scripts": {
@@ -18,7 +20,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

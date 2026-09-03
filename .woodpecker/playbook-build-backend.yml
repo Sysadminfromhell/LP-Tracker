@@ -18,6 +18,8 @@ steps:
         from_secret: docker_password
       dockerfile: Dockerfile.backend
       context: .
+      build_args:
+        GIT_COMMIT_SHA: ${CI_COMMIT_SHA}
       platforms:
         - linux/amd64
       tags:

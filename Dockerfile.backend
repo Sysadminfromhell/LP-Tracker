@@ -13,9 +13,12 @@ RUN npm run build
 
 FROM node:26-alpine AS runtime
 
+ARG GIT_COMMIT_SHA=dev
+
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
