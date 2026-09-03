@@ -185,7 +185,7 @@ Docker Compose, Docker Swarm and similar platforms can provide the same values t
 ```env
 NODE_ENV=production
 
-Use production for production deployments. Production mode enables production-specific request and cookie security behavior.
+Use `production` for production deployments. Production mode enables production-specific request and cookie security behavior.
 
 ---
 
