@@ -467,7 +467,6 @@ export class RiotClient implements LeagueDataProvider {
       retryAfterSeconds >= 0 &&
       retryCount < MAX_RATE_LIMIT_RETRIES
     ) {
-      recordRiotRateLimitHit();
       this.rateLimiter.blockFor(retryAfterSeconds);
       recordRiotRetry();
       console.warn(
