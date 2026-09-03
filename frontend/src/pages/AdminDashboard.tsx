@@ -32,6 +32,23 @@ interface PlayerForm {
   twitterUsername: string;
   enabled: boolean;
 }
+interface ProviderRateLimitBucket {
+  limit: number;
+  count: number | null;
+  windowSeconds: number;
+}
+interface ProviderHealth {
+  name: string | null;
+  connected: boolean;
+  rateLimit: {
+    buckets: ProviderRateLimitBucket[];
+    restricted: boolean;
+  } | null;
+  warning: string | null;
+}
+interface HealthResponse {
+  provider: ProviderHealth;
+}
 const EMPTY_PLAYER_FORM: PlayerForm = {
   gameName: '',
   tagLine: '',
@@ -58,6 +75,7 @@ async function readApiError(response: Response): Promise<string> {
   }
 }
 function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
+  const [providerHealth, setProviderHealth] = useState<ProviderHealth | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
@@ -69,6 +87,20 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [refreshingPlayerId, setRefreshingPlayerId] = useState<number | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const loadProviderHealth = useCallback(async () => {
+    try {
+      const response = await fetch('/api/health', {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error(`API returned HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as HealthResponse;
+      setProviderHealth(data.provider);
+    } catch (err) {
+      console.warn('Could not load provider health:', err);
+    }
+  }, []);
   const loadPlayers = useCallback(async () => {
     try {
       setError(null);
@@ -88,6 +120,18 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       setLoading(false);
     }
   }, [onLogout]);
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => {
+      void loadProviderHealth();
+    }, 0);
+    const interval = window.setInterval(() => {
+      void loadProviderHealth();
+    }, 30_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, [loadProviderHealth]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadPlayers();
@@ -269,6 +313,27 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
           </div>
         </header>
         <AdminEventPanel onUnauthorized={onLogout} />
+        {providerHealth?.warning && (
+          <div className="admin-provider-warning" role="status">
+            <div className="admin-provider-warning-icon">!</div>
+            <div className="admin-provider-warning-content">
+              <strong>Riot API rate limit warning</strong>
+              <p>{providerHealth.warning}</p>
+              {providerHealth.rateLimit && (
+                <div className="admin-provider-rate-limits">
+                  {providerHealth.rateLimit.buckets.map((bucket) => (
+                    <span key={bucket.windowSeconds}>
+                      {bucket.count !== null ? `${bucket.count} / ` : ''}
+                      {bucket.limit} requests
+                      {' / '}
+                      {bucket.windowSeconds}s
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="admin-section">
           <div className="admin-section-header">
             <div>
@@ -290,7 +355,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               >
                 {refreshingAll ? 'Refreshing All...' : 'Refresh All'}
               </button>
-
               <button
                 className="admin-primary-button admin-add-player-button"
                 type="button"
@@ -392,7 +456,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                 </button>
               </div>
               <p className="admin-form-note">
-                The Riot account is validated through OP.GG before it is added.
+                The Riot account is validated through the active league data provider before it is
+                added.
               </p>
             </form>
           )}
@@ -469,7 +534,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                     </div>
                   </div>
                   {player.lastError && (
-                    <div className="admin-player-error">OP.GG: {player.lastError}</div>
+                    <div className="admin-player-error">Provider: {player.lastError}</div>
                   )}
                   {editingPlayerId === player.id && (
                     <form
