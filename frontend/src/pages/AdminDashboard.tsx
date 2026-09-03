@@ -341,8 +341,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               <h2>Players</h2>
               <p>Manage Riot accounts and social links.</p>
               <p className="admin-form-note">
-                The Riot account is validated through the active league data provider before it is
-                added.
+                Riot ID and region cannot be changed after a player has been added.
               </p>
             </div>
             <div className="admin-section-actions">
@@ -457,7 +456,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                 </button>
               </div>
               <p className="admin-form-note">
-                The Riot account is validated through OP.GG before it is added.
+                The Riot account is validated through the active league data provider before it is
+                added.
               </p>
             </form>
           )}
