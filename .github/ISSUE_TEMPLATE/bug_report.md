@@ -9,7 +9,7 @@ type: Bug
 ---
 
 LP-Tracker version / commit:
-e.g. v1.0.0 or commit SHA
+e.g. v2.0.0 or commit SHA
 
 Deployment:
 Docker Compose / Docker Swarm / local development

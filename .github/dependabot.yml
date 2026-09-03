@@ -3,7 +3,7 @@ version: 2
 updates:
   # ============================================================
   # Backend - NPM dependencies
-  # package.json / package-lock.json are located in repository root
+  # package.json / package-lock.json are located in /backend
   # ============================================================
   - package-ecosystem: 'npm'
     directory: '/backend'
@@ -29,7 +29,7 @@ updates:
 
   # ============================================================
   # Frontend - NPM dependencies
-  # package.json / package-lock.json are located in /Web
+  # package.json / package-lock.json are located in /frontend
   # ============================================================
   - package-ecosystem: 'npm'
     directory: '/frontend'
