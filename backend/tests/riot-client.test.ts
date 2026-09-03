@@ -305,4 +305,81 @@ describe('RiotClient', () => {
       losses: 80,
     });
   });
+  it('captures Riot application rate limits', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          puuid: 'test-puuid',
+          gameName: 'FourK',
+          tagLine: 'EUW',
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Rate-Limit': '100:120,20:1',
+            'X-App-Rate-Limit-Count': '17:120,1:1',
+          },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test');
+    await client.getAccountByRiotId('FourK', 'EUW', 'EUW');
+    expect(client.getRateLimitStatus()).toEqual({
+      buckets: [
+        {
+          limit: 100,
+          count: 17,
+          windowSeconds: 120,
+        },
+        {
+          limit: 20,
+          count: 1,
+          windowSeconds: 1,
+        },
+      ],
+      restricted: true,
+    });
+  });
+  it('does not warn for high Riot rate limits', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          puuid: 'test-puuid',
+          gameName: 'FourK',
+          tagLine: 'EUW',
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Rate-Limit': '30000:600,500:10',
+            'X-App-Rate-Limit-Count': '10:600,1:10',
+          },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test');
+    await client.getAccountByRiotId('FourK', 'EUW', 'EUW');
+    expect(client.getRateLimitStatus()).toEqual({
+      buckets: [
+        {
+          limit: 30000,
+          count: 10,
+          windowSeconds: 600,
+        },
+        {
+          limit: 500,
+          count: 1,
+          windowSeconds: 10,
+        },
+      ],
+      restricted: false,
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 });

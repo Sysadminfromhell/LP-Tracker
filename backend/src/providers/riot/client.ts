@@ -9,6 +9,7 @@ import type {
 } from './types';
 import type { LeagueDataProvider } from '../league-data.provider';
 import type { QueueType, RankedQueue, SummonerMatch, SummonerProfile } from '../league-data.types';
+import { parseRiotRateLimit, type RiotRateLimitStatus } from './rate-limit';
 
 type RiotRegionalRoute = 'americas' | 'asia' | 'europe' | 'sea';
 
@@ -187,6 +188,11 @@ export class RiotClient implements LeagueDataProvider {
   private dataDragonVersion: Promise<string | null> | null = null;
   private readonly accountCache = new Map<string, RiotAccount>();
   private readonly matchCache = new Map<string, RiotMatch>();
+  private rateLimitStatus: RiotRateLimitStatus | null = null;
+  private rateLimitWarningLogged = false;
+  getRateLimitStatus(): RiotRateLimitStatus | null {
+    return this.rateLimitStatus;
+  }
   constructor(apiKey: string | undefined = process.env.RIOT_API_KEY) {
     this.apiKey = apiKey?.trim() || null;
   }
@@ -381,6 +387,28 @@ export class RiotClient implements LeagueDataProvider {
     })();
     return this.dataDragonVersion;
   }
+  private captureRateLimitStatus(headers: Headers): void {
+    const status = parseRiotRateLimit(
+      headers.get('x-app-rate-limit'),
+      headers.get('x-app-rate-limit-count'),
+    );
+    if (!status) {
+      return;
+    }
+    this.rateLimitStatus = status;
+    if (status.restricted && !this.rateLimitWarningLogged) {
+      this.rateLimitWarningLogged = true;
+      const limits = status.buckets
+        .map((bucket) => `${bucket.limit} requests / ${bucket.windowSeconds}s`)
+        .join(', ');
+      console.warn(
+        `[RIOT] WARNING: Low Riot API rate limit detected (${limits}). ` +
+          'This is typical for Development or Personal API keys. ' +
+          'Large events may experience delayed refreshes or HTTP 429 responses. ' +
+          'A Production API key is recommended.',
+      );
+    }
+  }
   private requireApiKey(): string {
     if (!this.apiKey) {
       throw new Error('RIOT_API_KEY is required');
@@ -395,6 +423,7 @@ export class RiotClient implements LeagueDataProvider {
         'X-Riot-Token': this.requireApiKey(),
       },
     });
+    this.captureRateLimitStatus(response.headers);
     if (!response.ok) {
       let message = `Riot API request failed with HTTP ` + `${response.status}`;
       try {

@@ -184,4 +184,57 @@ describe('league data service', () => {
       connected: false,
     });
   });
+  it('exposes provider rate limit diagnostics', async () => {
+    const provider = createProvider('riot');
+    provider.getRateLimitStatus = vi.fn().mockReturnValue({
+      buckets: [
+        {
+          limit: 100,
+          count: 17,
+          windowSeconds: 120,
+        },
+        {
+          limit: 20,
+          count: 1,
+          windowSeconds: 1,
+        },
+      ],
+      restricted: true,
+    });
+    mocks.createLeagueDataProvider.mockReturnValue(provider);
+    const service = await loadService();
+    await service.getLeagueDataProvider();
+    expect(service.getLeagueDataProviderDiagnostics()).toEqual({
+      rateLimit: {
+        buckets: [
+          {
+            limit: 100,
+            count: 17,
+            windowSeconds: 120,
+          },
+          {
+            limit: 20,
+            count: 1,
+            windowSeconds: 1,
+          },
+        ],
+        restricted: true,
+      },
+      warning:
+        'Low Riot API rate limit detected. ' +
+        'This is typical for Development or Personal API keys. ' +
+        'Large events may refresh slowly or receive HTTP 429 responses. ' +
+        'A Production API key is recommended.',
+    });
+  });
+  it('reports no diagnostics for providers without rate limit information', async () => {
+    const provider = createProvider('opgg');
+    mocks.createLeagueDataProvider.mockReturnValue(provider);
+    const service = await loadService();
+    await service.getLeagueDataProvider();
+    expect(service.getLeagueDataProviderDiagnostics()).toEqual({
+      rateLimit: null,
+      warning: null,
+    });
+  });
 });

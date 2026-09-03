@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getLeaderboardMeta: vi.fn(),
   getLeagueDataProviderStatus: vi.fn(),
   getRefreshSchedulerStatus: vi.fn(),
+  getLeagueDataProviderDiagnostics: vi.fn(),
 }));
 
 vi.mock('../src/db/players', () => ({
@@ -20,6 +21,7 @@ vi.mock('../src/services/leaderboard.service', () => ({
 }));
 vi.mock('../src/services/league-data.service', () => ({
   getLeagueDataProviderStatus: mocks.getLeagueDataProviderStatus,
+  getLeagueDataProviderDiagnostics: mocks.getLeagueDataProviderDiagnostics,
 }));
 vi.mock('../src/jobs/refresh-scheduler', () => ({
   getRefreshSchedulerStatus: mocks.getRefreshSchedulerStatus,
@@ -105,6 +107,10 @@ beforeEach(() => {
     longestWinStreak: null,
     bestKda: null,
     mostWins: null,
+  });
+  mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
+    rateLimit: null,
+    warning: null,
   });
   mocks.getLeaderboardMeta.mockReturnValue({
     event: null,
@@ -248,6 +254,28 @@ describe('public routes', () => {
       running: true,
       intervalMs: 30_000,
     });
+    mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
+      rateLimit: {
+        buckets: [
+          {
+            limit: 100,
+            count: 17,
+            windowSeconds: 120,
+          },
+          {
+            limit: 20,
+            count: 1,
+            windowSeconds: 1,
+          },
+        ],
+        restricted: true,
+      },
+      warning:
+        'Low Riot API rate limit detected. ' +
+        'This is typical for Development or Personal API keys. ' +
+        'Large events may refresh slowly or receive HTTP 429 responses. ' +
+        'A Production API key is recommended.',
+    });
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -264,6 +292,26 @@ describe('public routes', () => {
         provider: {
           name: 'riot',
           connected: true,
+          rateLimit: {
+            buckets: [
+              {
+                limit: 100,
+                count: 17,
+                windowSeconds: 120,
+              },
+              {
+                limit: 20,
+                count: 1,
+                windowSeconds: 1,
+              },
+            ],
+            restricted: true,
+          },
+          warning:
+            'Low Riot API rate limit detected. ' +
+            'This is typical for Development or Personal API keys. ' +
+            'Large events may refresh slowly or receive HTTP 429 responses. ' +
+            'A Production API key is recommended.',
         },
         event: {
           id: 42,
@@ -278,6 +326,29 @@ describe('public routes', () => {
           running: true,
           intervalMs: 30_000,
         },
+      });
+      mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
+        rateLimit: {
+          buckets: [
+            {
+              limit: 100,
+              count: 17,
+              windowSeconds: 120,
+            },
+            {
+              limit: 20,
+              count: 1,
+              windowSeconds: 1,
+            },
+          ],
+
+          restricted: true,
+        },
+        warning:
+          'Low Riot API rate limit detected. ' +
+          'This is typical for Development or Personal API keys. ' +
+          'Large events may refresh slowly or receive HTTP 429 responses. ' +
+          'A Production API key is recommended.',
       });
     } finally {
       await app.close();
