@@ -165,14 +165,27 @@ backend/.env.example
 ```
 
 For local development:
-```text
+```bash
 cp backend/.env.example backend/.env
 ```
 
 On Windows PowerShell:
-```text
+```powershell
 Copy-Item backend/.env.example backend/.env
 ```
+
+Never commit real passwords, API keys or other credentials.
+
+Docker Compose, Docker Swarm and similar platforms can provide the same values through their environment or secret mechanisms.
+
+---
+
+## Application
+
+```env
+NODE_ENV=production
+
+Use production for production deployments. Production mode enables production-specific request and cookie security behavior.
 
 ---
 
