@@ -268,17 +268,24 @@ describe('leaderboard service', () => {
       value: 5,
     });
   });
-  it('does not broadcast an unchanged incremental refresh', async () => {
+  it('broadcasts a lightweight player refresh event when leaderboard data is unchanged', async () => {
     const row = createRow();
     mocks.getDisplayEvent.mockResolvedValue(event);
     mocks.getEventLeaderboardPlayers.mockResolvedValue([row]);
     await loadLeaderboardFromDatabase();
     vi.clearAllMocks();
-    mocks.getEventLeaderboardPlayer.mockResolvedValue(row);
+    const refreshedRow = createRow({
+      lastUpdated: '2026-09-02T20:05:00.000Z',
+    });
+    mocks.getEventLeaderboardPlayer.mockResolvedValue(refreshedRow);
     mocks.getEventMatchStats.mockResolvedValue(createStats());
     mocks.getRecentEventMatches.mockResolvedValue([]);
     await refreshLeaderboardPlayer(event.id, row.playerId);
-    expect(mocks.broadcastLiveUpdate).not.toHaveBeenCalled();
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('player-refreshed', {
+      playerId: row.playerId,
+      lastUpdated: refreshedRow.lastUpdated,
+    });
   });
   it('updates rank movement when an incremental refresh changes positions', async () => {
     const alpha = createRow({
@@ -314,6 +321,7 @@ describe('leaderboard service', () => {
     expect(getLeaderboardPlayer(2)?.rankMovement.delta).toBe(1);
     expect(getLeaderboardPlayer(1)?.rankMovement.delta).toBe(-1);
     expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard');
   });
   it('falls back to a full reload for an uncached player', async () => {
     const row = createRow();

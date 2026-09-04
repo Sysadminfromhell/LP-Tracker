@@ -263,6 +263,11 @@ export async function refreshLeaderboardPlayer(eventId: number, playerId: number
   eventStatsCache.set(playerId, built.stats);
   if (changed) {
     broadcastLiveUpdate('leaderboard');
+  } else {
+    broadcastLiveUpdate('player-refreshed', {
+      playerId,
+      lastUpdated: built.player.lastUpdated,
+    });
   }
 }
 function sortLeaderboardPlayers(players: LeaderboardPlayer[]): LeaderboardPlayer[] {

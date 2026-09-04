@@ -3,49 +3,43 @@ import { loadChampionIcons } from '../championIcons';
 
 interface EventMatch {
   id: string;
-
   championId: number;
   champion: string;
   position: string;
-
   kills: number;
   deaths: number;
   assists: number;
-
   result: 'WIN' | 'LOSE';
-
   lpDelta: number | null;
 }
-
 interface LeaderboardPlayer {
   player: {
+    id: number;
     gameName: string;
     tagLine: string;
     region: string;
     profileImageUrl: string;
   };
-
   current: {
     tier: string;
     division: number | null;
     lp: number;
   };
-
   lpGain: number;
-
   record: {
     wins: number;
     losses: number;
     games: number;
   };
-
   recentMatches: EventMatch[];
-
   lastUpdated: string;
 }
-
 interface LeaderboardResponse {
   players: LeaderboardPlayer[];
+}
+interface PlayerRefreshedLiveUpdate {
+  playerId: number;
+  lastUpdated: string;
 }
 
 const divisions: Record<number, string> = {
@@ -62,7 +56,6 @@ function formatRank(tier: string, division: number | null): string {
   }
   return `${name} ` + `${divisions[division] ?? division}`;
 }
-
 function formatPosition(position: string) {
   switch (position.toUpperCase()) {
     case 'JUNGLE':
@@ -137,12 +130,35 @@ function PlayerOverlay() {
       );
       setPlayer(found ?? null);
     }
+    const handlePlayerRefreshed = (event: MessageEvent<string>) => {
+      let update: PlayerRefreshedLiveUpdate;
+      try {
+        update = JSON.parse(event.data) as PlayerRefreshedLiveUpdate;
+      } catch {
+        return;
+      }
+      if (
+        !Number.isInteger(update.playerId) ||
+        !update.lastUpdated ||
+        !Number.isFinite(new Date(update.lastUpdated).getTime())
+      ) {
+        return;
+      }
+      setPlayer((current) => {
+        if (!current || current.player.id !== update.playerId) {
+          return current;
+        }
+        return {
+          ...current,
+          lastUpdated: update.lastUpdated,
+        };
+      });
+    };
     let reloadTimer: number | null = null;
     let reloadInProgress = false;
     let reloadPending = false;
     let initialConnection = true;
     let disposed = false;
-
     function scheduleReload() {
       if (disposed || reloadTimer !== null) {
         return;
@@ -179,6 +195,7 @@ function PlayerOverlay() {
     void reloadPlayerOnce();
     const eventSource = new EventSource('/api/live');
     eventSource.addEventListener('leaderboard', handleLeaderboardUpdate);
+    eventSource.addEventListener('player-refreshed', handlePlayerRefreshed);
     eventSource.onopen = () => {
       if (initialConnection) {
         initialConnection = false;
@@ -195,6 +212,7 @@ function PlayerOverlay() {
         window.clearTimeout(reloadTimer);
       }
       eventSource.removeEventListener('leaderboard', handleLeaderboardUpdate);
+      eventSource.removeEventListener('player-refreshed', handlePlayerRefreshed);
       eventSource.close();
     };
   }, []);
