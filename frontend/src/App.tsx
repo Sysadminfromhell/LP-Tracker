@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import './App.css';
-import LeaderboardPage from './pages/LeaderboardPage';
-import OverlayGenerator from './pages/OverlayGenerator';
-import PlayerOverlay from './pages/PlayerOverlay';
-import AdminPage from './pages/AdminPage';
+
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const OverlayGenerator = lazy(() => import('./pages/OverlayGenerator'));
+const PlayerOverlay = lazy(() => import('./pages/PlayerOverlay'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 function useHash(): string {
   const [hash, setHash] = useState(window.location.hash);
@@ -37,15 +38,29 @@ function App() {
     document.title = 'LP Gain Event - Leaderboard';
   }, [hash]);
 
+  let page;
+
   if (hash.startsWith('#admin')) {
-    return <AdminPage />;
+    page = <AdminPage />;
+  } else if (hash.startsWith('#overlay_generator')) {
+    page = <OverlayGenerator />;
+  } else if (hash.startsWith('#overlay?')) {
+    page = <PlayerOverlay key={hash} />;
+  } else {
+    page = <LeaderboardPage />;
   }
-  if (hash.startsWith('#overlay_generator')) {
-    return <OverlayGenerator />;
-  }
-  if (hash.startsWith('#overlay?')) {
-    return <PlayerOverlay key={hash} />;
-  }
-  return <LeaderboardPage />;
+
+  return (
+    <Suspense
+      fallback={
+        <main className="page">
+          <div className="status-screen">Loading...</div>
+        </main>
+      }
+    >
+      {page}
+    </Suspense>
+  );
 }
+
 export default App;
