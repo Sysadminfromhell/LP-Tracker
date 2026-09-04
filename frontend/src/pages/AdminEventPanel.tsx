@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import AdminConfirmDialog from '../components/AdminConfirmDialog';
+import type { AdminToastVariant } from '../components/AdminToastHost';
 
+interface AdminEventPanelProps {
+  onUnauthorized: () => void;
+  onNotify: (variant: AdminToastVariant, message: string) => void;
+}
 interface AdminEvent {
   id: number;
   name: string;
@@ -21,6 +27,7 @@ interface EventScheduleForm {
   startsAt: string;
   endsAt: string;
 }
+
 function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -81,7 +88,7 @@ function formatEventDate(value: string | null): string {
     timeStyle: 'short',
   }).format(new Date(value));
 }
-function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
+function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [event, setEvent] = useState<AdminEvent | null>(null);
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
@@ -97,6 +104,9 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<'end-event' | 'cancel-scheduled-event' | null>(
+    null,
+  );
   const loadEvents = useCallback(async () => {
     try {
       setError(null);
@@ -132,6 +142,16 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
       setLoading(false);
     }
   }, [onUnauthorized]);
+  useEffect(() => {
+    if (error) {
+      onNotify('error', error);
+    }
+  }, [error, onNotify]);
+  useEffect(() => {
+    if (message) {
+      onNotify('success', message);
+    }
+  }, [message, onNotify]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadEvents();
@@ -246,12 +266,6 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     if (!event || event.status !== 'active') {
       return;
     }
-    const confirmed = window.confirm(
-      `End "${event.name}" now?\n\nThe current leaderboard will be frozen as the final result.`,
-    );
-    if (!confirmed) {
-      return;
-    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -356,12 +370,6 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
     if (!selectedDraft) {
       return;
     }
-    const confirmed = window.confirm(
-      `Cancel "${selectedDraft.name}"?\n\nThe event will not be started.`,
-    );
-    if (!confirmed) {
-      return;
-    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -408,8 +416,6 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
           </span>
         )}
       </div>
-      {error && <div className="admin-message admin-message-error">{error}</div>}
-      {message && <div className="admin-message admin-message-success">{message}</div>}
       {event && (
         <>
           <div className="admin-schedule-heading admin-current-event-heading">
@@ -475,7 +481,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
             type="button"
             disabled={saving}
             onClick={() => {
-              void handleEnd();
+              setConfirmation('end-event');
             }}
           >
             {saving ? 'Working...' : 'End Event Now'}
@@ -611,7 +617,7 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
               type="button"
               disabled={saving}
               onClick={() => {
-                void handleCancelScheduledEvent();
+                setConfirmation('cancel-scheduled-event');
               }}
             >
               Cancel Scheduled Event
@@ -682,6 +688,32 @@ function AdminEventPanel({ onUnauthorized }: AdminEventPanelProps) {
             {saving ? 'Scheduling...' : 'Schedule Event'}
           </button>
         </div>
+        <AdminConfirmDialog
+          open={confirmation !== null}
+          title={confirmation === 'end-event' ? 'End event now?' : 'Cancel scheduled event?'}
+          message={
+            confirmation === 'end-event'
+              ? `End "${event?.name ?? 'this event'}" now? The current leaderboard will be frozen as the final result.`
+              : `Cancel "${selectedDraft?.name ?? 'this event'}"? The event will not be started.`
+          }
+          confirmLabel={confirmation === 'end-event' ? 'End Event' : 'Cancel Event'}
+          danger
+          busy={saving}
+          onCancel={() => {
+            setConfirmation(null);
+          }}
+          onConfirm={() => {
+            const action = confirmation;
+            setConfirmation(null);
+            if (action === 'end-event') {
+              void handleEnd();
+              return;
+            }
+            if (action === 'cancel-scheduled-event') {
+              void handleCancelScheduledEvent();
+            }
+          }}
+        />
       </form>
     </div>
   );
