@@ -55,6 +55,18 @@ describe('live update service', () => {
     broadcastLiveUpdate('leaderboard');
     expect(state.writes).toEqual(['event: leaderboard\ndata: {}\n\n']);
   });
+  it('broadcasts player refresh data to connected clients', () => {
+    const { response, state } = createFakeResponse();
+    addLiveUpdateClient(response);
+    broadcastLiveUpdate('player-refreshed', {
+      playerId: 7,
+      lastUpdated: '2026-09-05T00:10:00.000Z',
+    });
+    expect(state.writes).toEqual([
+      'event: player-refreshed\n' +
+        'data: {"playerId":7,"lastUpdated":"2026-09-05T00:10:00.000Z"}\n\n',
+    ]);
+  });
   it('broadcasts to all connected clients', () => {
     const first = createFakeResponse();
     const second = createFakeResponse();

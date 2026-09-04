@@ -87,6 +87,10 @@ interface LeaderboardResponse {
     status: 'draft' | 'active' | 'ended' | null;
   };
 }
+interface PlayerRefreshedLiveUpdate {
+  playerId: number;
+  lastUpdated: string;
+}
 const divisions: Record<number, string> = {
   1: 'I',
   2: 'II',
@@ -421,9 +425,55 @@ function LeaderboardPage() {
     const handleLeaderboardUpdate = () => {
       scheduleReload();
     };
+    const handlePlayerRefreshed = (event: MessageEvent<string>) => {
+      let update: PlayerRefreshedLiveUpdate;
+      try {
+        update = JSON.parse(event.data) as PlayerRefreshedLiveUpdate;
+      } catch {
+        console.warn('Invalid player refresh live update payload');
+        return;
+      }
+      if (
+        !Number.isInteger(update.playerId) ||
+        !update.lastUpdated ||
+        !Number.isFinite(new Date(update.lastUpdated).getTime())
+      ) {
+        console.warn('Invalid player refresh live update payload');
+        return;
+      }
+      setLeaderboard((current) => {
+        if (!current) {
+          return current;
+        }
+        let updated = false;
+        const players = current.players.map((player) => {
+          if (player.player.id !== update.playerId || player.lastUpdated === update.lastUpdated) {
+            return player;
+          }
+          updated = true;
+          return {
+            ...player,
+            lastUpdated: update.lastUpdated,
+          };
+        });
+        if (!updated) {
+          return current;
+        }
+        const newestUpdate =
+          !current.lastUpdated || update.lastUpdated > current.lastUpdated
+            ? update.lastUpdated
+            : current.lastUpdated;
+        return {
+          ...current,
+          players,
+          lastUpdated: newestUpdate,
+        };
+      });
+    };
     void reloadLeaderboardOnce();
     const eventSource = new EventSource('/api/live');
     eventSource.addEventListener('leaderboard', handleLeaderboardUpdate);
+    eventSource.addEventListener('player-refreshed', handlePlayerRefreshed);
     eventSource.onopen = () => {
       if (initialConnection) {
         initialConnection = false;
@@ -440,6 +490,7 @@ function LeaderboardPage() {
         window.clearTimeout(reloadTimer);
       }
       eventSource.removeEventListener('leaderboard', handleLeaderboardUpdate);
+      eventSource.removeEventListener('player-refreshed', handlePlayerRefreshed);
       eventSource.close();
     };
   }, []);
