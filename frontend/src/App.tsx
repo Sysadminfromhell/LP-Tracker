@@ -19,7 +19,6 @@ function useHash(): string {
   }, []);
   return hash;
 }
-
 function App() {
   const hash = useHash();
   useEffect(() => {
@@ -37,9 +36,7 @@ function App() {
     }
     document.title = 'LP Gain Event - Leaderboard';
   }, [hash]);
-
   let page;
-
   if (hash.startsWith('#admin')) {
     page = <AdminPage />;
   } else if (hash.startsWith('#overlay_generator')) {
@@ -49,7 +46,6 @@ function App() {
   } else {
     page = <LeaderboardPage />;
   }
-
   return (
     <Suspense
       fallback={
@@ -62,5 +58,4 @@ function App() {
     </Suspense>
   );
 }
-
 export default App;
