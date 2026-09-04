@@ -357,6 +357,7 @@ function LeaderboardPage() {
   const previousPlayerDataRef = useRef<Map<number, LeaderboardPlayer>>(new Map());
   const previousPositionsRef = useRef<Map<number, DOMRect>>(new Map());
   const pendingVisualChangesRef = useRef<Map<number, PlayerVisualChange>>(new Map());
+  const pendingLayoutAnimationRef = useRef(false);
   async function loadLeaderboard() {
     try {
       const response = await fetch('/api/leaderboard', {
@@ -398,6 +399,7 @@ function LeaderboardPage() {
       previousPlayerDataRef.current = new Map(
         data.players.map((player) => [player.player.id, player]),
       );
+      pendingLayoutAnimationRef.current = true;
       setLeaderboard(data);
       setError(null);
     } catch (err) {
@@ -533,9 +535,10 @@ function LeaderboardPage() {
     };
   }, []);
   useLayoutEffect(() => {
-    if (!leaderboard) {
+    if (!leaderboard || !pendingLayoutAnimationRef.current) {
       return;
     }
+    pendingLayoutAnimationRef.current = false;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const currentPositions = new Map<number, DOMRect>();
     const playerElements = document.querySelectorAll<HTMLElement>('.tracker [data-player-id]');

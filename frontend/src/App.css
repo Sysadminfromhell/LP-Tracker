@@ -2111,9 +2111,4 @@ a.social-link.twitch:hover {
   .live-dot {
     animation: none !important;
   }
-  .rank-movement.up,
-  .rank-movement.down,
-  .live-dot {
-    animation: none !important;
-  }
 }
