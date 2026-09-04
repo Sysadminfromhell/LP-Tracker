@@ -2005,3 +2005,115 @@ a.social-link.twitch:hover {
   padding: 0 12px;
   white-space: nowrap;
 }
+@keyframes leaderboardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes podiumEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes rankMovementPop {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 217, 157, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(99, 217, 157, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 217, 157, 0);
+  }
+}
+.leaderboard-entry .leaderboard-main,
+.leaderboard-entry .matches-row {
+  animation: leaderboardEnter 320ms ease-out both;
+}
+.leaderboard-entry:nth-of-type(1) .leaderboard-main,
+.leaderboard-entry:nth-of-type(1) .matches-row {
+  animation-delay: 20ms;
+}
+.leaderboard-entry:nth-of-type(2) .leaderboard-main,
+.leaderboard-entry:nth-of-type(2) .matches-row {
+  animation-delay: 40ms;
+}
+.leaderboard-entry:nth-of-type(3) .leaderboard-main,
+.leaderboard-entry:nth-of-type(3) .matches-row {
+  animation-delay: 60ms;
+}
+.leaderboard-entry:nth-of-type(4) .leaderboard-main,
+.leaderboard-entry:nth-of-type(4) .matches-row {
+  animation-delay: 80ms;
+}
+.leaderboard-entry:nth-of-type(5) .leaderboard-main,
+.leaderboard-entry:nth-of-type(5) .matches-row {
+  animation-delay: 100ms;
+}
+.leaderboard-entry:nth-of-type(n + 6) .leaderboard-main,
+.leaderboard-entry:nth-of-type(n + 6) .matches-row {
+  animation-delay: 120ms;
+}
+.podium-slot > .podium-card,
+.podium-slot > .podium-step {
+  animation: podiumEnter 420ms ease-out both;
+}
+.podium-place-2 > .podium-card,
+.podium-place-2 > .podium-step {
+  animation-delay: 40ms;
+}
+.podium-place-1 > .podium-card,
+.podium-place-1 > .podium-step {
+  animation-delay: 100ms;
+}
+.podium-place-3 > .podium-card,
+.podium-place-3 > .podium-step {
+  animation-delay: 160ms;
+}
+.rank-movement.up,
+.rank-movement.down {
+  animation: rankMovementPop 420ms ease-out;
+}
+.live:not(.event-ended):not(.event-scheduled) .live-dot {
+  animation: livePulse 2s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard-entry .leaderboard-main,
+  .leaderboard-entry .matches-row,
+  .podium-slot > .podium-card,
+  .podium-slot > .podium-step,
+  .rank-movement.up,
+  .rank-movement.down,
+  .live-dot {
+    animation: none !important;
+  }
+  .rank-movement.up,
+  .rank-movement.down,
+  .live-dot {
+    animation: none !important;
+  }
+}
