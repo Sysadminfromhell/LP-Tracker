@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import AdminEventPanel from './AdminEventPanel';
 
 interface AdminPlayer {
@@ -32,6 +32,8 @@ interface PlayerForm {
   twitterUsername: string;
   enabled: boolean;
 }
+type PlayerStatusFilter = 'all' | 'enabled' | 'disabled';
+type PlayerSort = 'name' | 'rank' | 'updated';
 interface ProviderRateLimitBucket {
   limit: number;
   count: number | null;
@@ -87,6 +89,9 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [refreshingPlayerId, setRefreshingPlayerId] = useState<number | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState('');
+  const [playerStatusFilter, setPlayerStatusFilter] = useState<PlayerStatusFilter>('all');
+  const [playerSort, setPlayerSort] = useState<PlayerSort>('name');
   const loadProviderHealth = useCallback(async () => {
     try {
       const response = await fetch('/api/health', {
@@ -295,6 +300,45 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       setRefreshingAll(false);
     }
   }
+  const visiblePlayers = useMemo(() => {
+    const search = playerSearch.trim().toLowerCase();
+    return [...players]
+      .filter((player) => {
+        if (playerStatusFilter === 'enabled' && !player.enabled) {
+          return false;
+        }
+        if (playerStatusFilter === 'disabled' && player.enabled) {
+          return false;
+        }
+        if (!search) {
+          return true;
+        }
+        return [
+          player.gameName,
+          player.tagLine,
+          player.region,
+          player.twitchUsername ?? '',
+          player.twitterUsername ?? '',
+        ].some((value) => value.toLowerCase().includes(search));
+      })
+      .sort((a, b) => {
+        if (playerSort === 'rank') {
+          return (b.rankScore ?? -1) - (a.rankScore ?? -1);
+        }
+        if (playerSort === 'updated') {
+          const aUpdated = a.lastSuccessfulFetchAt
+            ? new Date(a.lastSuccessfulFetchAt).getTime()
+            : 0;
+          const bUpdated = b.lastSuccessfulFetchAt
+            ? new Date(b.lastSuccessfulFetchAt).getTime()
+            : 0;
+          return bUpdated - aUpdated;
+        }
+        return a.gameName.localeCompare(b.gameName, undefined, {
+          sensitivity: 'base',
+        });
+      });
+  }, [playerSearch, playerSort, playerStatusFilter, players]);
   return (
     <main className="admin-page">
       <section className="admin-shell">
@@ -368,6 +412,50 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               >
                 {showAddPlayer ? 'Cancel' : '+ Add Player'}
               </button>
+            </div>
+          </div>
+          <div className="admin-player-controls">
+            <label className="admin-player-search">
+              <span>Search</span>
+              <input
+                type="search"
+                value={playerSearch}
+                placeholder="Player, Riot ID, Twitch, X..."
+                onChange={(event) => {
+                  setPlayerSearch(event.target.value);
+                }}
+              />
+            </label>
+            <label>
+              <span>Status</span>
+              <select
+                value={playerStatusFilter}
+                onChange={(event) => {
+                  setPlayerStatusFilter(event.target.value as PlayerStatusFilter);
+                }}
+              >
+                <option value="all">All players</option>
+                <option value="enabled">Enabled</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Sort</span>
+              <select
+                value={playerSort}
+                onChange={(event) => {
+                  setPlayerSort(event.target.value as PlayerSort);
+                }}
+              >
+                <option value="name">Name</option>
+                <option value="rank">Rank</option>
+                <option value="updated">Last refreshed</option>
+              </select>
+            </label>
+
+            <div className="admin-player-count">
+              {visiblePlayers.length} / {players.length}
             </div>
           </div>
           {showAddPlayer && (
@@ -467,9 +555,11 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             <div className="admin-player-empty">Loading players...</div>
           ) : players.length === 0 ? (
             <div className="admin-player-empty">No players configured.</div>
+          ) : visiblePlayers.length === 0 ? (
+            <div className="admin-player-empty">No players match the current filters.</div>
           ) : (
             <div className="admin-player-list">
-              {players.map((player) => (
+              {visiblePlayers.map((player) => (
                 <div className="admin-player-card" key={player.id}>
                   <div className="admin-player-summary">
                     <div className="admin-player-identity">

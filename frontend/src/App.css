@@ -1353,6 +1353,85 @@ a.social-link.twitch:hover {
   border-radius: 9px;
   background: rgba(8, 9, 14, 0.32);
 }
+.admin-player-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.admin-player-controls label {
+  display: grid;
+  gap: 6px;
+  color: #666c81;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.admin-player-controls input,
+.admin-player-controls select {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background-color: #1b1d27;
+  color: #d8dae3;
+  font: inherit;
+  outline: none;
+}
+.admin-player-controls select {
+  color-scheme: dark;
+}
+.admin-player-controls select option {
+  background-color: #1b1d27;
+  color: #d8dae3;
+}
+.admin-player-controls select {
+  color-scheme: dark;
+  background-color: #1b1d27;
+  color: #d8dae3;
+}
+.admin-player-controls select option {
+  background-color: #1b1d27;
+  color: #d8dae3;
+}
+.admin-player-controls input:focus,
+.admin-player-controls select:focus {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.admin-player-search {
+  min-width: 0;
+}
+.admin-player-count {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
+  color: #777d91;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+@media (max-width: 800px) {
+  .admin-player-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+  .admin-player-search {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 520px) {
+  .admin-player-controls {
+    grid-template-columns: 1fr;
+  }
+  .admin-player-search {
+    grid-column: auto;
+  }
+}
 .admin-player-summary {
   min-height: 72px;
   display: grid;
