@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { loadChampionIcons } from '../championIcons';
 
 interface HealthResponse {
@@ -87,6 +87,11 @@ interface LeaderboardResponse {
     status: 'draft' | 'active' | 'ended' | null;
   };
 }
+interface PlayerVisualChange {
+  lpChanged: boolean;
+  newMatchIds: string[];
+}
+
 interface PlayerRefreshedLiveUpdate {
   playerId: number;
   lastUpdated: string;
@@ -268,7 +273,7 @@ function PodiumCard({
 }) {
   const winRate = getWinRate(player.record.wins, player.record.losses);
   return (
-    <div className={`podium-slot podium-place-${place}`}>
+    <div className={`podium-slot podium-place-${place}`} data-player-id={player.player.id}>
       <article className="podium-card">
         <span className="podium-label">
           {place === 1 ? 'EVENT LEADER' : place === 2 ? 'SECOND PLACE' : 'THIRD PLACE'}
@@ -285,7 +290,10 @@ function PodiumCard({
           <strong>{formatRank(player.current.tier, player.current.division)}</strong>
           <span>{player.current.lp} LP</span>
         </div>
-        <div className={`podium-gain ${player.lpGain >= 0 ? 'positive' : 'negative'}`}>
+        <div
+          className={`podium-gain ${player.lpGain >= 0 ? 'positive' : 'negative'}`}
+          data-animate-lp
+        >
           {player.lpGain >= 0 ? '+' : ''}
           {player.lpGain} LP
         </div>
@@ -346,6 +354,10 @@ function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(0);
   const [buildInfo, setBuildInfo] = useState<HealthResponse['build']>();
+  const previousPlayerDataRef = useRef<Map<number, LeaderboardPlayer>>(new Map());
+  const previousPositionsRef = useRef<Map<number, DOMRect>>(new Map());
+  const pendingVisualChangesRef = useRef<Map<number, PlayerVisualChange>>(new Map());
+  const pendingLayoutAnimationRef = useRef(false);
   async function loadLeaderboard() {
     try {
       const response = await fetch('/api/leaderboard', {
@@ -359,6 +371,35 @@ function LeaderboardPage() {
         throw new Error(`API returned unexpected Content-Type: ${contentType ?? 'unknown'}`);
       }
       const data = (await response.json()) as LeaderboardResponse;
+      const previousPlayers = previousPlayerDataRef.current;
+      const visualChanges = new Map<number, PlayerVisualChange>();
+      for (const player of data.players) {
+        const previous = previousPlayers.get(player.player.id);
+        if (!previous) {
+          continue;
+        }
+        const previousMatchIds = new Set(previous.recentMatches.map((match) => match.id));
+        const newMatchIds = player.recentMatches
+          .filter((match) => !previousMatchIds.has(match.id))
+          .map((match) => match.id);
+        const lpChanged =
+          previous.lpGain !== player.lpGain ||
+          previous.current.lp !== player.current.lp ||
+          previous.current.score !== player.current.score ||
+          previous.current.tier !== player.current.tier ||
+          previous.current.division !== player.current.division;
+        if (lpChanged || newMatchIds.length > 0) {
+          visualChanges.set(player.player.id, {
+            lpChanged,
+            newMatchIds,
+          });
+        }
+      }
+      pendingVisualChangesRef.current = visualChanges;
+      previousPlayerDataRef.current = new Map(
+        data.players.map((player) => [player.player.id, player]),
+      );
+      pendingLayoutAnimationRef.current = true;
       setLeaderboard(data);
       setError(null);
     } catch (err) {
@@ -415,7 +456,6 @@ function LeaderboardPage() {
         await loadLeaderboard();
       } finally {
         reloadInProgress = false;
-
         if (reloadPending && !disposed) {
           reloadPending = false;
           scheduleReload();
@@ -494,6 +534,107 @@ function LeaderboardPage() {
       eventSource.close();
     };
   }, []);
+  useLayoutEffect(() => {
+    if (!leaderboard || !pendingLayoutAnimationRef.current) {
+      return;
+    }
+    pendingLayoutAnimationRef.current = false;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const currentPositions = new Map<number, DOMRect>();
+    const playerElements = document.querySelectorAll<HTMLElement>('.tracker [data-player-id]');
+    for (const element of playerElements) {
+      const playerId = Number(element.dataset.playerId);
+      if (!Number.isInteger(playerId)) {
+        continue;
+      }
+      const currentRect = element.getBoundingClientRect();
+      const previousRect = previousPositionsRef.current.get(playerId);
+      currentPositions.set(playerId, currentRect);
+      if (!prefersReducedMotion && previousRect) {
+        const deltaX = previousRect.left - currentRect.left;
+        const deltaY = previousRect.top - currentRect.top;
+        const moved = Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1;
+        if (moved) {
+          element.animate(
+            [
+              {
+                transform: `translate(${deltaX}px, ${deltaY}px)`,
+              },
+              {
+                transform: 'translate(0, 0)',
+              },
+            ],
+            {
+              duration: 520,
+              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            },
+          );
+        }
+      }
+    }
+    previousPositionsRef.current = currentPositions;
+    if (!prefersReducedMotion) {
+      for (const [playerId, change] of pendingVisualChangesRef.current) {
+        const playerElement = document.querySelector<HTMLElement>(
+          `.tracker [data-player-id="${playerId}"]`,
+        );
+        if (!playerElement) {
+          continue;
+        }
+        if (change.lpChanged) {
+          const lpElement = playerElement.querySelector<HTMLElement>('[data-animate-lp]');
+          lpElement?.animate(
+            [
+              {
+                transform: 'scale(1)',
+                filter: 'brightness(1)',
+              },
+              {
+                transform: 'scale(1.09)',
+                filter: 'brightness(1.55)',
+              },
+              {
+                transform: 'scale(1)',
+                filter: 'brightness(1)',
+              },
+            ],
+            {
+              duration: 650,
+              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            },
+          );
+        }
+        if (change.newMatchIds.length > 0) {
+          const newMatchIds = new Set(change.newMatchIds);
+          const matchElements = playerElement.querySelectorAll<HTMLElement>('[data-match-id]');
+          for (const matchElement of matchElements) {
+            const matchId = matchElement.dataset.matchId;
+            if (!matchId || !newMatchIds.has(matchId)) {
+              continue;
+            }
+            matchElement.animate(
+              [
+                {
+                  opacity: 0,
+                  transform: 'translateX(12px)',
+                },
+                {
+                  opacity: 1,
+                  transform: 'translateX(0)',
+                },
+              ],
+              {
+                duration: 420,
+                easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              },
+            );
+          }
+        }
+      }
+    }
+
+    pendingVisualChangesRef.current.clear();
+  }, [leaderboard]);
   useEffect(() => {
     const updateNow = () => {
       setNow(Date.now());
@@ -512,6 +653,7 @@ function LeaderboardPage() {
         console.error('Failed to load champion icons:', err);
       });
   }, []);
+
   const players = useMemo(() => leaderboard?.players ?? [], [leaderboard]);
   const totalMatches = players.reduce((total, player) => total + player.record.games, 0);
   const averageLpGain =
@@ -689,6 +831,7 @@ function LeaderboardPage() {
               return (
                 <article
                   className="leaderboard-entry"
+                  data-player-id={player.player.id}
                   key={
                     `${player.player.region}:` +
                     `${player.player.gameName}#` +
@@ -765,7 +908,10 @@ function LeaderboardPage() {
                       <strong>{formatRank(player.current.tier, player.current.division)}</strong>
                       <span>{player.current.lp} LP</span>
                     </div>
-                    <div className={`gain-cell ${player.lpGain >= 0 ? 'positive' : 'negative'}`}>
+                    <div
+                      className={`gain-cell ${player.lpGain >= 0 ? 'positive' : 'negative'}`}
+                      data-animate-lp
+                    >
                       {player.lpGain >= 0 ? '+' : ''}
                       {player.lpGain} LP
                     </div>
@@ -785,7 +931,7 @@ function LeaderboardPage() {
                         player.recentMatches.map((match) => {
                           const icon = championIcons.get(match.championId);
                           return (
-                            <div className="compact-match" key={match.id}>
+                            <div className="compact-match" data-match-id={match.id} key={match.id}>
                               <div className="champion-wrap">
                                 {icon ? (
                                   <img
