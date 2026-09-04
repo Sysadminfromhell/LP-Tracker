@@ -137,23 +137,64 @@ function PlayerOverlay() {
       );
       setPlayer(found ?? null);
     }
-    void load();
-    const eventSource = new EventSource('/api/live');
-    eventSource.addEventListener('leaderboard', () => {
-      void load();
-    });
+    let reloadTimer: number | null = null;
+    let reloadInProgress = false;
+    let reloadPending = false;
     let initialConnection = true;
+    let disposed = false;
+
+    function scheduleReload() {
+      if (disposed || reloadTimer !== null) {
+        return;
+      }
+      reloadTimer = window.setTimeout(() => {
+        reloadTimer = null;
+        void reloadPlayerOnce();
+      }, 150);
+    }
+    async function reloadPlayerOnce() {
+      if (disposed) {
+        return;
+      }
+      if (reloadInProgress) {
+        reloadPending = true;
+        return;
+      }
+      reloadInProgress = true;
+      try {
+        await load();
+      } catch (error) {
+        console.error('Failed to load player overlay:', error);
+      } finally {
+        reloadInProgress = false;
+        if (reloadPending && !disposed) {
+          reloadPending = false;
+          scheduleReload();
+        }
+      }
+    }
+    const handleLeaderboardUpdate = () => {
+      scheduleReload();
+    };
+    void reloadPlayerOnce();
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('leaderboard', handleLeaderboardUpdate);
     eventSource.onopen = () => {
       if (initialConnection) {
         initialConnection = false;
         return;
       }
-      void load();
+      scheduleReload();
     };
     eventSource.onerror = () => {
       console.warn('Player overlay live update connection lost; reconnecting...');
     };
     return () => {
+      disposed = true;
+      if (reloadTimer !== null) {
+        window.clearTimeout(reloadTimer);
+      }
+      eventSource.removeEventListener('leaderboard', handleLeaderboardUpdate);
       eventSource.close();
     };
   }, []);

@@ -383,21 +383,63 @@ function LeaderboardPage() {
     void loadBuildInfo();
   }, []);
   useEffect(() => {
-    const initialTimer = window.setTimeout(() => {
-      void loadLeaderboard();
-    }, 0);
+    let reloadTimer: number | null = null;
+    let reloadInProgress = false;
+    let reloadPending = false;
+    let initialConnection = true;
+    let disposed = false;
+
+    function scheduleReload() {
+      if (disposed || reloadTimer !== null) {
+        return;
+      }
+      reloadTimer = window.setTimeout(() => {
+        reloadTimer = null;
+        void reloadLeaderboardOnce();
+      }, 150);
+    }
+    async function reloadLeaderboardOnce() {
+      if (disposed) {
+        return;
+      }
+      if (reloadInProgress) {
+        reloadPending = true;
+        return;
+      }
+      reloadInProgress = true;
+      try {
+        await loadLeaderboard();
+      } finally {
+        reloadInProgress = false;
+
+        if (reloadPending && !disposed) {
+          reloadPending = false;
+          scheduleReload();
+        }
+      }
+    }
+    const handleLeaderboardUpdate = () => {
+      scheduleReload();
+    };
+    void reloadLeaderboardOnce();
     const eventSource = new EventSource('/api/live');
-    eventSource.addEventListener('leaderboard', () => {
-      void loadLeaderboard();
-    });
+    eventSource.addEventListener('leaderboard', handleLeaderboardUpdate);
     eventSource.onopen = () => {
-      void loadLeaderboard();
+      if (initialConnection) {
+        initialConnection = false;
+        return;
+      }
+      scheduleReload();
     };
     eventSource.onerror = () => {
       console.warn('Leaderboard live update connection lost; reconnecting...');
     };
     return () => {
-      window.clearTimeout(initialTimer);
+      disposed = true;
+      if (reloadTimer !== null) {
+        window.clearTimeout(reloadTimer);
+      }
+      eventSource.removeEventListener('leaderboard', handleLeaderboardUpdate);
       eventSource.close();
     };
   }, []);
