@@ -1,27 +1,15 @@
-import { createApp } from './app';
+import { createApplication } from './runtime/application';
 import { closeDatabase, testDatabaseConnection } from './db/client';
 import { runMigrations } from './db/migrations';
-import { adminAuthRoutes } from './routes/admin-auth.routes';
-import { adminEventRoutes } from './routes/admin-event.routes';
-import { adminPlayerRoutes } from './routes/admin-player.routes';
-import { publicRoutes } from './routes/public.routes';
 import { getLeaderboardMeta, loadLeaderboardFromDatabase } from './services/leaderboard.service';
 import { startRefreshScheduler, stopRefreshScheduler } from './jobs/refresh-scheduler';
 import { startEventLifecycle, stopEventLifecycle } from './jobs/event-lifecycle';
 import { disconnectLeagueDataProvider } from './services/league-data.service';
 import { ensureInitialAdmin } from './db/admins';
 import { deleteAllAdminSessions } from './db/admin-sessions';
-import { liveUpdateRoutes } from './routes/live-update.routes';
 import { closeLiveUpdateClients } from './services/live-update.service';
-import { metricsRoutes } from './routes/metrics.routes';
 
-const fastify = createApp();
-fastify.register(adminAuthRoutes);
-fastify.register(adminEventRoutes);
-fastify.register(adminPlayerRoutes);
-fastify.register(publicRoutes);
-fastify.register(liveUpdateRoutes);
-fastify.register(metricsRoutes);
+const fastify = createApplication();
 
 async function main(): Promise<void> {
   console.log();
