@@ -16,12 +16,6 @@ interface AdminEvent {
   createdAt: string;
   updatedAt: string;
 }
-interface AdminEventsResponse {
-  events: AdminEvent[];
-}
-interface AdminEventPanelProps {
-  onUnauthorized: () => void;
-}
 interface EventScheduleForm {
   name: string;
   startsAt: string;
@@ -102,56 +96,53 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   const hasOpenEvents = events.some((item) => item.status === 'draft' || item.status === 'active');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<'end-event' | 'cancel-scheduled-event' | null>(
     null,
   );
-  const loadEvents = useCallback(async () => {
-    try {
-      setError(null);
-      const response = await fetch('/api/admin/events', {
-        cache: 'no-store',
-      });
-      if (response.status === 401) {
-        onUnauthorized();
-        return;
+  const loadEvents = useCallback(
+    async (notifyOnError = true) => {
+      try {
+        const response = await fetch('/api/admin/events', {
+          cache: 'no-store',
+        });
+        if (response.status === 401) {
+          onUnauthorized();
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(await readApiError(response));
+        }
+        const data = (await response.json()) as {
+          events: AdminEvent[];
+        };
+        const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
+        const latestEndedEvent =
+          data.events
+            .filter((item) => item.status === 'ended')
+            .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime())[0] ??
+          null;
+        const primaryEvent = activeEvent ?? latestEndedEvent ?? null;
+        console.log(
+          `[ADMIN EVENT] Poll: ${data.events.length} event(s) | ` +
+            `primary=${primaryEvent?.id ?? 'none'} | ` +
+            `${primaryEvent?.status ?? 'none'}`,
+        );
+        setEvents(data.events);
+        setEvent(primaryEvent);
+        setEventName(primaryEvent?.name ?? '');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Could not load event.';
+        if (notifyOnError) {
+          onNotify('error', errorMessage);
+        } else {
+          console.warn('Could not refresh admin events:', errorMessage);
+        }
+      } finally {
+        setLoading(false);
       }
-      if (!response.ok) {
-        throw new Error(await readApiError(response));
-      }
-      const data = (await response.json()) as AdminEventsResponse;
-      const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
-      const latestEndedEvent =
-        data.events
-          .filter((item) => item.status === 'ended')
-          .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime())[0] ??
-        null;
-      const primaryEvent = activeEvent ?? latestEndedEvent ?? null;
-      console.log(
-        `[ADMIN EVENT] Poll: ${data.events.length} event(s) | ` +
-          `primary=${primaryEvent?.id ?? 'none'} | ` +
-          `${primaryEvent?.status ?? 'none'}`,
-      );
-      setEvents(data.events);
-      setEvent(primaryEvent);
-      setEventName(primaryEvent?.name ?? '');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load event.');
-    } finally {
-      setLoading(false);
-    }
-  }, [onUnauthorized]);
-  useEffect(() => {
-    if (error) {
-      onNotify('error', error);
-    }
-  }, [error, onNotify]);
-  useEffect(() => {
-    if (message) {
-      onNotify('success', message);
-    }
-  }, [message, onNotify]);
+    },
+    [onNotify, onUnauthorized],
+  );
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadEvents();
@@ -177,8 +168,6 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/events/${event.id}/name`, {
         method: 'PATCH',
@@ -205,9 +194,9 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
         current.map((item) => (item.id === data.event.id ? data.event : item)),
       );
       setEventName(data.event.name);
-      setMessage('Event name updated.');
+      onNotify('success', 'Event name updated.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update event.');
+      onNotify('error', err instanceof Error ? err.message : 'Could not update event.');
     } finally {
       setSaving(false);
     }
@@ -217,20 +206,18 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
     const startsAt = new Date(schedule.startsAt);
     const endsAt = new Date(schedule.endsAt);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      setError('Please enter a valid start and end time.');
+      onNotify('error', 'Please enter a valid start and end time.');
       return;
     }
     if (startsAt.getTime() < Date.now()) {
-      setError('Event start cannot be in the past.');
+      onNotify('error', 'Event start cannot be in the past.');
       return;
     }
     if (endsAt <= startsAt) {
-      setError('Event end must be after event start.');
+      onNotify('error', 'Event end must be after event start.');
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch('/api/admin/events', {
         method: 'POST',
@@ -255,9 +242,9 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       };
       setEvents((current) => [...current.filter((item) => item.id !== data.event.id), data.event]);
       setSchedule(createDefaultSchedule());
-      setMessage('Event scheduled successfully.');
+      onNotify('success', 'Event scheduled successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not schedule event.');
+      onNotify('error', err instanceof Error ? err.message : 'Could not schedule event.');
     } finally {
       setSaving(false);
     }
@@ -267,8 +254,6 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/events/${event.id}/end`, {
         method: 'POST',
@@ -283,7 +268,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       }
       if (response.status === 404) {
         await loadEvents();
-        setMessage('Event has already ended.');
+        onNotify('error', 'Event has already ended.');
         return;
       }
       if (!response.ok) {
@@ -291,9 +276,9 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       }
       await loadEvents();
       setSchedule(createDefaultSchedule());
-      setMessage('Event ended. Final standings are now frozen.');
+      onNotify('success', 'Event ended. Final standings are now frozen.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not end event.');
+      onNotify('error', err instanceof Error ? err.message : 'Could not end event.');
     } finally {
       setSaving(false);
     }
@@ -313,20 +298,18 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
     const startsAt = new Date(draftSchedule.startsAt);
     const endsAt = new Date(draftSchedule.endsAt);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      setError('Please enter a valid start and end time.');
+      onNotify('error', 'Please enter a valid start and end time.');
       return;
     }
     if (startsAt.getTime() < Date.now()) {
-      setError('Event start cannot be in the past.');
+      onNotify('error', 'Event start cannot be in the past.');
       return;
     }
     if (endsAt <= startsAt) {
-      setError('Event end must be after event start.');
+      onNotify('error', 'Event end must be after event start.');
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/events/${selectedDraft.id}`, {
         method: 'PATCH',
@@ -353,9 +336,9 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
         current.map((item) => (item.id === data.event.id ? data.event : item)),
       );
       setDraftSchedule(createScheduleFromEvent(data.event));
-      setMessage('Schedule updated.');
+      onNotify('success', 'Schedule updated.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update schedule.');
+      onNotify('error', err instanceof Error ? err.message : 'Could not update schedule.');
     } finally {
       setSaving(false);
     }
@@ -363,16 +346,12 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   function handleCancelEdit() {
     setSelectedDraftId(null);
     setDraftSchedule(createDefaultSchedule());
-    setError(null);
-    setMessage(null);
   }
   async function handleCancelScheduledEvent() {
     if (!selectedDraft) {
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/events/${selectedDraft.id}`, {
         method: 'DELETE',
@@ -386,9 +365,9 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       }
       setSelectedDraftId(null);
       await loadEvents();
-      setMessage('Scheduled event canceled.');
+      onNotify('success', 'Scheduled event canceled.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not cancel scheduled event.');
+      onNotify('error', err instanceof Error ? err.message : 'Could not cancel scheduled event.');
     } finally {
       setSaving(false);
     }
@@ -528,8 +507,6 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
                   onClick={() => {
                     setSelectedDraftId(draft.id);
                     setDraftSchedule(createScheduleFromEvent(draft));
-                    setError(null);
-                    setMessage(null);
                   }}
                 >
                   {selectedDraft?.id === draft.id ? 'Editing' : 'Edit'}

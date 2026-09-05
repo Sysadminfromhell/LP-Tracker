@@ -2270,6 +2270,9 @@ a.social-link.twitch:hover {
 .admin-toast-error .admin-toast-icon {
   color: #ea5b69;
 }
+.admin-toast-error .admin-toast-icon {
+  color: #1048ff;
+}
 .admin-toast-content {
   display: grid;
   min-width: 0;

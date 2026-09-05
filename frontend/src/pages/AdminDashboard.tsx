@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import AdminToastHost, {
   type AdminToastMessage,
   type AdminToastVariant,
@@ -82,7 +82,6 @@ async function readApiError(response: Response): Promise<string> {
 }
 function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [toasts, setToasts] = useState<AdminToastMessage[]>([]);
-  const toastCooldownRef = useRef<Map<string, number>>(new Map());
   const [providerHealth, setProviderHealth] = useState<ProviderHealth | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,23 +90,14 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [addForm, setAddForm] = useState<PlayerForm>(EMPTY_PLAYER_FORM);
   const [editForm, setEditForm] = useState<PlayerForm>(EMPTY_PLAYER_FORM);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [refreshingPlayerId, setRefreshingPlayerId] = useState<number | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [playerSearch, setPlayerSearch] = useState('');
   const [playerStatusFilter, setPlayerStatusFilter] = useState<PlayerStatusFilter>('all');
   const [playerSort, setPlayerSort] = useState<PlayerSort>('name');
   const notify = useCallback((variant: AdminToastVariant, notificationMessage: string) => {
-    const now = Date.now();
-    const key = `${variant}:${notificationMessage}`;
-    const previousNotification = toastCooldownRef.current.get(key) ?? 0;
-    if (now - previousNotification < 10_000) {
-      return;
-    }
-    toastCooldownRef.current.set(key, now);
     const toast: AdminToastMessage = {
-      id: `${now}-` + Math.random().toString(16).slice(2),
+      id: crypto.randomUUID(),
       variant,
       message: notificationMessage,
     };
@@ -132,7 +122,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   }, []);
   const loadPlayers = useCallback(async () => {
     try {
-      setError(null);
       const response = await fetch('/api/admin/players');
       if (response.status === 401) {
         onLogout();
@@ -144,22 +133,11 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       const data = (await response.json()) as PlayersResponse;
       setPlayers(data.players);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load players.');
+      notify('error', err instanceof Error ? err.message : 'Could not load players.');
     } finally {
       setLoading(false);
     }
-  }, [onLogout]);
-  useEffect(() => {
-    if (error) {
-      notify('error', error);
-    }
-  }, [error, notify]);
-
-  useEffect(() => {
-    if (message) {
-      notify('success', message);
-    }
-  }, [message, notify]);
+  }, [notify, onLogout]);
   useEffect(() => {
     const initialTimer = window.setTimeout(() => {
       void loadProviderHealth();
@@ -190,18 +168,14 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       twitterUsername: player.twitterUsername ?? '',
       enabled: player.enabled,
     });
-    setError(null);
-    setMessage(null);
   }
   function cancelEditing() {
     setEditingPlayerId(null);
-    setError(null);
   }
   async function handleAddPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    notify('info',`trying to add ${addForm.gameName}#${addForm.tagLine}`);
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch('/api/admin/players', {
         method: 'POST',
@@ -221,10 +195,9 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       }
       setAddForm(EMPTY_PLAYER_FORM);
       setShowAddPlayer(false);
-      setMessage('Player added successfully.');
       await loadPlayers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add player.');
+      notify('error', err instanceof Error ? err.message : 'Could not add player.');
     } finally {
       setSaving(false);
     }
@@ -235,8 +208,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/players/${editingPlayerId}`, {
         method: 'PATCH',
@@ -253,10 +224,10 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         throw new Error(await readApiError(response));
       }
       setEditingPlayerId(null);
-      setMessage('Player updated successfully.');
       await loadPlayers();
+      notify('success', 'Player updated successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update player.');
+      notify('error', err instanceof Error ? err.message : 'Could not update player.');
     } finally {
       setSaving(false);
     }
@@ -265,9 +236,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     if (refreshingAll || refreshingPlayerId !== null) {
       return;
     }
+    notify('info', `Starting player refresh for ${player.gameName}#${player.tagLine}`);
     setRefreshingPlayerId(player.id);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/players/${player.id}/refresh`, {
         method: 'POST',
@@ -280,9 +250,9 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         throw new Error(await readApiError(response));
       }
       await loadPlayers();
-      setMessage(`${player.gameName}#${player.tagLine} refreshed successfully.`);
+      notify('success', `${player.gameName}#${player.tagLine} refreshed successfully.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not refresh player.');
+      notify('error', err instanceof Error ? err.message : 'Could not refresh player.');
     } finally {
       setRefreshingPlayerId(null);
     }
@@ -291,9 +261,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     if (refreshingAll || refreshingPlayerId !== null) {
       return;
     }
+    notify('info','Starting refresh all player one by one. Please wait.');
     setRefreshingAll(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch('/api/admin/players/refresh-all', {
         method: 'POST',
@@ -310,13 +279,13 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         players: AdminPlayer[];
       };
       setPlayers(data.players);
-      setMessage(
+      notify(
+        'success',
         `${data.refreshed} player${data.refreshed === 1 ? '' : 's'} refreshed successfully.`,
       );
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Could not refresh players.';
+      notify('error', err instanceof Error ? err.message : 'Could not refresh players.');
       await loadPlayers();
-      setError(errorMessage);
     } finally {
       setRefreshingAll(false);
     }
@@ -428,8 +397,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                 onClick={() => {
                   setShowAddPlayer((current) => !current);
                   setEditingPlayerId(null);
-                  setError(null);
-                  setMessage(null);
                 }}
               >
                 {showAddPlayer ? 'Cancel' : '+ Add Player'}

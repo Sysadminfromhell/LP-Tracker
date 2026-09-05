@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export type AdminToastVariant = 'success' | 'error';
+export type AdminToastVariant = 'success' | 'error' | 'info';
 export interface AdminToastMessage {
   id: string;
   variant: AdminToastVariant;
@@ -16,6 +16,13 @@ interface AdminToastItemProps {
 }
 
 function AdminToastItem({ toast, onDismiss }: AdminToastItemProps) {
+  const icon = toast.variant === 'success' ? '✓' : toast.variant === 'error' ? '!' : 'i';
+  const title =
+    toast.variant === 'success'
+      ? 'Success'
+      : toast.variant === 'error'
+        ? 'Something went wrong'
+        : 'Info';
   useEffect(() => {
     const timer = window.setTimeout(() => {
       onDismiss(toast.id);
@@ -29,9 +36,9 @@ function AdminToastItem({ toast, onDismiss }: AdminToastItemProps) {
       className={`admin-toast admin-toast-${toast.variant}`}
       role={toast.variant === 'error' ? 'alert' : 'status'}
     >
-      <div className="admin-toast-icon">{toast.variant === 'success' ? '✓' : '!'}</div>
+      <div className="admin-toast-icon">{icon}</div>
       <div className="admin-toast-content">
-        <strong>{toast.variant === 'success' ? 'Success' : 'Something went wrong'}</strong>
+        <strong>{title}</strong>
         <span>{toast.message}</span>
       </div>
       <button

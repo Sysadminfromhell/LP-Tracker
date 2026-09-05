@@ -38,7 +38,6 @@ function AdminConfirmDialog({
   if (!open) {
     return null;
   }
-
   return (
     <div
       className="admin-confirm-overlay"
