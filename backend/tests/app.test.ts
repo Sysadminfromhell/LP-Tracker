@@ -184,3 +184,36 @@ describe('app request origin protection', () => {
     }
   });
 });
+describe('app security headers', () => {
+  it('adds security headers to API responses', async () => {
+    process.env.NODE_ENV = 'development';
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/test',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['x-content-type-options']).toBe('nosniff');
+      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+      expect(response.headers['referrer-policy']).toBe('no-referrer');
+      expect(response.headers['strict-transport-security']).toContain('max-age=31536000');
+    } finally {
+      await app.close();
+    }
+  });
+  it('does not add a content security policy to API responses', async () => {
+    process.env.NODE_ENV = 'development';
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/test',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-security-policy']).toBeUndefined();
+    } finally {
+      await app.close();
+    }
+  });
+});

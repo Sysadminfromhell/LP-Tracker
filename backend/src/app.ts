@@ -1,5 +1,6 @@
 import Fastify, { LogController } from 'fastify';
 import cookie from '@fastify/cookie';
+import helmet from '@fastify/helmet';
 
 export function createApp() {
   const app = Fastify({
@@ -20,6 +21,9 @@ export function createApp() {
     }),
   });
   app.register(cookie);
+  app.register(helmet, {
+    contentSecurityPolicy: false,
+  });
   app.addHook('onRequest', async (request, reply) => {
     if (process.env.NODE_ENV !== 'production') {
       return;
