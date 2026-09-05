@@ -2253,6 +2253,9 @@ a.social-link.twitch:hover {
 .admin-toast-error {
   border-color: rgba(234, 91, 105, 0.25);
 }
+.admin-toast-info {
+  border-color: royalblue
+}
 .admin-toast-icon {
   display: flex;
   width: 28px;
@@ -2270,8 +2273,8 @@ a.social-link.twitch:hover {
 .admin-toast-error .admin-toast-icon {
   color: #ea5b69;
 }
-.admin-toast-error .admin-toast-icon {
-  color: #1048ff;
+.admin-toast-info .admin-toast-icon {
+  color: royalblue
 }
 .admin-toast-content {
   display: grid;
