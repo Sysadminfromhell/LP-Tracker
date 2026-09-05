@@ -1,12 +1,11 @@
 import { createApplication } from './runtime/application';
 import { bootstrapApplication } from './runtime/bootstrap';
-import { closeDatabase } from './db/client';
-import { startRefreshScheduler, stopRefreshScheduler } from './jobs/refresh-scheduler';
-import { startEventLifecycle, stopEventLifecycle } from './jobs/event-lifecycle';
-import { disconnectLeagueDataProvider } from './services/league-data.service';
-import { closeLiveUpdateClients } from './services/live-update.service';
+import { createShutdownHandler } from './runtime/shutdown';
+import { startRefreshScheduler } from './jobs/refresh-scheduler';
+import { startEventLifecycle } from './jobs/event-lifecycle';
 
 const fastify = createApplication();
+const shutdown = createShutdownHandler(fastify);
 
 async function main(): Promise<void> {
   console.log();
@@ -25,22 +24,6 @@ async function main(): Promise<void> {
   startRefreshScheduler();
   startEventLifecycle();
 }
-let shuttingDown = false;
-async function shutdown(): Promise<void> {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  console.log();
-  console.log('[APP] Shutting down...');
-  stopRefreshScheduler();
-  stopEventLifecycle();
-  closeLiveUpdateClients();
-  await disconnectLeagueDataProvider();
-  await fastify.close().catch(() => {});
-  await closeDatabase().catch(() => {});
-  console.log('[APP] Shutdown complete ✓');
-}
 process.on('SIGINT', () => {
   void shutdown().finally(() => process.exit(0));
 });
@@ -56,6 +39,6 @@ main().catch(async (error) => {
   console.error();
   console.error('[APP] Fatal startup error:');
   console.error(error);
-  await closeDatabase().catch(() => {});
+  await shutdown();
   process.exit(1);
 });
