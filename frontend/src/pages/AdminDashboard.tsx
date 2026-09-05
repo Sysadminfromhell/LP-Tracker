@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import AdminToastHost, {
+  type AdminToastMessage,
+  type AdminToastVariant,
+} from '../components/AdminToastHost';
 import AdminEventPanel from './AdminEventPanel';
 
 interface AdminPlayer {
@@ -32,6 +36,8 @@ interface PlayerForm {
   twitterUsername: string;
   enabled: boolean;
 }
+type PlayerStatusFilter = 'all' | 'enabled' | 'disabled';
+type PlayerSort = 'name' | 'rank' | 'updated';
 interface ProviderRateLimitBucket {
   limit: number;
   count: number | null;
@@ -75,6 +81,7 @@ async function readApiError(response: Response): Promise<string> {
   }
 }
 function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
+  const [toasts, setToasts] = useState<AdminToastMessage[]>([]);
   const [providerHealth, setProviderHealth] = useState<ProviderHealth | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,10 +90,22 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [addForm, setAddForm] = useState<PlayerForm>(EMPTY_PLAYER_FORM);
   const [editForm, setEditForm] = useState<PlayerForm>(EMPTY_PLAYER_FORM);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [refreshingPlayerId, setRefreshingPlayerId] = useState<number | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState('');
+  const [playerStatusFilter, setPlayerStatusFilter] = useState<PlayerStatusFilter>('all');
+  const [playerSort, setPlayerSort] = useState<PlayerSort>('name');
+  const notify = useCallback((variant: AdminToastVariant, notificationMessage: string) => {
+    const toast: AdminToastMessage = {
+      id: crypto.randomUUID(),
+      variant,
+      message: notificationMessage,
+    };
+    setToasts((current) => [...current.slice(-3), toast]);
+  }, []);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
   const loadProviderHealth = useCallback(async () => {
     try {
       const response = await fetch('/api/health', {
@@ -103,7 +122,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   }, []);
   const loadPlayers = useCallback(async () => {
     try {
-      setError(null);
       const response = await fetch('/api/admin/players');
       if (response.status === 401) {
         onLogout();
@@ -115,11 +133,11 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       const data = (await response.json()) as PlayersResponse;
       setPlayers(data.players);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load players.');
+      notify('error', err instanceof Error ? err.message : 'Could not load players.');
     } finally {
       setLoading(false);
     }
-  }, [onLogout]);
+  }, [notify, onLogout]);
   useEffect(() => {
     const initialTimer = window.setTimeout(() => {
       void loadProviderHealth();
@@ -150,18 +168,14 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       twitterUsername: player.twitterUsername ?? '',
       enabled: player.enabled,
     });
-    setError(null);
-    setMessage(null);
   }
   function cancelEditing() {
     setEditingPlayerId(null);
-    setError(null);
   }
   async function handleAddPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    notify('info',`trying to add ${addForm.gameName}#${addForm.tagLine}`);
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch('/api/admin/players', {
         method: 'POST',
@@ -181,10 +195,9 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       }
       setAddForm(EMPTY_PLAYER_FORM);
       setShowAddPlayer(false);
-      setMessage('Player added successfully.');
       await loadPlayers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add player.');
+      notify('error', err instanceof Error ? err.message : 'Could not add player.');
     } finally {
       setSaving(false);
     }
@@ -195,8 +208,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       return;
     }
     setSaving(true);
-    setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/admin/players/${editingPlayerId}`, {
         method: 'PATCH',
@@ -213,10 +224,10 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         throw new Error(await readApiError(response));
       }
       setEditingPlayerId(null);
-      setMessage('Player updated successfully.');
       await loadPlayers();
+      notify('success', 'Player updated successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update player.');
+      notify('error', err instanceof Error ? err.message : 'Could not update player.');
     } finally {
       setSaving(false);
     }
@@ -225,78 +236,102 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     if (refreshingAll || refreshingPlayerId !== null) {
       return;
     }
-
+    notify('info', `Starting player refresh for ${player.gameName}#${player.tagLine}`);
     setRefreshingPlayerId(player.id);
-    setError(null);
-    setMessage(null);
-
     try {
       const response = await fetch(`/api/admin/players/${player.id}/refresh`, {
         method: 'POST',
       });
-
       if (response.status === 401) {
         onLogout();
         return;
       }
-
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-
       await loadPlayers();
-
-      setMessage(`${player.gameName}#${player.tagLine} refreshed successfully.`);
+      notify('success', `${player.gameName}#${player.tagLine} refreshed successfully.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not refresh player.');
+      notify('error', err instanceof Error ? err.message : 'Could not refresh player.');
     } finally {
       setRefreshingPlayerId(null);
     }
   }
-
   async function handleRefreshAllPlayers() {
     if (refreshingAll || refreshingPlayerId !== null) {
       return;
     }
-
+    notify('info','Starting refresh all player one by one. Please wait.');
     setRefreshingAll(true);
-    setError(null);
-    setMessage(null);
-
     try {
       const response = await fetch('/api/admin/players/refresh-all', {
         method: 'POST',
       });
-
       if (response.status === 401) {
         onLogout();
         return;
       }
-
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-
       const data = (await response.json()) as {
         refreshed: number;
         players: AdminPlayer[];
       };
-
       setPlayers(data.players);
-
-      setMessage(
+      notify(
+        'success',
         `${data.refreshed} player${data.refreshed === 1 ? '' : 's'} refreshed successfully.`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not refresh players.');
-
+      notify('error', err instanceof Error ? err.message : 'Could not refresh players.');
       await loadPlayers();
     } finally {
       setRefreshingAll(false);
     }
   }
+  const visiblePlayers = useMemo(() => {
+    const search = playerSearch.trim().toLowerCase();
+    return [...players]
+      .filter((player) => {
+        if (playerStatusFilter === 'enabled' && !player.enabled) {
+          return false;
+        }
+        if (playerStatusFilter === 'disabled' && player.enabled) {
+          return false;
+        }
+        if (!search) {
+          return true;
+        }
+        return [
+          player.gameName,
+          player.tagLine,
+          player.region,
+          player.twitchUsername ?? '',
+          player.twitterUsername ?? '',
+        ].some((value) => value.toLowerCase().includes(search));
+      })
+      .sort((a, b) => {
+        if (playerSort === 'rank') {
+          return (b.rankScore ?? -1) - (a.rankScore ?? -1);
+        }
+        if (playerSort === 'updated') {
+          const aUpdated = a.lastSuccessfulFetchAt
+            ? new Date(a.lastSuccessfulFetchAt).getTime()
+            : 0;
+          const bUpdated = b.lastSuccessfulFetchAt
+            ? new Date(b.lastSuccessfulFetchAt).getTime()
+            : 0;
+          return bUpdated - aUpdated;
+        }
+        return a.gameName.localeCompare(b.gameName, undefined, {
+          sensitivity: 'base',
+        });
+      });
+  }, [playerSearch, playerSort, playerStatusFilter, players]);
   return (
     <main className="admin-page">
+      <AdminToastHost toasts={toasts} onDismiss={dismissToast} />
       <section className="admin-shell">
         <header className="admin-topbar">
           <div>
@@ -312,7 +347,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             </button>
           </div>
         </header>
-        <AdminEventPanel onUnauthorized={onLogout} />
+        <AdminEventPanel onUnauthorized={onLogout} onNotify={notify} />
         {providerHealth?.warning && (
           <div className="admin-provider-warning" role="status">
             <div className="admin-provider-warning-icon">!</div>
@@ -362,12 +397,54 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                 onClick={() => {
                   setShowAddPlayer((current) => !current);
                   setEditingPlayerId(null);
-                  setError(null);
-                  setMessage(null);
                 }}
               >
                 {showAddPlayer ? 'Cancel' : '+ Add Player'}
               </button>
+            </div>
+          </div>
+          <div className="admin-player-controls">
+            <label className="admin-player-search">
+              <span>Search</span>
+              <input
+                type="search"
+                value={playerSearch}
+                placeholder="Player, Riot ID, Twitch, X..."
+                onChange={(event) => {
+                  setPlayerSearch(event.target.value);
+                }}
+              />
+            </label>
+            <label>
+              <span>Status</span>
+              <select
+                value={playerStatusFilter}
+                onChange={(event) => {
+                  setPlayerStatusFilter(event.target.value as PlayerStatusFilter);
+                }}
+              >
+                <option value="all">All players</option>
+                <option value="enabled">Enabled</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Sort</span>
+              <select
+                value={playerSort}
+                onChange={(event) => {
+                  setPlayerSort(event.target.value as PlayerSort);
+                }}
+              >
+                <option value="name">Name</option>
+                <option value="rank">Rank</option>
+                <option value="updated">Last refreshed</option>
+              </select>
+            </label>
+
+            <div className="admin-player-count">
+              {visiblePlayers.length} / {players.length}
             </div>
           </div>
           {showAddPlayer && (
@@ -461,15 +538,15 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               </p>
             </form>
           )}
-          {error && <div className="admin-message admin-message-error">{error}</div>}
-          {message && <div className="admin-message admin-message-success">{message}</div>}
           {loading ? (
             <div className="admin-player-empty">Loading players...</div>
           ) : players.length === 0 ? (
             <div className="admin-player-empty">No players configured.</div>
+          ) : visiblePlayers.length === 0 ? (
+            <div className="admin-player-empty">No players match the current filters.</div>
           ) : (
             <div className="admin-player-list">
-              {players.map((player) => (
+              {visiblePlayers.map((player) => (
                 <div className="admin-player-card" key={player.id}>
                   <div className="admin-player-summary">
                     <div className="admin-player-identity">
