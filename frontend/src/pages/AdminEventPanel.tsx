@@ -156,7 +156,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       return;
     }
     const interval = window.setInterval(() => {
-      void loadEvents();
+      void loadEvents(false);
     }, 5_000);
     return () => {
       window.clearInterval(interval);
@@ -665,33 +665,33 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
             {saving ? 'Scheduling...' : 'Schedule Event'}
           </button>
         </div>
-        <AdminConfirmDialog
-          open={confirmation !== null}
-          title={confirmation === 'end-event' ? 'End event now?' : 'Cancel scheduled event?'}
-          message={
-            confirmation === 'end-event'
-              ? `End "${event?.name ?? 'this event'}" now? The current leaderboard will be frozen as the final result.`
-              : `Cancel "${selectedDraft?.name ?? 'this event'}"? The event will not be started.`
-          }
-          confirmLabel={confirmation === 'end-event' ? 'End Event' : 'Cancel Event'}
-          danger
-          busy={saving}
-          onCancel={() => {
-            setConfirmation(null);
-          }}
-          onConfirm={() => {
-            const action = confirmation;
-            setConfirmation(null);
-            if (action === 'end-event') {
-              void handleEnd();
-              return;
-            }
-            if (action === 'cancel-scheduled-event') {
-              void handleCancelScheduledEvent();
-            }
-          }}
-        />
       </form>
+      <AdminConfirmDialog
+        open={confirmation !== null}
+        title={confirmation === 'end-event' ? 'End event now?' : 'Cancel scheduled event?'}
+        message={
+          confirmation === 'end-event'
+            ? `End "${event?.name ?? 'this event'}" now? The current leaderboard will be frozen as the final result.`
+            : `Cancel "${selectedDraft?.name ?? 'this event'}"? The event will not be started.`
+        }
+        confirmLabel={confirmation === 'end-event' ? 'End Event' : 'Cancel Event'}
+        danger
+        busy={saving}
+        onCancel={() => {
+          setConfirmation(null);
+        }}
+        onConfirm={() => {
+          const action = confirmation;
+          setConfirmation(null);
+          if (action === 'end-event') {
+            void handleEnd();
+            return;
+          }
+          if (action === 'cancel-scheduled-event') {
+            void handleCancelScheduledEvent();
+          }
+        }}
+      />
     </div>
   );
 }
