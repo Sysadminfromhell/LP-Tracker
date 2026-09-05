@@ -1,6 +1,10 @@
-import type { RankedLpHistoryEntry, SummonerMatch } from '../providers/league-data.types';
+import type { RankedLpHistoryEntry } from '../providers/league-data.types';
 import { calculateRankScore } from '../rank';
 
+export interface LpHistoryMatchReference {
+  id: string;
+  createdAt: string;
+}
 export interface ResolvedMatchLpDelta {
   matchId: string;
   lpDelta: number;
@@ -13,12 +17,12 @@ interface ScoredHistoryEntry {
 
 export function resolveLpHistoryDeltas(
   previousRankScore: number,
-  matches: SummonerMatch[],
+  matches: LpHistoryMatchReference[],
   lpHistory: RankedLpHistoryEntry[],
 ): ResolvedMatchLpDelta[] {
-  const rankedMatches = matches
-    .filter((match) => match.gameType === 'SOLORANKED')
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const rankedMatches = [...matches].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
   const history: ScoredHistoryEntry[] = lpHistory
     .map((entry) => {
       const rankScore = calculateRankScore(entry.tier, entry.division, entry.lp);
