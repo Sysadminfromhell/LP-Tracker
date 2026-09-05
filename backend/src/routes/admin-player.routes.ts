@@ -12,7 +12,12 @@ import {
 import { getLeagueDataProvider } from '../services/league-data.service';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
-import { isOperationBusy, setRefreshInProgress } from '../runtime/operation-state';
+import {
+  getOperationState,
+  isOperationBusy,
+  setRefreshInProgress,
+} from '../runtime/operation-state';
+import { enqueueRefresh } from '../runtime/refresh-queue';
 import { calculateRankScore } from '../rank';
 
 export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
@@ -41,12 +46,12 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         error: 'Invalid player id',
       });
     }
-    if (isOperationBusy()) {
+    const operationState = getOperationState();
+    if (operationState.lifecycleInProgress) {
       return reply.code(409).send({
-        error: 'A player refresh or event transition is currently in progress',
+        error: 'An event transition is currently in progress',
       });
     }
-    setRefreshInProgress(true);
     try {
       const players = await getPlayers(false);
       const player = players.find((entry) => entry.id === playerId);
@@ -59,7 +64,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         `[ADMIN] ${admin.username} requested manual refresh for ` +
           `${player.gameName}#${player.tagLine}`,
       );
-      const refreshed = await refreshPlayer(player);
+      const refreshed = await enqueueRefresh(() => refreshPlayer(player));
       if (!refreshed) {
         return reply.code(502).send({
           error: `Could not refresh ${player.gameName}#${player.tagLine}`,
@@ -77,8 +82,6 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(500).send({
         error: 'Could not refresh player',
       });
-    } finally {
-      setRefreshInProgress(false);
     }
   });
   app.post('/api/admin/players/refresh-all', async (request, reply) => {
