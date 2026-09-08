@@ -26,6 +26,7 @@ import {
 
 interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
+  requireCompleteMatchSync?: boolean;
 }
 
 const DEFAULT_PROVIDER_REQUEST_TIMEOUT_MS = 15_000;
@@ -38,6 +39,7 @@ export async function refreshPlayer(
 ): Promise<boolean> {
   const startedAt = Date.now();
   const updateLeaderboard = options.updateLeaderboard ?? true;
+  const requireCompleteMatchSync = options.requireCompleteMatchSync ?? false;
   console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
   recordPlayerRefreshAttempt();
   try {
@@ -102,31 +104,38 @@ export async function refreshPlayer(
           );
         }
         if (!matchSync.anchorReached) {
-          throw new Error(
+          const message =
             `Match backfill limit reached before sync anchor ` +
-              `(${matchSync.requestedLimit} matches)`,
+            `(${matchSync.requestedLimit} matches)`;
+          if (requireCompleteMatchSync) {
+            throw new Error(message);
+          }
+          console.warn(
+            `[MATCH SYNC] ${player.gameName}#${player.tagLine}: ` +
+              `${message}; keeping previously synced event matches`,
           );
-        }
-        const matchResult = await updateEventAfterPlayerRefresh(
-          participant.id,
-          participant.snapshotCapturedAt,
-          event.endsAt,
-          matchSync.matches,
-          rankScore,
-          profile.lpHistory,
-        );
-        refreshedEventId = event.id;
-        if (
-          matchResult.newMatches > 0 ||
-          matchResult.resolvedMatches > 0 ||
-          matchResult.unknownMatches > 0
-        ) {
-          console.log(
-            `[EVENT] ${player.gameName}#${player.tagLine}: ` +
-              `${matchResult.newMatches} new | ` +
-              `${matchResult.resolvedMatches} resolved | ` +
-              `${matchResult.unknownMatches} unknown`,
+        } else {
+          const matchResult = await updateEventAfterPlayerRefresh(
+            participant.id,
+            participant.snapshotCapturedAt,
+            event.endsAt,
+            matchSync.matches,
+            rankScore,
+            profile.lpHistory,
           );
+          refreshedEventId = event.id;
+          if (
+            matchResult.newMatches > 0 ||
+            matchResult.resolvedMatches > 0 ||
+            matchResult.unknownMatches > 0
+          ) {
+            console.log(
+              `[EVENT] ${player.gameName}#${player.tagLine}: ` +
+                `${matchResult.newMatches} new | ` +
+                `${matchResult.resolvedMatches} resolved | ` +
+                `${matchResult.unknownMatches} unknown`,
+            );
+          }
         }
       }
     }
@@ -173,6 +182,7 @@ export async function refreshPlayersForSnapshot(players: Player[]): Promise<Play
   for (const player of players) {
     const refreshed = await refreshPlayer(player, {
       updateLeaderboard: false,
+      requireCompleteMatchSync: true,
     });
     if (!refreshed) {
       failedPlayers.push(player);

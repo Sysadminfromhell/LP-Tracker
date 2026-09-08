@@ -40,7 +40,7 @@ vi.mock('../src/services/leaderboard.service', () => ({
   setLeaderboardPlayerError: mocks.setLeaderboardPlayerError,
 }));
 
-import { refreshPlayer } from '../src/services/player-refresh.service';
+import { refreshPlayer, refreshPlayersForSnapshot } from '../src/services/player-refresh.service';
 
 const player: Player = {
   id: 1,
@@ -354,7 +354,7 @@ describe('refreshPlayer provider reliability', () => {
       profile.lpHistory,
     );
   });
-  it('fails without updating event data when the backfill anchor cannot be reached', async () => {
+  it('keeps the player refresh successful when the backfill anchor cannot be reached', async () => {
     const getRecentMatches = vi.fn(
       async (_gameName: string, _tagLine: string, _region: string, limit: number = 20) =>
         Array.from({ length: limit }, (_, index) => ({
@@ -383,7 +383,46 @@ describe('refreshPlayer provider reliability', () => {
     });
     mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches, 'opgg', 20);
     const result = await refreshPlayer(player);
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    expect(getRecentMatches.mock.calls).toEqual([
+      [player.gameName, player.tagLine, player.region, 5],
+      [player.gameName, player.tagLine, player.region, 20],
+    ]);
+    expect(mocks.updateEventAfterPlayerRefresh).not.toHaveBeenCalled();
+    expect(mocks.savePlayerCacheError).not.toHaveBeenCalled();
+    expect(mocks.setLeaderboardPlayerError).not.toHaveBeenCalled();
+    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+  });
+  it('fails a snapshot refresh when the backfill anchor cannot be reached', async () => {
+    const getRecentMatches = vi.fn(
+      async (_gameName: string, _tagLine: string, _region: string, limit: number = 20) =>
+        Array.from({ length: limit }, (_, index) => ({
+          id: `match-${index}`,
+          createdAt: '2026-09-08T20:00:00.000Z',
+          gameType: 'SOLORANKED' as const,
+          durationSeconds: 1800,
+          championId: 266,
+          champion: 'Aatrox',
+          position: 'TOP',
+          items: [],
+          damageToChampions: 20000,
+          kills: 5,
+          deaths: 3,
+          assists: 7,
+          laneCs: 180,
+          jungleCs: 0,
+          cs: 180,
+          result: 'WIN' as const,
+        })),
+    );
+    mockActiveEventParticipant();
+    mocks.getLatestEventMatchCursor.mockResolvedValue({
+      providerMatchId: 'old-match',
+      gameCreatedAt: '2026-09-01T19:00:00.000Z',
+    });
+    mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches, 'opgg', 20);
+    const failedPlayers = await refreshPlayersForSnapshot([player]);
+    expect(failedPlayers).toEqual([player]);
     expect(getRecentMatches.mock.calls).toEqual([
       [player.gameName, player.tagLine, player.region, 5],
       [player.gameName, player.tagLine, player.region, 20],
@@ -393,5 +432,6 @@ describe('refreshPlayer provider reliability', () => {
       player.id,
       'Match backfill limit reached before sync anchor (20 matches)',
     );
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
   });
 });
