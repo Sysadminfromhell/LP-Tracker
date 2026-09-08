@@ -81,9 +81,11 @@ function mockProvider(
   getSummonerProfile: LeagueDataProvider['getSummonerProfile'],
   getRecentMatches: LeagueDataProvider['getRecentMatches'],
   name = 'test',
+  maxRecentMatches = 100,
 ): void {
   mocks.getLeagueDataProvider.mockResolvedValue({
     name,
+    maxRecentMatches,
     connect: vi.fn(),
     disconnect: vi.fn(),
     getSummonerProfile,
@@ -379,19 +381,17 @@ describe('refreshPlayer provider reliability', () => {
       providerMatchId: 'old-match',
       gameCreatedAt: '2026-09-01T19:00:00.000Z',
     });
-    mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches);
+    mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches, 'opgg', 20);
     const result = await refreshPlayer(player);
     expect(result).toBe(false);
     expect(getRecentMatches.mock.calls).toEqual([
       [player.gameName, player.tagLine, player.region, 5],
       [player.gameName, player.tagLine, player.region, 20],
-      [player.gameName, player.tagLine, player.region, 50],
-      [player.gameName, player.tagLine, player.region, 100],
     ]);
     expect(mocks.updateEventAfterPlayerRefresh).not.toHaveBeenCalled();
     expect(mocks.savePlayerCacheError).toHaveBeenCalledWith(
       player.id,
-      'Match backfill limit reached before sync anchor (100 matches)',
+      'Match backfill limit reached before sync anchor (20 matches)',
     );
   });
 });

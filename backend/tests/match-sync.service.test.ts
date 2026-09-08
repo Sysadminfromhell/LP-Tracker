@@ -132,6 +132,26 @@ describe('incremental match sync', () => {
     expect(result.anchorReached).toBe(false);
     expect(result.matches).toHaveLength(100);
   });
+  it('respects the provider maximum match fetch limit', async () => {
+    const fetchMatches = vi.fn(async (limit: number) =>
+      Array.from({ length: limit }, (_, index) =>
+        createMatch(`match-${index}`, '2026-09-08T20:00:00.000Z'),
+      ),
+    );
+    const result = await fetchIncrementalMatches(
+      fetchMatches,
+      '2026-09-01T18:00:00.000Z',
+      {
+        providerMatchId: 'old-match',
+        gameCreatedAt: '2026-09-01T19:00:00.000Z',
+      },
+      20,
+    );
+    expect(fetchMatches.mock.calls).toEqual([[5], [20]]);
+    expect(result.requestedLimit).toBe(20);
+    expect(result.anchorReached).toBe(false);
+    expect(result.matches).toHaveLength(20);
+  });
   it('rejects an invalid event start timestamp', async () => {
     const fetchMatches = vi.fn();
     await expect(fetchIncrementalMatches(fetchMatches, 'not-a-date', null)).rejects.toThrow(

@@ -93,6 +93,7 @@ export async function refreshPlayer(
             ),
           participant.snapshotCapturedAt,
           matchCursor,
+          provider.maxRecentMatches,
         );
         if (matchSync.requestedLimit > 5) {
           console.log(

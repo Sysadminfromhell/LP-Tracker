@@ -7,6 +7,7 @@ const MCP_URL = 'https://mcp-api.op.gg/mcp';
 
 export class OpggClient implements LeagueDataProvider {
   readonly name = 'opgg';
+  readonly maxRecentMatches = 20;
   private client: Client;
   private transport: StreamableHTTPClientTransport;
   constructor() {
@@ -28,13 +29,15 @@ export class OpggClient implements LeagueDataProvider {
     region: string,
     limit: number = 5,
   ): Promise<SummonerMatch[]> {
+    const requestedLimit = Number.isFinite(limit) ? Math.trunc(limit) : 5;
+    const normalizedLimit = Math.min(this.maxRecentMatches, Math.max(1, requestedLimit));
     const result = await this.client.callTool({
       name: 'lol_list_summoner_matches',
       arguments: {
         game_name: gameName,
         tag_line: tagLine,
         region,
-        limit,
+        limit: normalizedLimit,
         desired_output_fields: [
           'data.game_history[].id',
           'data.game_history[].created_at',

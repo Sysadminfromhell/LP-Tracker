@@ -1,6 +1,18 @@
 import type { SummonerMatch } from '../providers/league-data.types';
 
 const MATCH_FETCH_LIMITS = [5, 20, 50, 100] as const;
+const DEFAULT_MAX_MATCH_FETCH_LIMIT = 100;
+
+function getMatchFetchLimits(maxFetchLimit: number): number[] {
+  const normalizedMax = Number.isFinite(maxFetchLimit)
+    ? Math.min(DEFAULT_MAX_MATCH_FETCH_LIMIT, Math.max(1, Math.trunc(maxFetchLimit)))
+    : DEFAULT_MAX_MATCH_FETCH_LIMIT;
+  const limits: number[] = MATCH_FETCH_LIMITS.filter((limit) => limit <= normalizedMax);
+  if (!limits.includes(normalizedMax)) {
+    limits.push(normalizedMax);
+  }
+  return limits.sort((a, b) => a - b);
+}
 
 export interface MatchSyncCursor {
   providerMatchId: string;
@@ -17,14 +29,16 @@ export async function fetchIncrementalMatches(
   fetchMatches: MatchFetcher,
   eventStartsAt: string,
   cursor: MatchSyncCursor | null,
+  maxFetchLimit: number = DEFAULT_MAX_MATCH_FETCH_LIMIT,
 ): Promise<IncrementalMatchSyncResult> {
   const eventStartTimestamp = new Date(eventStartsAt).getTime();
   if (!Number.isFinite(eventStartTimestamp)) {
     throw new Error('Invalid event start timestamp');
   }
   const collectedMatches = new Map<string, SummonerMatch>();
-  let requestedLimit: number = MATCH_FETCH_LIMITS[0];
-  for (const limit of MATCH_FETCH_LIMITS) {
+  const fetchLimits = getMatchFetchLimits(maxFetchLimit);
+  let requestedLimit = fetchLimits[0];
+  for (const limit of fetchLimits) {
     requestedLimit = limit;
     const matches = await fetchMatches(limit);
     for (const match of matches) {

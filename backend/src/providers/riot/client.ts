@@ -191,6 +191,7 @@ export class RiotApiError extends Error {
 }
 export class RiotClient implements LeagueDataProvider {
   readonly name = 'riot';
+  readonly maxRecentMatches = MAX_MATCH_LIMIT;
   private readonly apiKey: string | null;
   private readonly rateLimiter: RiotRateLimiter;
   private dataDragonVersion: Promise<string | null> | null = null;

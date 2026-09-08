@@ -99,7 +99,7 @@ describe('OpggClient', () => {
       ],
     });
     const client = new OpggClient();
-    const matches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 20);
+    const matches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 100);
     expect(mcp.callTool).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'lol_list_summoner_matches',
