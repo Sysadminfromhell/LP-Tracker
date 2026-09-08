@@ -1,4 +1,5 @@
 import { db } from './client';
+import { syncRecentEventMatchDetails } from './event-match-details';
 import type { RankedLpHistoryEntry, SummonerMatch } from '../providers/league-data.types';
 import { resolveLpHistoryDeltas } from '../services/lp-history-resolver';
 
@@ -256,11 +257,21 @@ export async function updateEventAfterPlayerRefresh(
       }
     }
     await client.query('COMMIT');
-    return {
+    const refreshResult = {
       newMatches,
       resolvedMatches,
       unknownMatches,
     };
+    try {
+      await syncRecentEventMatchDetails(client, eventParticipantId, recentMatches);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[EVENT] Participant ${eventParticipantId}: ` +
+          `could not sync rich match details: ${message}`,
+      );
+    }
+    return refreshResult;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

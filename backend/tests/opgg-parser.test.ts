@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseRecentMatches, parseSummonerProfile } from '../src/providers/opgg/parser';
+import {
+  parseGameDetailParticipants,
+  parseRecentMatches,
+  parseSummonerProfile,
+} from '../src/providers/opgg/parser';
 
 describe('OP.GG parser', () => {
   it('parses a summoner profile', () => {
@@ -101,6 +105,105 @@ describe('OP.GG parser', () => {
         jungleCs: 12,
         cs: 202,
         result: 'WIN',
+      },
+    ]);
+  });
+  it('parses full game detail participants relative to the tracked player', () => {
+    const text =
+      'LolGetSummonerGameDetail(Data(GameDetail(' +
+      '"match-123",' +
+      '"2026-09-09T03:01:57+09:00",' +
+      '"SUMMONERS_RIFT",' +
+      '"SOLORANKED",' +
+      '1852,' +
+      'AverageTierInfo("BRONZE",2,"border.png"),' +
+      '[' +
+      'Team(' +
+      '"BLUE",' +
+      'GameStat(true,10,true,1,1,1,1,5,0,0,50000),' +
+      '[],' +
+      '[],' +
+      '[' +
+      'Participant(' +
+      'Summoner("tracked-puuid","FourK","1337",null),' +
+      '90,' +
+      '"Malzahar",' +
+      '"BLUE",' +
+      '"MID",' +
+      '[3118,6653,3175],' +
+      '["Malignance","Liandry","Boots"],' +
+      'Rune(8200,8992,8300),' +
+      '[4,12],' +
+      'Stats(' +
+      '17,7069,23335,0,58,4,17,' +
+      '4,0,10,1,4,244,null,null,0,' +
+      '12496,1820,"WIN",7.22,2,' +
+      'OpScoreTimelineAnalysis("DOWN","UP","GOOD")' +
+      '),' +
+      '1206' +
+      ')' +
+      ']' +
+      '),' +
+      'Team(' +
+      '"RED",' +
+      'GameStat(false,5,false,0,0,0,0,1,0,0,30000),' +
+      '[],' +
+      '[],' +
+      '[' +
+      'Participant(' +
+      'Summoner("enemy-puuid","Enemy","EUW",null),' +
+      '112,' +
+      '"Viktor",' +
+      '"RED",' +
+      '"MID",' +
+      '[2503,3113,3175],' +
+      '["Blackfire Torch","Aether Wisp","Boots"],' +
+      'Rune(8200,8992,8400),' +
+      '[12,4],' +
+      'Stats(' +
+      '14,21442,11708,0,27,4,7,' +
+      '1,8,2,1,0,140,null,null,3,' +
+      '7512,1569,"LOSE",1.23,10,' +
+      'OpScoreTimelineAnalysis("DOWN","DOWN","FAIR")' +
+      '),' +
+      '1206' +
+      ')' +
+      ']' +
+      ')' +
+      '],' +
+      '[]' +
+      ')))';
+    const participants = parseGameDetailParticipants(text, 'FourK', '1337');
+    expect(participants).toEqual([
+      {
+        side: 'ALLY',
+        position: 'MID',
+        championId: 90,
+        champion: 'Malzahar',
+        items: ['3118', '6653', '3175'],
+        damageToChampions: 23335,
+        kills: 4,
+        deaths: 0,
+        assists: 10,
+        laneCs: 244,
+        jungleCs: 0,
+        cs: 244,
+        isTrackedPlayer: true,
+      },
+      {
+        side: 'ENEMY',
+        position: 'MID',
+        championId: 112,
+        champion: 'Viktor',
+        items: ['2503', '3113', '3175'],
+        damageToChampions: 11708,
+        kills: 1,
+        deaths: 8,
+        assists: 2,
+        laneCs: 140,
+        jungleCs: 3,
+        cs: 143,
+        isTrackedPlayer: false,
       },
     ]);
   });

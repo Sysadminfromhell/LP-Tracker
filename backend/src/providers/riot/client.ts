@@ -8,7 +8,14 @@ import type {
   RiotSummoner,
 } from './types';
 import type { LeagueDataProvider } from '../league-data.provider';
-import type { QueueType, RankedQueue, SummonerMatch, SummonerProfile } from '../league-data.types';
+import type {
+  MatchParticipantPosition,
+  QueueType,
+  RankedQueue,
+  SummonerMatch,
+  SummonerMatchParticipant,
+  SummonerProfile,
+} from '../league-data.types';
 import { parseRiotRateLimit, type RiotRateLimitStatus } from './rate-limit';
 import { RiotRateLimiter } from './rate-limiter';
 import {
@@ -172,6 +179,63 @@ function mapMatchPosition(participant: RiotMatchParticipant): string {
   }
   return '';
 }
+function normalizeMatchParticipantPosition(
+  participant: RiotMatchParticipant,
+): MatchParticipantPosition {
+  const position = mapMatchPosition(participant);
+  switch (position) {
+    case 'TOP':
+      return 'TOP';
+    case 'JUNGLE':
+      return 'JUNGLE';
+    case 'MIDDLE':
+    case 'MID':
+      return 'MID';
+    case 'BOTTOM':
+    case 'ADC':
+      return 'ADC';
+    case 'UTILITY':
+    case 'SUPPORT':
+      return 'SUPPORT';
+    default:
+      return 'UNKNOWN';
+  }
+}
+function getMatchParticipantItems(participant: RiotMatchParticipant): string[] {
+  return [
+    participant.item0,
+    participant.item1,
+    participant.item2,
+    participant.item3,
+    participant.item4,
+    participant.item5,
+  ]
+    .filter((itemId) => Number.isFinite(itemId) && itemId > 0)
+    .map(String);
+}
+function mapDetailedMatchParticipant(
+  participant: RiotMatchParticipant,
+  trackedPuuid: string,
+  trackedTeamId: number,
+): SummonerMatchParticipant {
+  const laneCs = participant.totalMinionsKilled;
+  const jungleCs = participant.neutralMinionsKilled;
+  return {
+    side: participant.teamId === trackedTeamId ? 'ALLY' : 'ENEMY',
+    position: normalizeMatchParticipantPosition(participant),
+    championId: participant.championId,
+    champion: participant.championName,
+    items: getMatchParticipantItems(participant),
+    damageToChampions: participant.totalDamageDealtToChampions,
+    kills: participant.kills,
+    deaths: participant.deaths,
+    assists: participant.assists,
+    laneCs,
+    jungleCs,
+    cs: laneCs + jungleCs,
+    isTrackedPlayer: participant.puuid === trackedPuuid,
+  };
+}
 function normalizeMatchLimit(limit: number): number {
   if (!Number.isFinite(limit)) {
     return DEFAULT_MATCH_LIMIT;
@@ -329,15 +393,9 @@ export class RiotClient implements LeagueDataProvider {
       const createdAtTimestamp = match.info.gameStartTimestamp ?? match.info.gameCreation;
       const laneCs = participant.totalMinionsKilled;
       const jungleCs = participant.neutralMinionsKilled;
-      const itemIds = [
-        participant.item0,
-        participant.item1,
-        participant.item2,
-        participant.item3,
-        participant.item4,
-        participant.item5,
-        participant.item6,
-      ];
+      const participants = match.info.participants.map((entry) =>
+        mapDetailedMatchParticipant(entry, account.puuid, participant.teamId),
+      );
       matches.push({
         id: match.metadata.matchId,
         createdAt: new Date(createdAtTimestamp).toISOString(),
@@ -346,7 +404,7 @@ export class RiotClient implements LeagueDataProvider {
         championId: participant.championId,
         champion: participant.championName,
         position: mapMatchPosition(participant),
-        items: itemIds.filter((itemId) => Number.isFinite(itemId) && itemId > 0).map(String),
+        items: getMatchParticipantItems(participant),
         damageToChampions: participant.totalDamageDealtToChampions,
         kills: participant.kills,
         deaths: participant.deaths,
@@ -355,6 +413,7 @@ export class RiotClient implements LeagueDataProvider {
         jungleCs,
         cs: laneCs + jungleCs,
         result: participant.win ? 'WIN' : 'LOSE',
+        participants,
       });
     }
     return matches;

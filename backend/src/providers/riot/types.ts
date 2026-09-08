@@ -32,6 +32,7 @@ export interface RiotMatchMetadata {
 }
 export interface RiotMatchParticipant {
   puuid: string;
+  teamId: number;
   championId: number;
   championName: string;
   teamPosition: string;

@@ -122,6 +122,111 @@ describe('OpggClient', () => {
       result: 'WIN',
     });
   });
+  it('loads rich details only for the newest three solo matches', async () => {
+    const createMatchHistory = (id: string, createdAt: string) =>
+      'GameHistory(' +
+      `"${id}",` +
+      `"${createdAt}",` +
+      '"SOLORANKED",' +
+      '1800,' +
+      '[Participant(' +
+      '266,' +
+      '"Aatrox",' +
+      '"TOP",' +
+      '["Black Cleaver"],' +
+      'Stats(25000,8,3,6,190,12,"WIN")' +
+      ')]' +
+      ')';
+    const createGameDetail = (id: string, createdAt: string) =>
+      'LolGetSummonerGameDetail(Data(GameDetail(' +
+      `"${id}",` +
+      `"${createdAt}",` +
+      '"SUMMONERS_RIFT",' +
+      '"SOLORANKED",' +
+      '1800,' +
+      'AverageTierInfo("GOLD",2,"border.png"),' +
+      '[' +
+      'Team(' +
+      '"BLUE",' +
+      'GameStat(true,10,true,1,1,1,1,5,0,0,50000),' +
+      '[],' +
+      '[],' +
+      '[' +
+      'Participant(' +
+      'Summoner("tracked-puuid","FourK","EUW",null),' +
+      '266,' +
+      '"Aatrox",' +
+      '"BLUE",' +
+      '"TOP",' +
+      '[3071],' +
+      '["Black Cleaver"],' +
+      'Rune(8000,8010,8400),' +
+      '[4,12],' +
+      'Stats(' +
+      '18,20000,25000,0,30,0,5,' +
+      '8,3,6,1,4,190,null,null,12,' +
+      '15000,1000,"WIN",8.0,1,' +
+      'OpScoreTimelineAnalysis("UP","UP","GOOD")' +
+      '),' +
+      '1200' +
+      ')' +
+      ']' +
+      ')' +
+      '],' +
+      '[]' +
+      ')))';
+    const matchHistory = [
+      createMatchHistory('match-1', '2026-09-01T18:00:00.000Z'),
+      createMatchHistory('match-2', '2026-09-02T18:00:00.000Z'),
+      createMatchHistory('match-3', '2026-09-03T18:00:00.000Z'),
+      createMatchHistory('match-4', '2026-09-04T18:00:00.000Z'),
+    ].join('\n');
+    mcp.callTool.mockImplementation(
+      async (request: { name: string; arguments?: Record<string, unknown> }) => {
+        if (request.name === 'lol_list_summoner_matches') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: matchHistory,
+              },
+            ],
+          };
+        }
+        if (request.name === 'lol_get_summoner_game_detail') {
+          const gameId = String(request.arguments?.game_id);
+          const createdAt = String(request.arguments?.created_at);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: createGameDetail(gameId, createdAt),
+              },
+            ],
+          };
+        }
+        throw new Error(`Unexpected MCP tool: ${request.name}`);
+      },
+    );
+    const client = new OpggClient();
+    const matches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 20);
+    const detailCalls = mcp.callTool.mock.calls.filter(
+      ([request]) => request.name === 'lol_get_summoner_game_detail',
+    );
+    expect(detailCalls).toHaveLength(3);
+    expect(detailCalls.map(([request]) => request.arguments.game_id)).toEqual([
+      'match-4',
+      'match-3',
+      'match-2',
+    ]);
+    expect(matches.find((match) => match.id === 'match-4')?.participants?.[0]).toMatchObject({
+      side: 'ALLY',
+      champion: 'Aatrox',
+      position: 'TOP',
+      isTrackedPlayer: true,
+    });
+    expect(matches.find((match) => match.id === 'match-1')?.participants).toBeUndefined();
+  });
   it('rejects MCP responses without text content', async () => {
     mcp.callTool.mockResolvedValue({
       content: [],

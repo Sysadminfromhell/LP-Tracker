@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
 
 const mocks = vi.hoisted(() => ({
+  findEventMatchDetails: vi.fn(),
   getPlayers: vi.fn(),
   getLeaderboard: vi.fn(),
   getLeaderboardHighlights: vi.fn(),
@@ -13,6 +14,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/db/players', () => ({
   getPlayers: mocks.getPlayers,
+}));
+vi.mock('../src/db/event-match-details-reader', () => ({
+  findEventMatchDetails: mocks.findEventMatchDetails,
 }));
 vi.mock('../src/services/leaderboard.service', () => ({
   getLeaderboard: mocks.getLeaderboard,
@@ -102,6 +106,7 @@ async function createTestApp() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.findEventMatchDetails.mockResolvedValue(null);
   mocks.getLeaderboard.mockReturnValue([]);
   mocks.getLeaderboardHighlights.mockReturnValue({
     longestWinStreak: null,
@@ -129,6 +134,129 @@ beforeEach(() => {
 });
 
 describe('public routes', () => {
+  it('returns rich match details for an event player match', async () => {
+    mocks.findEventMatchDetails.mockResolvedValue({
+      durationSeconds: 1852,
+      participants: [
+        {
+          side: 'ALLY',
+          position: 'MID',
+          championId: 90,
+          champion: 'Malzahar',
+          kills: 4,
+          deaths: 0,
+          assists: 10,
+          laneCs: 244,
+          jungleCs: 0,
+          cs: 244,
+          damageToChampions: 23335,
+          items: ['3118', '6653'],
+          isTrackedPlayer: true,
+        },
+        {
+          side: 'ENEMY',
+          position: 'MID',
+          championId: 112,
+          champion: 'Viktor',
+          kills: 1,
+          deaths: 8,
+          assists: 2,
+          laneCs: 140,
+          jungleCs: 3,
+          cs: 143,
+          damageToChampions: 11708,
+          items: ['2503', '3113'],
+          isTrackedPlayer: false,
+        },
+      ],
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/42/players/7/' + 'matches/match-123',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.findEventMatchDetails).toHaveBeenCalledWith(42, 7, 'match-123');
+      expect(response.json()).toEqual({
+        matchId: 'match-123',
+        durationSeconds: 1852,
+        participants: [
+          {
+            side: 'ALLY',
+            position: 'MID',
+            championId: 90,
+            champion: 'Malzahar',
+            kills: 4,
+            deaths: 0,
+            assists: 10,
+            laneCs: 244,
+            jungleCs: 0,
+            cs: 244,
+            damageToChampions: 23335,
+            items: ['3118', '6653'],
+            isTrackedPlayer: true,
+          },
+          {
+            side: 'ENEMY',
+            position: 'MID',
+            championId: 112,
+            champion: 'Viktor',
+            kills: 1,
+            deaths: 8,
+            assists: 2,
+            laneCs: 140,
+            jungleCs: 3,
+            cs: 143,
+            damageToChampions: 11708,
+            items: ['2503', '3113'],
+            isTrackedPlayer: false,
+          },
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns 404 when rich match details are unavailable', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/42/players/7/' + 'matches/missing-match',
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: 'Match details not found',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects invalid event or player ids for match details', async () => {
+    const app = await createTestApp();
+    try {
+      const invalidEvent = await app.inject({
+        method: 'GET',
+        url: '/api/events/nope/players/7/' + 'matches/match-123',
+      });
+      expect(invalidEvent.statusCode).toBe(400);
+      expect(invalidEvent.json()).toEqual({
+        error: 'Invalid event id',
+      });
+      const invalidPlayer = await app.inject({
+        method: 'GET',
+        url: '/api/events/42/players/0/' + 'matches/match-123',
+      });
+      expect(invalidPlayer.statusCode).toBe(400);
+      expect(invalidPlayer.json()).toEqual({
+        error: 'Invalid player id',
+      });
+      expect(mocks.findEventMatchDetails).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('returns an empty leaderboard when no data is cached', async () => {
     const app = await createTestApp();
     try {

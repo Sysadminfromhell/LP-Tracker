@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { findEventMatchDetails } from '../db/event-match-details-reader';
 import { getPlayers } from '../db/players';
 import {
   getLeaderboard,
@@ -58,6 +59,43 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       recentMatches: first.recentMatches,
       lastUpdated: first.lastUpdated,
       error: first.error,
+    };
+  });
+  app.get<{
+    Params: {
+      eventId: string;
+      playerId: string;
+      matchId: string;
+    };
+  }>('/api/events/:eventId/players/:playerId/matches/:matchId', async (request, reply) => {
+    const eventId = Number(request.params.eventId);
+    const playerId = Number(request.params.playerId);
+    const matchId = request.params.matchId.trim();
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+      return reply.code(400).send({
+        error: 'Invalid event id',
+      });
+    }
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      return reply.code(400).send({
+        error: 'Invalid player id',
+      });
+    }
+    if (matchId.length === 0) {
+      return reply.code(400).send({
+        error: 'Invalid match id',
+      });
+    }
+    const details = await findEventMatchDetails(eventId, playerId, matchId);
+    if (!details) {
+      return reply.code(404).send({
+        error: 'Match details not found',
+      });
+    }
+    return {
+      matchId,
+      durationSeconds: details.durationSeconds,
+      participants: details.participants,
     };
   });
   app.get('/api/health', async () => {

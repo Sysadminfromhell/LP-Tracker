@@ -1,5 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import { loadChampionIcons } from '../championIcons';
+import {
+  getCachedMatchDetails,
+  loadMatchDetails,
+  type MatchDetailsResponse,
+} from '../matchDetails';
 import { getRankIconUrl } from '../rankIcons';
 
 interface HealthResponse {
@@ -96,11 +102,23 @@ interface PlayerVisualChange {
   lpChanged: boolean;
   newMatchIds: string[];
 }
-
 interface PlayerRefreshedLiveUpdate {
   playerId: number;
   lastUpdated: string;
 }
+interface MatchHoverState {
+  eventId: number;
+  playerId: number;
+  matchId: string;
+  x: number;
+  y: number;
+  placement: 'above' | 'below';
+  details: MatchDetailsResponse | null;
+  loading: boolean;
+  unavailable: boolean;
+  error: string | null;
+}
+
 const divisions: Record<number, string> = {
   1: 'I',
   2: 'II',
@@ -288,11 +306,15 @@ function PodiumCard({
   place,
   now,
   championIcons,
+  onMatchHover,
+  onMatchLeave,
 }: {
   player: LeaderboardPlayer;
   place: 1 | 2 | 3;
   now: number;
   championIcons: Map<number, string>;
+  onMatchHover: (playerId: number, matchId: string, target: HTMLElement) => void;
+  onMatchLeave: () => void;
 }) {
   const winRate = getWinRate(player.record.wins, player.record.losses);
   return (
@@ -360,7 +382,15 @@ function PodiumCard({
               player.recentMatches.map((match) => {
                 const icon = championIcons.get(match.championId);
                 return (
-                  <div className="podium-match" data-match-id={match.id} key={match.id}>
+                  <div
+                    className="podium-match"
+                    data-match-id={match.id}
+                    key={match.id}
+                    onMouseEnter={(event) =>
+                      onMatchHover(player.player.id, match.id, event.currentTarget)
+                    }
+                    onMouseLeave={onMatchLeave}
+                  >
                     {icon ? (
                       <img
                         className="podium-match-champion"
@@ -462,6 +492,91 @@ function LeaderboardPage() {
   const previousPositionsRef = useRef<Map<number, DOMRect>>(new Map());
   const pendingVisualChangesRef = useRef<Map<number, PlayerVisualChange>>(new Map());
   const pendingLayoutAnimationRef = useRef(false);
+  const [matchHover, setMatchHover] = useState<MatchHoverState | null>(null);
+  const hoverRequestRef = useRef(0);
+  function handleMatchHover(playerId: number, matchId: string, target: HTMLElement): void {
+    const eventId = leaderboard?.event.id;
+    if (eventId === null || eventId === undefined) {
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const popupWidth = Math.min(760, Math.max(0, window.innerWidth - 24));
+    const halfWidth = popupWidth / 2;
+    const targetCenter = rect.left + rect.width / 2;
+    const x =
+      popupWidth >= window.innerWidth - 24
+        ? window.innerWidth / 2
+        : Math.min(window.innerWidth - halfWidth - 12, Math.max(halfWidth + 12, targetCenter));
+    const estimatedHeight = 430;
+    const placement: 'above' | 'below' =
+      rect.bottom + estimatedHeight + 12 <= window.innerHeight ? 'below' : 'above';
+    const y = placement === 'below' ? rect.bottom + 8 : rect.top - 8;
+    const cached = getCachedMatchDetails(eventId, playerId, matchId);
+    const requestId = ++hoverRequestRef.current;
+    setMatchHover({
+      eventId,
+      playerId,
+      matchId,
+      x,
+      y,
+      placement,
+      details: cached,
+      loading: cached === null,
+      unavailable: false,
+      error: null,
+    });
+    if (cached) {
+      return;
+    }
+    void loadMatchDetails(eventId, playerId, matchId)
+      .then((details) => {
+        if (hoverRequestRef.current !== requestId) {
+          return;
+        }
+        setMatchHover((current) => {
+          if (
+            !current ||
+            current.eventId !== eventId ||
+            current.playerId !== playerId ||
+            current.matchId !== matchId
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            details,
+            loading: false,
+            unavailable: details === null,
+            error: null,
+          };
+        });
+      })
+      .catch((err) => {
+        if (hoverRequestRef.current !== requestId) {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        setMatchHover((current) => {
+          if (
+            !current ||
+            current.eventId !== eventId ||
+            current.playerId !== playerId ||
+            current.matchId !== matchId
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            loading: false,
+            error: message,
+          };
+        });
+      });
+  }
+  function handleMatchLeave(): void {
+    hoverRequestRef.current++;
+    setMatchHover(null);
+  }
   async function loadLeaderboard() {
     try {
       const response = await fetch('/api/leaderboard', {
@@ -809,6 +924,18 @@ function LeaderboardPage() {
   }
   return (
     <main className="page">
+      {matchHover && (
+        <MatchDetailsPopover
+          details={matchHover.details}
+          loading={matchHover.loading}
+          unavailable={matchHover.unavailable}
+          error={matchHover.error}
+          x={matchHover.x}
+          y={matchHover.y}
+          placement={matchHover.placement}
+          championIcons={championIcons}
+        />
+      )}
       <section className="tracker">
         <header className="topbar">
           <div>
@@ -890,6 +1017,8 @@ function LeaderboardPage() {
                     place={2}
                     now={now}
                     championIcons={championIcons}
+                    onMatchHover={handleMatchHover}
+                    onMatchLeave={handleMatchLeave}
                   />
                 )}
                 {players[0] && (
@@ -898,6 +1027,8 @@ function LeaderboardPage() {
                     place={1}
                     now={now}
                     championIcons={championIcons}
+                    onMatchHover={handleMatchHover}
+                    onMatchLeave={handleMatchLeave}
                   />
                 )}
                 {players[2] && (
@@ -906,6 +1037,8 @@ function LeaderboardPage() {
                     place={3}
                     now={now}
                     championIcons={championIcons}
+                    onMatchHover={handleMatchHover}
+                    onMatchLeave={handleMatchLeave}
                   />
                 )}
               </div>
@@ -1081,7 +1214,15 @@ function LeaderboardPage() {
                         player.recentMatches.map((match) => {
                           const icon = championIcons.get(match.championId);
                           return (
-                            <div className="compact-match" data-match-id={match.id} key={match.id}>
+                            <div
+                              className="compact-match"
+                              data-match-id={match.id}
+                              key={match.id}
+                              onMouseEnter={(event) =>
+                                handleMatchHover(player.player.id, match.id, event.currentTarget)
+                              }
+                              onMouseLeave={handleMatchLeave}
+                            >
                               <div className="champion-wrap">
                                 {icon ? (
                                   <img

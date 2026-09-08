@@ -277,6 +277,138 @@ describe('RiotClient', () => {
       losses: 80,
     });
   });
+  it('maps all Riot match participants relative to the tracked player', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            puuid: 'tracked-puuid',
+            gameName: 'FourK',
+            tagLine: 'EUW',
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(['EUW1_123']), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            metadata: {
+              matchId: 'EUW1_123',
+              participants: ['tracked-puuid', 'enemy-puuid'],
+            },
+            info: {
+              gameCreation: Date.parse('2026-09-08T18:00:00.000Z'),
+              gameDuration: 1800,
+              queueId: 420,
+              gameMode: 'CLASSIC',
+              participants: [
+                {
+                  puuid: 'tracked-puuid',
+                  teamId: 100,
+                  championId: 103,
+                  championName: 'Ahri',
+                  teamPosition: 'MIDDLE',
+                  individualPosition: 'MIDDLE',
+                  item0: 6655,
+                  item1: 3020,
+                  item2: 0,
+                  item3: 0,
+                  item4: 0,
+                  item5: 0,
+                  item6: 0,
+                  totalDamageDealtToChampions: 25000,
+                  kills: 7,
+                  deaths: 2,
+                  assists: 8,
+                  totalMinionsKilled: 190,
+                  neutralMinionsKilled: 6,
+                  win: true,
+                },
+                {
+                  puuid: 'enemy-puuid',
+                  teamId: 200,
+                  championId: 134,
+                  championName: 'Syndra',
+                  teamPosition: 'MIDDLE',
+                  individualPosition: 'MIDDLE',
+                  item0: 6657,
+                  item1: 3020,
+                  item2: 0,
+                  item3: 0,
+                  item4: 0,
+                  item5: 1026,
+                  item6: 3340,
+                  totalDamageDealtToChampions: 21000,
+                  kills: 4,
+                  deaths: 6,
+                  assists: 3,
+                  totalMinionsKilled: 180,
+                  neutralMinionsKilled: 3,
+                  win: false,
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      );
+
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new RiotClient('RGAPI-test');
+    const matches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 1);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].participants).toEqual([
+      {
+        side: 'ALLY',
+        position: 'MID',
+        championId: 103,
+        champion: 'Ahri',
+        items: ['6655', '3020'],
+        damageToChampions: 25000,
+        kills: 7,
+        deaths: 2,
+        assists: 8,
+        laneCs: 190,
+        jungleCs: 6,
+        cs: 196,
+        isTrackedPlayer: true,
+      },
+      {
+        side: 'ENEMY',
+        position: 'MID',
+        championId: 134,
+        champion: 'Syndra',
+        items: ['6657', '3020', '1026'],
+        damageToChampions: 21000,
+        kills: 4,
+        deaths: 6,
+        assists: 3,
+        laneCs: 180,
+        jungleCs: 3,
+        cs: 183,
+        isTrackedPlayer: false,
+      },
+    ]);
+  });
   it('captures Riot application rate limits', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
