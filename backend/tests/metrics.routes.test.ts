@@ -83,7 +83,6 @@ beforeEach(() => {
     spacingSeconds: 5,
   });
   mocks.getOperationState.mockReturnValue({
-    refreshInProgress: false,
     lifecycleInProgress: true,
   });
   mocks.getRefreshQueueState.mockReturnValue({

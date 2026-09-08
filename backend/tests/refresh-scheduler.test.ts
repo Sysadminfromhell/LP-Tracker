@@ -48,7 +48,6 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
   mocks.getOperationState.mockReturnValue({
-    refreshInProgress: false,
     lifecycleInProgress: false,
   });
   mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());

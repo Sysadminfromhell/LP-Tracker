@@ -121,7 +121,6 @@ beforeEach(() => {
   mocks.endAdminEvent.mockResolvedValue(endedEvent);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
   mocks.getOperationState.mockReturnValue({
-    refreshInProgress: false,
     lifecycleInProgress: false,
   });
   mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
@@ -388,7 +387,6 @@ describe('admin event routes', () => {
   it('rejects ending an event while another event transition is running', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
     mocks.getOperationState.mockReturnValue({
-      refreshInProgress: false,
       lifecycleInProgress: true,
     });
     const app = await createTestApp();
@@ -407,10 +405,9 @@ describe('admin event routes', () => {
       await app.close();
     }
   });
-  it('queues ending an event while a player refresh is running', async () => {
+  it('queues ending an event through the refresh queue', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
     mocks.getOperationState.mockReturnValue({
-      refreshInProgress: true,
       lifecycleInProgress: false,
     });
     const app = await createTestApp();

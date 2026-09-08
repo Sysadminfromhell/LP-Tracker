@@ -18,8 +18,6 @@ const mocks = vi.hoisted(() => ({
   refreshPlayer: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   getOperationState: vi.fn(),
-  isOperationBusy: vi.fn(),
-  setRefreshInProgress: vi.fn(),
   enqueueRefresh: vi.fn(),
   calculateRankScore: vi.fn(),
   getSummonerProfile: vi.fn(),
@@ -57,8 +55,6 @@ vi.mock('../src/services/leaderboard.service', () => ({
 }));
 vi.mock('../src/runtime/operation-state', () => ({
   getOperationState: mocks.getOperationState,
-  isOperationBusy: mocks.isOperationBusy,
-  setRefreshInProgress: mocks.setRefreshInProgress,
 }));
 vi.mock('../src/runtime/refresh-queue', () => ({
   enqueueRefresh: mocks.enqueueRefresh,
@@ -140,10 +136,8 @@ beforeEach(() => {
   mocks.refreshPlayer.mockResolvedValue(true);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
   mocks.getOperationState.mockReturnValue({
-    refreshInProgress: false,
     lifecycleInProgress: false,
   });
-  mocks.isOperationBusy.mockReturnValue(false);
   mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
   mocks.calculateRankScore.mockReturnValue(1450);
   mocks.getSummonerProfile.mockResolvedValue(rankedProfile);
@@ -192,7 +186,6 @@ describe('admin player routes', () => {
   });
   it('rejects a manual refresh while an event transition is running', async () => {
     mocks.getOperationState.mockReturnValue({
-      refreshInProgress: false,
       lifecycleInProgress: true,
     });
     const app = await createTestApp();
@@ -213,7 +206,6 @@ describe('admin player routes', () => {
   });
   it('queues a manual refresh while another refresh is already running', async () => {
     mocks.getOperationState.mockReturnValue({
-      refreshInProgress: true,
       lifecycleInProgress: false,
     });
     const app = await createTestApp();
@@ -244,7 +236,6 @@ describe('admin player routes', () => {
         ok: true,
         player: adminPlayer,
       });
-      expect(mocks.setRefreshInProgress).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
@@ -277,14 +268,12 @@ describe('admin player routes', () => {
       expect(mocks.getPlayers).toHaveBeenCalledWith(true);
       expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
       expect(mocks.refreshPlayer).toHaveBeenCalledTimes(2);
-      expect(mocks.setRefreshInProgress).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
   });
   it('queues refresh-all while another refresh is already running', async () => {
     mocks.getOperationState.mockReturnValue({
-      refreshInProgress: true,
       lifecycleInProgress: false,
     });
     const app = await createTestApp();
@@ -302,7 +291,6 @@ describe('admin player routes', () => {
   });
   it('rejects refresh-all while an event transition is running', async () => {
     mocks.getOperationState.mockReturnValue({
-      refreshInProgress: false,
       lifecycleInProgress: true,
     });
     const app = await createTestApp();
