@@ -84,7 +84,7 @@ interface LeaderboardResponse {
     name: string | null;
     startsAt: string | null;
     endsAt: string | null;
-    status: 'draft' | 'active' | 'ended' | null;
+    status: 'draft' | 'scheduled' | 'active' | 'ended' | null;
   };
 }
 interface PlayerVisualChange {
@@ -677,7 +677,7 @@ function LeaderboardPage() {
   const backendVersion = buildInfo?.version ? formatVersion(buildInfo.version) : '—';
   const gitHead = buildInfo?.gitHead ? formatGitHead(buildInfo.gitHead) : '—';
 
-  if (eventStatus === 'draft' && eventStart !== null) {
+  if (eventStatus === 'scheduled' && eventStart !== null) {
     countdownLabel = 'STARTS IN';
     countdownValue = eventStart > now ? formatCountdown(eventStart - now) : 'STARTING...';
   }
@@ -730,13 +730,13 @@ function LeaderboardPage() {
             className={`live ${
               eventStatus === 'ended'
                 ? 'event-ended'
-                : eventStatus === 'draft'
+                : eventStatus === 'scheduled'
                   ? 'event-scheduled'
                   : ''
             }`}
           >
             <span className="live-dot" />
-            {eventStatus === 'draft' ? 'SCHEDULED' : eventStatus === 'ended' ? 'ENDED' : 'LIVE'}
+            {eventStatus === 'scheduled' ? 'SCHEDULED' : eventStatus === 'ended' ? 'ENDED' : 'LIVE'}
             <a className="overlay-link" href="#overlay_generator">
               OBS Overlay
             </a>

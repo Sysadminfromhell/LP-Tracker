@@ -2052,7 +2052,7 @@ a.social-link.twitch:hover {
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
 }
-.event-countdown-draft strong {
+.event-countdown-scheduled strong {
   color: #9bb7ff;
 }
 .event-countdown-active strong {

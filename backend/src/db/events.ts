@@ -627,11 +627,11 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
     ORDER BY
       CASE
         WHEN status = 'active' THEN 0
-        WHEN status = 'draft' THEN 1
+        WHEN status = 'scheduled' THEN 1
         ELSE 2
       END,
       CASE
-        WHEN status = 'draft' THEN starts_at
+        WHEN status = 'scheduled' THEN starts_at
       END ASC,
       CASE
         WHEN status = 'ended' THEN starts_at

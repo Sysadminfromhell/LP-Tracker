@@ -11,7 +11,7 @@ interface AdminEvent {
   name: string;
   startsAt: string;
   endsAt: string | null;
-  status: 'draft' | 'active' | 'ended';
+  status: 'draft' | 'scheduled' | 'active' | 'ended';
   participantCount: number;
   createdAt: string;
   updatedAt: string;
@@ -85,15 +85,18 @@ function formatEventDate(value: string | null): string {
 function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [event, setEvent] = useState<AdminEvent | null>(null);
-  const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
+  const [selectedScheduledId, setSelectedScheduledId] = useState<number | null>(null);
   const [eventName, setEventName] = useState('');
   const [schedule, setSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
-  const [draftSchedule, setDraftSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
-  const draftEvents = events
-    .filter((item) => item.status === 'draft')
+  const [scheduledSchedule, setScheduledSchedule] =
+    useState<EventScheduleForm>(createDefaultSchedule);
+  const scheduledEvents = events
+    .filter((item) => item.status === 'scheduled')
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  const selectedDraft = draftEvents.find((item) => item.id === selectedDraftId) ?? null;
-  const hasOpenEvents = events.some((item) => item.status === 'draft' || item.status === 'active');
+  const selectedScheduled = scheduledEvents.find((item) => item.id === selectedScheduledId) ?? null;
+  const hasOpenEvents = events.some(
+    (item) => item.status === 'scheduled' || item.status === 'active',
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<'end-event' | 'cancel-scheduled-event' | null>(
@@ -292,11 +295,11 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   }
   async function handleUpdateSchedule(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
-    if (!selectedDraft) {
+    if (!selectedScheduled) {
       return;
     }
-    const startsAt = new Date(draftSchedule.startsAt);
-    const endsAt = new Date(draftSchedule.endsAt);
+    const startsAt = new Date(scheduledSchedule.startsAt);
+    const endsAt = new Date(scheduledSchedule.endsAt);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
       onNotify('error', 'Please enter a valid start and end time.');
       return;
@@ -311,13 +314,13 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
     }
     setSaving(true);
     try {
-      const response = await fetch(`/api/admin/events/${selectedDraft.id}`, {
+      const response = await fetch(`/api/admin/events/${selectedScheduled.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: draftSchedule.name,
+          name: scheduledSchedule.name,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
         }),
@@ -335,7 +338,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       setEvents((current) =>
         current.map((item) => (item.id === data.event.id ? data.event : item)),
       );
-      setDraftSchedule(createScheduleFromEvent(data.event));
+      setScheduledSchedule(createScheduleFromEvent(data.event));
       onNotify('success', 'Schedule updated.');
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Could not update schedule.');
@@ -344,16 +347,16 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
     }
   }
   function handleCancelEdit() {
-    setSelectedDraftId(null);
-    setDraftSchedule(createDefaultSchedule());
+    setSelectedScheduledId(null);
+    setScheduledSchedule(createDefaultSchedule());
   }
   async function handleCancelScheduledEvent() {
-    if (!selectedDraft) {
+    if (!selectedScheduled) {
       return;
     }
     setSaving(true);
     try {
-      const response = await fetch(`/api/admin/events/${selectedDraft.id}`, {
+      const response = await fetch(`/api/admin/events/${selectedScheduled.id}`, {
         method: 'DELETE',
       });
       if (response.status === 401) {
@@ -363,7 +366,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      setSelectedDraftId(null);
+      setSelectedScheduledId(null);
       await loadEvents();
       onNotify('success', 'Scheduled event canceled.');
     } catch (err) {
@@ -374,7 +377,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   }
   const minimumStartAt = getMinimumScheduleStart();
   const activeEventCount = events.filter((item) => item.status === 'active').length;
-  const scheduledEventCount = events.filter((item) => item.status === 'draft').length;
+  const scheduledEventCount = events.filter((item) => item.status === 'scheduled').length;
   return (
     <div className="admin-section admin-event-section">
       <div className="admin-section-header">
@@ -467,37 +470,37 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
           </button>
         </div>
       )}
-      {draftEvents.length > 0 && (
+      {scheduledEvents.length > 0 && (
         <div className="admin-scheduled-events">
           <div className="admin-schedule-heading">
             <span className="admin-section-eyebrow">UPCOMING EVENTS</span>
             <h3>Upcoming events</h3>
             <p>
-              {draftEvents.length} event{draftEvents.length === 1 ? '' : 's'} scheduled.
+              {scheduledEvents.length} event{scheduledEvents.length === 1 ? '' : 's'} scheduled.
             </p>
           </div>
 
           <div className="admin-scheduled-event-list">
-            {draftEvents.map((draft) => (
+            {scheduledEvents.map((scheduledEvent) => (
               <div
                 className={`admin-scheduled-event-card ${
-                  selectedDraft?.id === draft.id ? 'selected' : ''
+                  selectedScheduled?.id === scheduledEvent.id ? 'selected' : ''
                 }`}
-                key={draft.id}
+                key={scheduledEvent.id}
               >
                 <div className="admin-scheduled-event-cell">
                   <span>Event</span>
-                  <strong>{draft.name}</strong>
+                  <strong>{scheduledEvent.name}</strong>
                 </div>
 
                 <div className="admin-scheduled-event-cell">
                   <span>Start</span>
-                  <strong>{formatEventDate(draft.startsAt)}</strong>
+                  <strong>{formatEventDate(scheduledEvent.startsAt)}</strong>
                 </div>
 
                 <div className="admin-scheduled-event-cell">
                   <span>End</span>
-                  <strong>{formatEventDate(draft.endsAt)}</strong>
+                  <strong>{formatEventDate(scheduledEvent.endsAt)}</strong>
                 </div>
 
                 <button
@@ -505,25 +508,25 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
                   type="button"
                   disabled={saving}
                   onClick={() => {
-                    setSelectedDraftId(draft.id);
-                    setDraftSchedule(createScheduleFromEvent(draft));
+                    setSelectedScheduledId(scheduledEvent.id);
+                    setScheduledSchedule(createScheduleFromEvent(scheduledEvent));
                   }}
                 >
-                  {selectedDraft?.id === draft.id ? 'Editing' : 'Edit'}
+                  {selectedScheduled?.id === scheduledEvent.id ? 'Editing' : 'Edit'}
                 </button>
               </div>
             ))}
           </div>
         </div>
       )}
-      {selectedDraft && (
+      {selectedScheduled && (
         <form
           className="admin-schedule-event admin-schedule-event-edit"
           onSubmit={handleUpdateSchedule}
         >
           <div className="admin-schedule-heading">
             <span className="admin-section-eyebrow">EDIT EVENT</span>
-            <h3>{selectedDraft.name}</h3>
+            <h3>{selectedScheduled.name}</h3>
             <p>Changes are allowed until the event has actually started.</p>
           </div>
           <div className="admin-schedule-grid">
@@ -531,11 +534,11 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
               Event Name
               <input
                 type="text"
-                value={draftSchedule.name}
+                value={scheduledSchedule.name}
                 disabled={saving}
                 required
                 onChange={(eventInput) => {
-                  setDraftSchedule((current) => ({
+                  setScheduledSchedule((current) => ({
                     ...current,
                     name: eventInput.target.value,
                   }));
@@ -546,12 +549,12 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
               Start
               <input
                 type="datetime-local"
-                value={draftSchedule.startsAt}
+                value={scheduledSchedule.startsAt}
                 disabled={saving}
                 min={minimumStartAt}
                 required
                 onChange={(eventInput) => {
-                  setDraftSchedule((current) => ({
+                  setScheduledSchedule((current) => ({
                     ...current,
                     startsAt: eventInput.target.value,
                   }));
@@ -562,12 +565,12 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
               End
               <input
                 type="datetime-local"
-                value={draftSchedule.endsAt}
+                value={scheduledSchedule.endsAt}
                 disabled={saving}
-                min={draftSchedule.startsAt || minimumStartAt}
+                min={scheduledSchedule.startsAt || minimumStartAt}
                 required
                 onChange={(eventInput) => {
-                  setDraftSchedule((current) => ({
+                  setScheduledSchedule((current) => ({
                     ...current,
                     endsAt: eventInput.target.value,
                   }));
@@ -672,7 +675,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
         message={
           confirmation === 'end-event'
             ? `End "${event?.name ?? 'this event'}" now? The current leaderboard will be frozen as the final result.`
-            : `Cancel "${selectedDraft?.name ?? 'this event'}"? The event will not be started.`
+            : `Cancel "${selectedScheduled?.name ?? 'this event'}"? The event will not be started.`
         }
         confirmLabel={confirmation === 'end-event' ? 'End Event' : 'Cancel Event'}
         danger

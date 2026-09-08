@@ -279,7 +279,7 @@ describe('admin event routes', () => {
       await app.close();
     }
   });
-  it('allows canceling only draft events', async () => {
+  it('allows canceling only scheduled events', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
     const app = await createTestApp();
     try {
