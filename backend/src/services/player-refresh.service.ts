@@ -92,6 +92,7 @@ export async function refreshPlayer(
           event.endsAt,
           recentMatches,
           rankScore,
+          profile.lpHistory,
         );
         refreshedEventId = event.id;
         if (

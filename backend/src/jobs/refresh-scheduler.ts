@@ -1,10 +1,8 @@
 import { getPlayers } from '../db/players';
 import { getActiveEvent } from '../db/events';
 import { refreshPlayer } from '../services/player-refresh.service';
-import {
-  isOperationBusy,
-  setRefreshInProgress,
-} from '../runtime/operation-state';
+import { getOperationState } from '../runtime/operation-state';
+import { enqueueRefresh } from '../runtime/refresh-queue';
 
 const TARGET_REFRESH_MS = 10_000;
 const MIN_REFRESH_SPACING_MS = 5_000;
@@ -17,14 +15,9 @@ function calculateRefreshSpacing(playerCount: number): number {
   if (playerCount <= 0) {
     return TARGET_REFRESH_MS;
   }
-  return Math.max(
-    MIN_REFRESH_SPACING_MS,
-    Math.floor(TARGET_REFRESH_MS / playerCount),
-  );
+  return Math.max(MIN_REFRESH_SPACING_MS, Math.floor(TARGET_REFRESH_MS / playerCount));
 }
-function scheduleNextRefresh(
-  delay: number = currentRefreshSpacingMs,
-): void {
+function scheduleNextRefresh(delay: number = currentRefreshSpacingMs): void {
   if (schedulerTimer) {
     clearTimeout(schedulerTimer);
   }
@@ -33,19 +26,17 @@ function scheduleNextRefresh(
   }, delay);
 }
 async function schedulerTick(): Promise<void> {
-  if (isOperationBusy()) {
+  const operationState = getOperationState();
+  if (operationState.lifecycleInProgress) {
     scheduleNextRefresh(MIN_REFRESH_SPACING_MS);
     return;
   }
-  setRefreshInProgress(true);
   try {
     const activeEvent = await getActiveEvent();
     if (!activeEvent) {
       currentRefreshSpacingMs = TARGET_REFRESH_MS;
       if (!schedulerIdleLogged) {
-        console.log(
-          '[SCHEDULER] No active event - automatic player refresh paused',
-        );
+        console.log('[SCHEDULER] No active event - automatic player refresh paused');
         schedulerIdleLogged = true;
       }
       return;
@@ -66,11 +57,10 @@ async function schedulerTick(): Promise<void> {
     }
     const player = players[playerCursor];
     playerCursor = (playerCursor + 1) % players.length;
-    await refreshPlayer(player);
+    await enqueueRefresh(() => refreshPlayer(player));
   } catch (error) {
     console.error('[SCHEDULER] Refresh failed:', error);
   } finally {
-    setRefreshInProgress(false);
     scheduleNextRefresh();
   }
 }

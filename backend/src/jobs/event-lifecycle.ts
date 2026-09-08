@@ -8,11 +8,8 @@ import {
 } from '../db/admin-events';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
-import {
-  isOperationBusy,
-  setLifecycleInProgress,
-  setRefreshInProgress,
-} from '../runtime/operation-state';
+import { getOperationState, setLifecycleInProgress } from '../runtime/operation-state';
+import { enqueueRefresh } from '../runtime/refresh-queue';
 
 const EVENT_LIFECYCLE_INTERVAL_MS = 5_000;
 let lifecycleTimer: NodeJS.Timeout | null = null;
@@ -26,7 +23,8 @@ function scheduleNextLifecycleCheck(): void {
   }, EVENT_LIFECYCLE_INTERVAL_MS);
 }
 async function eventLifecycleTick(): Promise<void> {
-  if (isOperationBusy()) {
+  const operationState = getOperationState();
+  if (operationState.lifecycleInProgress) {
     scheduleNextLifecycleCheck();
     return;
   }
@@ -45,8 +43,7 @@ async function eventLifecycleTick(): Promise<void> {
         );
         return;
       }
-      setRefreshInProgress(true);
-      try {
+      await enqueueRefresh(async () => {
         const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
         if (failedPlayers.length > 0) {
           console.warn(
@@ -61,9 +58,7 @@ async function eventLifecycleTick(): Promise<void> {
           `[EVENT] "${endedEvent.name}" is now ENDED with ` +
             `${endedEvent.participantCount} participant(s)`,
         );
-      } finally {
-        setRefreshInProgress(false);
-      }
+      });
     }
     const scheduledEvent = await getDueScheduledEvent();
     if (scheduledEvent) {
@@ -73,8 +68,7 @@ async function eventLifecycleTick(): Promise<void> {
         console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no enabled players`);
         return;
       }
-      setRefreshInProgress(true);
-      try {
+      await enqueueRefresh(async () => {
         const failedPlayers = await refreshPlayersForSnapshot(players);
         if (failedPlayers.length > 0) {
           console.error(
@@ -89,9 +83,7 @@ async function eventLifecycleTick(): Promise<void> {
           `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
             `${activatedEvent.participantCount} participant(s)`,
         );
-      } finally {
-        setRefreshInProgress(false);
-      }
+      });
     }
   } catch (error) {
     console.error('[EVENT] Lifecycle check failed:', error);

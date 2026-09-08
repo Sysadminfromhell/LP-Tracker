@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getLeagueDataProviderDiagnostics: vi.fn(),
   getRefreshSchedulerStatus: vi.fn(),
   getOperationState: vi.fn(),
+  getRefreshQueueState: vi.fn(),
   getMonitoringState: vi.fn(),
 }));
 
@@ -28,6 +29,9 @@ vi.mock('../src/jobs/refresh-scheduler', () => ({
 }));
 vi.mock('../src/runtime/operation-state', () => ({
   getOperationState: mocks.getOperationState,
+}));
+vi.mock('../src/runtime/refresh-queue', () => ({
+  getRefreshQueueState: mocks.getRefreshQueueState,
 }));
 
 import { createApp } from '../src/app';
@@ -79,8 +83,11 @@ beforeEach(() => {
     spacingSeconds: 5,
   });
   mocks.getOperationState.mockReturnValue({
-    refreshInProgress: false,
     lifecycleInProgress: true,
+  });
+  mocks.getRefreshQueueState.mockReturnValue({
+    running: false,
+    pending: 0,
   });
 });
 
@@ -110,6 +117,7 @@ describe('metrics routes', () => {
     expect(response.body).toContain('lp_tracker_players_cached 1');
     expect(response.body).toContain('lp_tracker_provider_connected{provider="riot"} 1');
     expect(response.body).toContain('lp_tracker_operation_refresh_in_progress 0');
+    expect(mocks.getRefreshQueueState).toHaveBeenCalledTimes(1);
     expect(response.body).toContain('lp_tracker_operation_lifecycle_in_progress 1');
     expect(response.body).toContain('lp_tracker_scheduler_spacing_seconds 5');
     expect(response.body).toContain('lp_tracker_riot_rate_limit{window_seconds="120"} 100');

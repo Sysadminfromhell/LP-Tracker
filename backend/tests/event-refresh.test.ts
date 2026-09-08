@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   }>,
   pendingRows: [] as Array<{
     id: string;
+    provider_match_id?: string;
+    game_created_at?: Date;
   }>,
   insertRowCounts: [] as number[],
 }));
@@ -97,7 +99,8 @@ beforeEach(() => {
       };
     }
     if (
-      normalized.includes('SELECT id') &&
+      normalized.includes('provider_match_id') &&
+      normalized.includes('game_created_at') &&
       normalized.includes('FROM event_matches') &&
       normalized.includes("lp_delta_status = 'pending'")
     ) {
@@ -211,6 +214,66 @@ describe('event refresh', () => {
       String(sql).includes('UPDATE event_participants'),
     );
     expect(participantUpdate?.[1]).toEqual([EVENT_PARTICIPANT_ID, 1524]);
+  });
+  it('resolves multiple pending matches from LP history', async () => {
+    mocks.participantRows = [
+      {
+        id: String(EVENT_PARTICIPANT_ID),
+        last_resolved_rank_score: 1450,
+      },
+    ];
+    mocks.pendingRows = [
+      {
+        id: '501',
+        provider_match_id: 'match-1',
+        game_created_at: new Date('2026-09-02T10:00:00.000Z'),
+      },
+      {
+        id: '502',
+        provider_match_id: 'match-2',
+        game_created_at: new Date('2026-09-02T11:00:00.000Z'),
+      },
+    ];
+    const result = await updateEventAfterPlayerRefresh(
+      EVENT_PARTICIPANT_ID,
+      EVENT_START,
+      EVENT_END,
+      [],
+      1454,
+      [
+        {
+          createdAt: '2026-09-02T10:35:00.000Z',
+          tier: 'GOLD',
+          division: 2,
+          lp: 72,
+        },
+        {
+          createdAt: '2026-09-02T11:35:00.000Z',
+          tier: 'GOLD',
+          division: 2,
+          lp: 54,
+        },
+      ],
+    );
+    expect(result).toEqual({
+      newMatches: 0,
+      resolvedMatches: 2,
+      unknownMatches: 0,
+    });
+    const resolvedCalls = mocks.query.mock.calls.filter(([sql]) =>
+      String(sql).includes("lp_delta_status = 'resolved'"),
+    );
+    expect(resolvedCalls).toHaveLength(2);
+    expect(resolvedCalls[0][1]).toEqual(['501', 22]);
+    expect(resolvedCalls[1][1]).toEqual(['502', -18]);
+    const unknownCall = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes("lp_delta_status = 'unknown'"),
+    );
+    expect(unknownCall).toBeUndefined();
+    const participantUpdate = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes('UPDATE event_participants'),
+    );
+    expect(participantUpdate?.[1]).toEqual([EVENT_PARTICIPANT_ID, 1454]);
   });
   it('marks multiple pending matches as unknown when rank score changes', async () => {
     mocks.pendingRows = [

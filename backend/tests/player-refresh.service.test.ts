@@ -65,7 +65,14 @@ const profile: SummonerProfile = {
       losses: 8,
     },
   ],
-  lpHistory: [],
+  lpHistory: [
+    {
+      createdAt: '2026-09-02T18:35:00.000Z',
+      tier: 'GOLD',
+      division: 2,
+      lp: 50,
+    },
+  ],
 };
 
 function mockProvider(
@@ -98,6 +105,60 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('refreshPlayer provider reliability', () => {
+  it('passes LP history to the event refresh', async () => {
+    const recentMatches = [
+      {
+        id: 'match-1',
+        createdAt: '2026-09-02T18:00:00.000Z',
+        gameType: 'SOLORANKED',
+        durationSeconds: 1800,
+        championId: 266,
+        champion: 'Aatrox',
+        position: 'TOP',
+        items: [],
+        damageToChampions: 20000,
+        kills: 5,
+        deaths: 3,
+        assists: 7,
+        laneCs: 180,
+        jungleCs: 0,
+        cs: 180,
+        result: 'WIN' as const,
+      },
+    ];
+    mockProvider(vi.fn().mockResolvedValue(profile), vi.fn().mockResolvedValue(recentMatches));
+    mocks.getActiveEvent.mockResolvedValue({
+      id: 10,
+      name: 'Test Event',
+      startsAt: '2026-09-01T18:00:00.000Z',
+      endsAt: '2026-09-03T18:00:00.000Z',
+      status: 'active',
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z',
+    });
+    mocks.getEventParticipant.mockResolvedValue({
+      id: 100,
+      eventId: 10,
+      playerId: player.id,
+      snapshotCapturedAt: '2026-09-01T18:00:00.000Z',
+    });
+    mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
+      newMatches: 1,
+      resolvedMatches: 1,
+      unknownMatches: 0,
+    });
+    mocks.getLeaderboardPlayer.mockReturnValue(null);
+    const result = await refreshPlayer(player);
+    expect(result).toBe(true);
+    expect(mocks.updateEventAfterPlayerRefresh).toHaveBeenCalledWith(
+      100,
+      '2026-09-01T18:00:00.000Z',
+      '2026-09-03T18:00:00.000Z',
+      recentMatches,
+      1450,
+      profile.lpHistory,
+    );
+  });
   it('fails cleanly when the profile request times out', async () => {
     vi.useFakeTimers();
     mockProvider(() => new Promise(() => {}), vi.fn());

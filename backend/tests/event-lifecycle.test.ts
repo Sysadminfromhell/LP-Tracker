@@ -12,9 +12,9 @@ const mocks = vi.hoisted(() => ({
   getEventParticipantPlayerIds: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   refreshPlayersForSnapshot: vi.fn(),
-  isOperationBusy: vi.fn(),
+  getOperationState: vi.fn(),
   setLifecycleInProgress: vi.fn(),
-  setRefreshInProgress: vi.fn(),
+  enqueueRefresh: vi.fn(),
 }));
 vi.mock('../src/db/players', () => ({
   getPlayers: mocks.getPlayers,
@@ -35,9 +35,11 @@ vi.mock('../src/services/player-refresh.service', () => ({
   refreshPlayersForSnapshot: mocks.refreshPlayersForSnapshot,
 }));
 vi.mock('../src/runtime/operation-state', () => ({
-  isOperationBusy: mocks.isOperationBusy,
+  getOperationState: mocks.getOperationState,
   setLifecycleInProgress: mocks.setLifecycleInProgress,
-  setRefreshInProgress: mocks.setRefreshInProgress,
+}));
+vi.mock('../src/runtime/refresh-queue', () => ({
+  enqueueRefresh: mocks.enqueueRefresh,
 }));
 
 import { startEventLifecycle, stopEventLifecycle } from '../src/jobs/event-lifecycle';
@@ -105,7 +107,10 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-09-02T20:00:00.000Z'));
   vi.clearAllMocks();
-  mocks.isOperationBusy.mockReturnValue(false);
+  mocks.getOperationState.mockReturnValue({
+    lifecycleInProgress: false,
+  });
+  mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
   mocks.getActiveEvent.mockResolvedValue(expiredActiveEvent);
   mocks.getEventParticipantPlayerIds.mockResolvedValue([1, 2]);
   mocks.getPlayers.mockResolvedValue(players);

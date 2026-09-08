@@ -5,8 +5,8 @@ const mocks = vi.hoisted(() => ({
   getPlayers: vi.fn(),
   getActiveEvent: vi.fn(),
   refreshPlayer: vi.fn(),
-  isOperationBusy: vi.fn(),
-  setRefreshInProgress: vi.fn(),
+  getOperationState: vi.fn(),
+  enqueueRefresh: vi.fn(),
 }));
 
 vi.mock('../src/db/players', () => ({
@@ -19,8 +19,10 @@ vi.mock('../src/services/player-refresh.service', () => ({
   refreshPlayer: mocks.refreshPlayer,
 }));
 vi.mock('../src/runtime/operation-state', () => ({
-  isOperationBusy: mocks.isOperationBusy,
-  setRefreshInProgress: mocks.setRefreshInProgress,
+  getOperationState: mocks.getOperationState,
+}));
+vi.mock('../src/runtime/refresh-queue', () => ({
+  enqueueRefresh: mocks.enqueueRefresh,
 }));
 
 import { startRefreshScheduler, stopRefreshScheduler } from '../src/jobs/refresh-scheduler';
@@ -45,7 +47,10 @@ const secondPlayer: Player = {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
-  mocks.isOperationBusy.mockReturnValue(false);
+  mocks.getOperationState.mockReturnValue({
+    lifecycleInProgress: false,
+  });
+  mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
   mocks.getActiveEvent.mockResolvedValue({
     id: 1,
     name: 'Test Event',
@@ -72,9 +77,10 @@ describe('refresh scheduler reliability', () => {
     startRefreshScheduler();
     await vi.advanceTimersByTimeAsync(0);
     expect(mocks.refreshPlayer).toHaveBeenNthCalledWith(1, firstPlayer);
+    expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalledWith('[SCHEDULER] Refresh failed:', expect.any(Error));
     await vi.advanceTimersByTimeAsync(5_000);
     expect(mocks.refreshPlayer).toHaveBeenNthCalledWith(2, secondPlayer);
-    expect(mocks.setRefreshInProgress).toHaveBeenCalledWith(false);
+    expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(2);
   });
 });

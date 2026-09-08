@@ -16,8 +16,9 @@ const mocks = vi.hoisted(() => ({
   updateScheduledEvent: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   refreshPlayersForSnapshot: vi.fn(),
-  isOperationBusy: vi.fn(),
-  setRefreshInProgress: vi.fn(),
+  getOperationState: vi.fn(),
+  setLifecycleInProgress: vi.fn(),
+  enqueueRefresh: vi.fn(),
 }));
 
 vi.mock('../src/auth/admin-auth', () => ({
@@ -43,9 +44,11 @@ vi.mock('../src/services/player-refresh.service', () => ({
   refreshPlayersForSnapshot: mocks.refreshPlayersForSnapshot,
 }));
 vi.mock('../src/runtime/operation-state', () => ({
-  isOperationBusy: mocks.isOperationBusy,
-
-  setRefreshInProgress: mocks.setRefreshInProgress,
+  getOperationState: mocks.getOperationState,
+  setLifecycleInProgress: mocks.setLifecycleInProgress,
+}));
+vi.mock('../src/runtime/refresh-queue', () => ({
+  enqueueRefresh: mocks.enqueueRefresh,
 }));
 
 import { adminEventRoutes } from '../src/routes/admin-event.routes';
@@ -117,7 +120,10 @@ beforeEach(() => {
   mocks.refreshPlayersForSnapshot.mockResolvedValue([]);
   mocks.endAdminEvent.mockResolvedValue(endedEvent);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
-  mocks.isOperationBusy.mockReturnValue(false);
+  mocks.getOperationState.mockReturnValue({
+    lifecycleInProgress: false,
+  });
+  mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
 });
 
 describe('admin event routes', () => {
@@ -372,14 +378,17 @@ describe('admin event routes', () => {
       expect(response.json()).toEqual({
         error: 'Only active events can be ended',
       });
-      expect(mocks.setRefreshInProgress).not.toHaveBeenCalled();
+      expect(mocks.setLifecycleInProgress).not.toHaveBeenCalled();
+      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
   });
-  it('rejects ending an event while another operation is running', async () => {
+  it('rejects ending an event while another event transition is running', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
-    mocks.isOperationBusy.mockReturnValue(true);
+    mocks.getOperationState.mockReturnValue({
+      lifecycleInProgress: true,
+    });
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -388,9 +397,29 @@ describe('admin event routes', () => {
       });
       expect(response.statusCode).toBe(409);
       expect(response.json()).toEqual({
-        error: 'A player refresh or event transition is currently in progress',
+        error: 'An event transition is currently in progress',
       });
-      expect(mocks.setRefreshInProgress).not.toHaveBeenCalled();
+      expect(mocks.setLifecycleInProgress).not.toHaveBeenCalled();
+      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('queues ending an event through the refresh queue', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    mocks.getOperationState.mockReturnValue({
+      lifecycleInProgress: false,
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/events/2/end',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.setLifecycleInProgress).toHaveBeenNthCalledWith(1, true);
+      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
     } finally {
       await app.close();
     }
@@ -410,8 +439,8 @@ describe('admin event routes', () => {
         error: 'Not every event participant could be loaded',
       });
       expect(mocks.refreshPlayersForSnapshot).not.toHaveBeenCalled();
-      expect(mocks.setRefreshInProgress).toHaveBeenNthCalledWith(1, true);
-      expect(mocks.setRefreshInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.setLifecycleInProgress).toHaveBeenNthCalledWith(1, true);
+      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
     } finally {
       await app.close();
     }
@@ -430,7 +459,7 @@ describe('admin event routes', () => {
         error: 'Could not refresh every participant before ending the event',
       });
       expect(mocks.endAdminEvent).not.toHaveBeenCalled();
-      expect(mocks.setRefreshInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
     } finally {
       await app.close();
     }
@@ -446,10 +475,11 @@ describe('admin event routes', () => {
       expect(response.statusCode).toBe(200);
       expect(mocks.getEventParticipantPlayerIds).toHaveBeenCalledWith(2);
       expect(mocks.getPlayers).toHaveBeenCalledWith(false);
+      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
       expect(mocks.refreshPlayersForSnapshot).toHaveBeenCalledWith([firstPlayer, secondPlayer]);
       expect(mocks.endAdminEvent).toHaveBeenCalledWith(2);
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
-      expect(mocks.setRefreshInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
       expect(response.json()).toEqual({
         ok: true,
         event: endedEvent,
@@ -481,7 +511,7 @@ describe('admin event routes', () => {
         expect(response.json()).toEqual({
           error: expectedMessage,
         });
-        expect(mocks.setRefreshInProgress).toHaveBeenLastCalledWith(false);
+        expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
       } finally {
         await app.close();
       }
