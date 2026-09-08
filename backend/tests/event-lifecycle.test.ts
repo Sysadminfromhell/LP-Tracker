@@ -82,7 +82,7 @@ const dueScheduledEvent: AdminEvent = {
   name: 'Event Two',
   startsAt: '2026-09-02T20:00:00.000Z',
   endsAt: '2026-09-03T20:00:00.000Z',
-  status: 'draft',
+  status: 'scheduled',
   participantCount: 0,
   createdAt: '2026-09-01T00:00:00.000Z',
   updatedAt: '2026-09-01T00:00:00.000Z',

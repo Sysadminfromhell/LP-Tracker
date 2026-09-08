@@ -1,5 +1,5 @@
 import { db } from './client';
-export type EventStatus = 'draft' | 'active' | 'ended';
+export type EventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
 export interface DbEvent {
   id: number;
   name: string;
@@ -621,7 +621,7 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
     WHERE
       status IN ('active', 'ended')
       OR (
-        status = 'draft'
+        status = 'scheduled'
         AND ends_at > NOW()
       )
     ORDER BY

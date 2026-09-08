@@ -1,6 +1,6 @@
 import { db } from './client';
 
-export type AdminEventStatus = 'draft' | 'active' | 'ended';
+export type AdminEventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
 export interface AdminEvent {
   id: number;
   name: string;
@@ -69,7 +69,7 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
         $1,
         $2,
         $3,
-        'draft'
+        'scheduled'
       )
       RETURNING id
       `,
@@ -124,7 +124,7 @@ export async function updateScheduledEvent(
       updated_at = NOW()
     WHERE
       id = $1
-      AND status = 'draft'
+      AND status = 'scheduled'
     RETURNING id
     `,
       [eventId, name, startsAt, endsAt],
@@ -152,7 +152,7 @@ export async function cancelScheduledEvent(eventId: number): Promise<void> {
     DELETE FROM events
     WHERE
       id = $1
-      AND status = 'draft'
+      AND status = 'scheduled'
     RETURNING id
     `,
     [eventId],
@@ -192,8 +192,9 @@ export async function getAdminEvents(): Promise<AdminEvent[]> {
     ORDER BY
       CASE
         WHEN e.status = 'active' THEN 0
-        WHEN e.status = 'draft' THEN 1
-        ELSE 2
+        WHEN e.status = 'scheduled' THEN 1
+        WHEN e.status = 'draft' THEN 2
+        ELSE 3
       END,
       e.starts_at ASC,
       e.id ASC
@@ -356,7 +357,7 @@ export async function getDueScheduledEvent(): Promise<AdminEvent | null> {
     LEFT JOIN event_participants ep
       ON ep.event_id = e.id
     WHERE
-      e.status = 'draft'
+      e.status = 'scheduled'
       AND e.starts_at <= NOW()
       AND e.ends_at > NOW()
     GROUP BY e.id
@@ -393,7 +394,7 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
       FROM events
       WHERE
         id = $1
-        AND status = 'draft'
+        AND status = 'scheduled'
         AND starts_at <= NOW()
         AND ends_at > NOW()
       LIMIT 1

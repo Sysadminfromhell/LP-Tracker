@@ -130,7 +130,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Event not found',
       });
     }
-    if (currentEvent.status !== 'draft') {
+    if (currentEvent.status !== 'scheduled') {
       return reply.code(409).send({
         error: 'Only scheduled events can be edited',
       });
@@ -212,7 +212,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Event not found',
       });
     }
-    if (currentEvent.status !== 'draft') {
+    if (currentEvent.status !== 'scheduled') {
       return reply.code(409).send({
         error: 'Only scheduled events can be canceled',
       });

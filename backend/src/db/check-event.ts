@@ -1,6 +1,6 @@
 import { closeDatabase, db } from './client';
 
-type EventStatus = 'draft' | 'active' | 'ended';
+type EventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
 
 interface LatestEventRow {
   id: string;
@@ -10,7 +10,6 @@ interface LatestEventRow {
   ends_at: Date | null;
   participant_count: string;
 }
-
 interface EventRow {
   id: string;
   name: string;
@@ -18,14 +17,12 @@ interface EventRow {
   starts_at: Date | null;
   ends_at: Date | null;
 }
-
 interface ParticipantRow {
   event_id: string;
   event_name: string;
   participant_id: string;
   player_id: string;
 }
-
 interface InvalidMatchRow {
   event_id: string;
   event_name: string;
@@ -35,7 +32,6 @@ interface InvalidMatchRow {
   game_created_at: Date;
   event_ends_at: Date | null;
 }
-
 interface MatchStatusRow {
   lp_delta_status: string;
   count: string;
@@ -125,11 +121,15 @@ async function main(): Promise<void> {
       ends_at
     FROM events
     WHERE
-      starts_at IS NULL
-      OR (
-        ends_at IS NOT NULL
-        AND ends_at <= starts_at
-      )
+    (
+      status IN ('scheduled', 'active', 'ended')
+      AND starts_at IS NULL
+    )
+    OR (
+      starts_at IS NOT NULL
+      AND ends_at IS NOT NULL
+      AND ends_at <= starts_at
+    )
     ORDER BY id
     `,
   );

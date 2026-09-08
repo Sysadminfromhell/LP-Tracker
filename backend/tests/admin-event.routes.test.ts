@@ -53,18 +53,18 @@ vi.mock('../src/runtime/refresh-queue', () => ({
 
 import { adminEventRoutes } from '../src/routes/admin-event.routes';
 
-const draftEvent: AdminEvent = {
+const scheduledEvent: AdminEvent = {
   id: 1,
   name: 'September Event',
   startsAt: '2026-09-05T18:00:00.000Z',
   endsAt: '2026-09-10T18:00:00.000Z',
-  status: 'draft',
+  status: 'scheduled',
   participantCount: 0,
   createdAt: '2026-09-01T00:00:00.000Z',
   updatedAt: '2026-09-01T00:00:00.000Z',
 };
 const activeEvent: AdminEvent = {
-  ...draftEvent,
+  ...scheduledEvent,
   id: 2,
   name: 'Active Event',
   startsAt: '2026-09-01T18:00:00.000Z',
@@ -109,11 +109,11 @@ beforeEach(() => {
     id: 1,
     username: 'admin',
   });
-  mocks.getAdminEvents.mockResolvedValue([draftEvent, activeEvent]);
-  mocks.getAdminEventById.mockResolvedValue(draftEvent);
-  mocks.scheduleAdminEvent.mockResolvedValue(draftEvent);
-  mocks.updateAdminEventName.mockResolvedValue(draftEvent);
-  mocks.updateScheduledEvent.mockResolvedValue(draftEvent);
+  mocks.getAdminEvents.mockResolvedValue([scheduledEvent, activeEvent]);
+  mocks.getAdminEventById.mockResolvedValue(scheduledEvent);
+  mocks.scheduleAdminEvent.mockResolvedValue(scheduledEvent);
+  mocks.updateAdminEventName.mockResolvedValue(scheduledEvent);
+  mocks.updateScheduledEvent.mockResolvedValue(scheduledEvent);
   mocks.cancelScheduledEvent.mockResolvedValue(undefined);
   mocks.getEventParticipantPlayerIds.mockResolvedValue([firstPlayer.id, secondPlayer.id]);
   mocks.getPlayers.mockResolvedValue([firstPlayer, secondPlayer]);
@@ -136,7 +136,7 @@ describe('admin event routes', () => {
       });
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
-        events: [draftEvent, activeEvent],
+        events: [scheduledEvent, activeEvent],
       });
     } finally {
       await app.close();
@@ -176,7 +176,7 @@ describe('admin event routes', () => {
   });
   it('renames an event and reloads the leaderboard', async () => {
     const renamedEvent = {
-      ...draftEvent,
+      ...scheduledEvent,
       name: 'Renamed Event',
     };
     mocks.updateAdminEventName.mockResolvedValue(renamedEvent);
@@ -200,7 +200,7 @@ describe('admin event routes', () => {
       await app.close();
     }
   });
-  it('allows editing only draft events', async () => {
+  it('allows editing only scheduled events', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
     const app = await createTestApp();
     try {
@@ -224,7 +224,7 @@ describe('admin event routes', () => {
   });
   it('updates a scheduled event', async () => {
     const updated = {
-      ...draftEvent,
+      ...scheduledEvent,
       name: 'Updated Event',
       startsAt: '2026-09-06T18:00:00.000Z',
       endsAt: '2026-09-09T18:00:00.000Z',
@@ -321,20 +321,20 @@ describe('admin event routes', () => {
         url: '/api/admin/events',
         payload: {
           name: '  September Event  ',
-          startsAt: draftEvent.startsAt,
-          endsAt: draftEvent.endsAt,
+          startsAt: scheduledEvent.startsAt,
+          endsAt: scheduledEvent.endsAt,
         },
       });
       expect(response.statusCode).toBe(201);
       expect(mocks.scheduleAdminEvent).toHaveBeenCalledWith({
         name: 'September Event',
-        startsAt: draftEvent.startsAt,
-        endsAt: draftEvent.endsAt,
+        startsAt: scheduledEvent.startsAt,
+        endsAt: scheduledEvent.endsAt,
       });
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
       expect(response.json()).toEqual({
         ok: true,
-        event: draftEvent,
+        event: scheduledEvent,
       });
     } finally {
       await app.close();
@@ -367,7 +367,7 @@ describe('admin event routes', () => {
     }
   });
   it('allows only active events to be ended', async () => {
-    mocks.getAdminEventById.mockResolvedValue(draftEvent);
+    mocks.getAdminEventById.mockResolvedValue(scheduledEvent);
     const app = await createTestApp();
     try {
       const response = await app.inject({
