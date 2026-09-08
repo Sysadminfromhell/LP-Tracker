@@ -64,6 +64,7 @@ function createRow(overrides: Partial<EventLeaderboardDbPlayer> = {}): EventLead
     startLp: 0,
     startRankScore: 1400,
     lpPenalty: 0,
+    penaltyReason: null,
     startWins: 10,
     startLosses: 10,
     currentTier: 'GOLD',
@@ -219,6 +220,7 @@ describe('leaderboard service', () => {
       currentLp: 80,
       currentRankScore: 680,
       lpPenalty: 15,
+      penaltyReason: 'Late registration',
     });
     mocks.getDisplayEvent.mockResolvedValue(event);
     mocks.getEventLeaderboardPlayers.mockResolvedValue([row]);
@@ -236,6 +238,10 @@ describe('leaderboard service', () => {
         division: 2,
         lp: 80,
         score: 680,
+      },
+      penalty: {
+        lp: 15,
+        reason: 'Late registration',
       },
       lpGain: 50,
     });

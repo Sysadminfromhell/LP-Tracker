@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { loadChampionIcons } from '../championIcons';
+import { getRankIconUrl } from '../rankIcons';
 
 interface HealthResponse {
   build?: {
@@ -43,6 +44,10 @@ interface LeaderboardPlayer {
     division: number | null;
     lp: number;
     score: number;
+  };
+  penalty: {
+    lp: number;
+    reason: string | null;
   };
   lpGain: number;
   record: {
@@ -148,6 +153,22 @@ function formatRank(tier: string, division: number | null): string {
   }
   return `${formattedTier} ${divisions[division] ?? division}`;
 }
+function RankEmblem({
+  tier,
+  size = 'current',
+}: {
+  tier: string;
+  size?: 'current' | 'start' | 'podium';
+}) {
+  const iconUrl = getRankIconUrl(tier);
+  if (!iconUrl) {
+    return null;
+  }
+  return (
+    <img className={`rank-emblem rank-emblem-${size}`} src={iconUrl} alt="" aria-hidden="true" />
+  );
+}
+
 function formatPosition(position: string): string {
   switch (position.toUpperCase()) {
     case 'TOP':
@@ -266,10 +287,12 @@ function PodiumCard({
   player,
   place,
   now,
+  championIcons,
 }: {
   player: LeaderboardPlayer;
   place: 1 | 2 | 3;
   now: number;
+  championIcons: Map<number, string>;
 }) {
   const winRate = getWinRate(player.record.wins, player.record.losses);
   return (
@@ -286,9 +309,27 @@ function PodiumCard({
         <div className="podium-movement">
           <RankMovementIndicator movement={player.rankMovement} now={now} />
         </div>
-        <div className="podium-rank">
-          <strong>{formatRank(player.current.tier, player.current.division)}</strong>
-          <span>{player.current.lp} LP</span>
+        <div className="podium-ranks">
+          <div className="podium-rank-block">
+            <span className="podium-rank-label">START</span>
+            <div className="podium-rank-inline">
+              <RankEmblem tier={player.start.tier} size="podium" />
+              <div>
+                <strong>{formatRank(player.start.tier, player.start.division)}</strong>
+                <span>{player.start.lp} LP</span>
+              </div>
+            </div>
+          </div>
+          <div className="podium-rank-block podium-rank-current">
+            <span className="podium-rank-label">CURRENT</span>
+            <div className="podium-rank-inline">
+              <RankEmblem tier={player.current.tier} size="podium" />
+              <div>
+                <strong>{formatRank(player.current.tier, player.current.division)}</strong>
+                <span>{player.current.lp} LP</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div
           className={`podium-gain ${player.lpGain >= 0 ? 'positive' : 'negative'}`}
@@ -297,6 +338,12 @@ function PodiumCard({
           {player.lpGain >= 0 ? '+' : ''}
           {player.lpGain} LP
         </div>
+        {player.penalty.lp > 0 && (
+          <div className="podium-penalty" title={player.penalty.reason ?? undefined}>
+            <strong>Penalty -{player.penalty.lp} LP</strong>
+            {player.penalty.reason && <span>{player.penalty.reason}</span>}
+          </div>
+        )}
         <div className="podium-record">
           <span className="wins">{player.record.wins}W</span>
           <span>•</span>
@@ -304,8 +351,65 @@ function PodiumCard({
           <span>•</span>
           <span>{winRate}% WR</span>
         </div>
+        <div className="podium-matches">
+          <span className="podium-matches-label">LAST 3 GAMES</span>
+          <div className="podium-match-list">
+            {player.recentMatches.length === 0 ? (
+              <div className="podium-no-games">No ranked games</div>
+            ) : (
+              player.recentMatches.map((match) => {
+                const icon = championIcons.get(match.championId);
+                return (
+                  <div className="podium-match" data-match-id={match.id} key={match.id}>
+                    {icon ? (
+                      <img
+                        className="podium-match-champion"
+                        src={icon}
+                        alt={match.champion}
+                        title={match.champion}
+                      />
+                    ) : (
+                      <div className="podium-match-champion podium-match-placeholder" />
+                    )}
+                    <div className="podium-match-info">
+                      <div className="podium-match-header">
+                        <span
+                          className={
+                            match.result === 'WIN'
+                              ? 'match-result match-win'
+                              : 'match-result match-loss'
+                          }
+                        >
+                          {match.result === 'WIN' ? 'W' : 'L'}
+                        </span>
+                        <span className="podium-match-position">
+                          {formatPosition(match.position)}
+                        </span>
+                      </div>
+                      <strong>
+                        {match.kills}/{match.deaths}/{match.assists}
+                      </strong>
+                      <span
+                        className={`match-lp ${
+                          match.lpDelta === null
+                            ? 'unknown'
+                            : match.lpDelta >= 0
+                              ? 'positive'
+                              : 'negative'
+                        }`}
+                      >
+                        {match.lpDelta === null
+                          ? '— LP'
+                          : `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta} LP`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </article>
-
       <div className="podium-step">
         <strong>{place}</strong>
       </div>
@@ -780,9 +884,30 @@ function LeaderboardPage() {
                 <h2>Event Leaders</h2>
               </div>
               <div className="podium">
-                {players[1] && <PodiumCard player={players[1]} place={2} now={now} />}
-                {players[0] && <PodiumCard player={players[0]} place={1} now={now} />}
-                {players[2] && <PodiumCard player={players[2]} place={3} now={now} />}
+                {players[1] && (
+                  <PodiumCard
+                    player={players[1]}
+                    place={2}
+                    now={now}
+                    championIcons={championIcons}
+                  />
+                )}
+                {players[0] && (
+                  <PodiumCard
+                    player={players[0]}
+                    place={1}
+                    now={now}
+                    championIcons={championIcons}
+                  />
+                )}
+                {players[2] && (
+                  <PodiumCard
+                    player={players[2]}
+                    place={3}
+                    now={now}
+                    championIcons={championIcons}
+                  />
+                )}
               </div>
             </section>
             <section className="event-highlights-section">
@@ -819,6 +944,7 @@ function LeaderboardPage() {
             <div className="leaderboard-header">
               <div>#</div>
               <div>Player</div>
+              <div>Start</div>
               <div>Current</div>
               <div>LP Gain</div>
               <div>W / L</div>
@@ -905,15 +1031,39 @@ function LeaderboardPage() {
                       </div>
                     </div>
                     <div className="rank-cell">
-                      <strong>{formatRank(player.current.tier, player.current.division)}</strong>
-                      <span>{player.current.lp} LP</span>
+                      <div className="rank-inline">
+                        <RankEmblem tier={player.start.tier} size="start" />
+                        <div>
+                          <strong>{formatRank(player.start.tier, player.start.division)}</strong>
+                          <span>{player.start.lp} LP</span>
+                        </div>
+                      </div>
                     </div>
-                    <div
-                      className={`gain-cell ${player.lpGain >= 0 ? 'positive' : 'negative'}`}
-                      data-animate-lp
-                    >
-                      {player.lpGain >= 0 ? '+' : ''}
-                      {player.lpGain} LP
+                    <div className="rank-cell">
+                      <div className="rank-inline">
+                        <RankEmblem tier={player.current.tier} />
+                        <div>
+                          <strong>
+                            {formatRank(player.current.tier, player.current.division)}
+                          </strong>
+                          <span>{player.current.lp} LP</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="gain-stack">
+                      <div
+                        className={`gain-cell ${player.lpGain >= 0 ? 'positive' : 'negative'}`}
+                        data-animate-lp
+                      >
+                        {player.lpGain >= 0 ? '+' : ''}
+                        {player.lpGain} LP
+                      </div>
+                      {player.penalty.lp > 0 && (
+                        <div className="penalty-display" title={player.penalty.reason ?? undefined}>
+                          <strong>Penalty -{player.penalty.lp} LP</strong>
+                          {player.penalty.reason && <span>{player.penalty.reason}</span>}
+                        </div>
+                      )}
                     </div>
                     <div className="record-cell">
                       <span className="wins">{player.record.wins}W</span>

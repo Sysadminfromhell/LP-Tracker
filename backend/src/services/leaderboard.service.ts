@@ -49,6 +49,10 @@ interface LeaderboardPlayer {
     lp: number;
     score: number;
   };
+  penalty: {
+    lp: number;
+    reason: string | null;
+  };
   lpGain: number;
   record: {
     wins: number;
@@ -156,6 +160,10 @@ async function buildLeaderboardPlayer(
         division: row.currentDivision,
         lp: row.currentLp,
         score: row.currentRankScore,
+      },
+      penalty: {
+        lp: row.lpPenalty,
+        reason: row.penaltyReason,
       },
       lpGain: row.currentRankScore - row.startRankScore - row.lpPenalty,
       record: {
