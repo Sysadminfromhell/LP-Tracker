@@ -275,8 +275,48 @@ describe('admin player routes', () => {
         ],
       });
       expect(mocks.getPlayers).toHaveBeenCalledWith(true);
+      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
       expect(mocks.refreshPlayer).toHaveBeenCalledTimes(2);
-      expect(mocks.setRefreshInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.setRefreshInProgress).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('queues refresh-all while another refresh is already running', async () => {
+    mocks.getOperationState.mockReturnValue({
+      refreshInProgress: true,
+      lifecycleInProgress: false,
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players/refresh-all',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.refreshPlayer).toHaveBeenCalledWith(player);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects refresh-all while an event transition is running', async () => {
+    mocks.getOperationState.mockReturnValue({
+      refreshInProgress: false,
+      lifecycleInProgress: true,
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players/refresh-all',
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({
+        error: 'An event transition is currently in progress',
+      });
+      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
+      expect(mocks.refreshPlayer).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

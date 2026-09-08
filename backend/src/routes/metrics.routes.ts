@@ -7,6 +7,7 @@ import {
 } from '../services/league-data.service';
 import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
 import { getOperationState } from '../runtime/operation-state';
+import { getRefreshQueueState } from '../runtime/refresh-queue';
 import { getMonitoringState } from '../runtime/monitoring-state';
 
 function escapeLabelValue(value: string): string {
@@ -27,6 +28,7 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
     const providerDiagnostics = getLeagueDataProviderDiagnostics();
     const scheduler = getRefreshSchedulerStatus();
     const operation = getOperationState();
+    const refreshQueue = getRefreshQueueState();
     const monitoring = getMonitoringState();
     const lines: string[] = [];
 
@@ -60,8 +62,8 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
     addMetric(
       lines,
       'lp_tracker_operation_refresh_in_progress',
-      'Whether a player refresh is currently running.',
-      operation.refreshInProgress ? 1 : 0,
+      'Whether the refresh queue is currently processing work.',
+      refreshQueue.running ? 1 : 0,
     );
     addMetric(
       lines,

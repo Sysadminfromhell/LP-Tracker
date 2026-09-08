@@ -38,7 +38,6 @@ export function enqueueRefresh<T>(task: () => Promise<T>): Promise<T> {
         }
       },
     });
-
     void drainQueue();
   });
 }

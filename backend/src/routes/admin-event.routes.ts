@@ -13,7 +13,8 @@ import {
 } from '../db/admin-events';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
-import { isOperationBusy, setRefreshInProgress } from '../runtime/operation-state';
+import { getOperationState, setLifecycleInProgress } from '../runtime/operation-state';
+import { enqueueRefresh } from '../runtime/refresh-queue';
 
 function parseEventId(value: string): number | null {
   const eventId = Number(value);
@@ -323,45 +324,51 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Only active events can be ended',
       });
     }
-    if (isOperationBusy()) {
+    const operationState = getOperationState();
+
+    if (operationState.lifecycleInProgress) {
       return reply.code(409).send({
-        error: 'A player refresh or event transition is currently in progress',
+        error: 'An event transition is currently in progress',
       });
     }
-    setRefreshInProgress(true);
+
+    setLifecycleInProgress(true);
+
     try {
-      const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
-      const allPlayers = await getPlayers(false);
-      const eventPlayers = allPlayers.filter((player) => participantIds.has(player.id));
-      if (eventPlayers.length !== participantIds.size) {
-        return reply.code(409).send({
-          error: 'Not every event participant could be loaded',
-        });
-      }
-      console.log(
-        `[ADMIN] Refreshing ${eventPlayers.length} participant(s) ` +
-          `before ending "${event.name}"...`,
-      );
-      const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
-      if (failedPlayers.length > 0) {
-        console.error(
-          `[ADMIN] Could not end "${event.name}": ` +
-            `${failedPlayers.length} player refresh(es) failed`,
+      return await enqueueRefresh(async () => {
+        const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
+        const allPlayers = await getPlayers(false);
+        const eventPlayers = allPlayers.filter((player) => participantIds.has(player.id));
+        if (eventPlayers.length !== participantIds.size) {
+          return reply.code(409).send({
+            error: 'Not every event participant could be loaded',
+          });
+        }
+        console.log(
+          `[ADMIN] Refreshing ${eventPlayers.length} participant(s) ` +
+            `before ending "${event.name}"...`,
         );
-        return reply.code(502).send({
-          error: 'Could not refresh every participant before ending the event',
-        });
-      }
-      const endedEvent = await endAdminEvent(event.id);
-      await loadLeaderboardFromDatabase();
-      console.log(
-        `[ADMIN] Event "${endedEvent.name}" ended with ` +
-          `${endedEvent.participantCount} participant(s)`,
-      );
-      return {
-        ok: true,
-        event: endedEvent,
-      };
+        const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
+        if (failedPlayers.length > 0) {
+          console.error(
+            `[ADMIN] Could not end "${event.name}": ` +
+              `${failedPlayers.length} player refresh(es) failed`,
+          );
+          return reply.code(502).send({
+            error: 'Could not refresh every participant before ending the event',
+          });
+        }
+        const endedEvent = await endAdminEvent(event.id);
+        await loadLeaderboardFromDatabase();
+        console.log(
+          `[ADMIN] Event "${endedEvent.name}" ended with ` +
+            `${endedEvent.participantCount} participant(s)`,
+        );
+        return {
+          ok: true,
+          event: endedEvent,
+        };
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message === 'ACTIVE_EVENT_NOT_FOUND') {
@@ -379,7 +386,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Could not end event',
       });
     } finally {
-      setRefreshInProgress(false);
+      setLifecycleInProgress(false);
     }
   });
 }

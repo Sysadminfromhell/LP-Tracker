@@ -12,11 +12,7 @@ import {
 import { getLeagueDataProvider } from '../services/league-data.service';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
-import {
-  getOperationState,
-  isOperationBusy,
-  setRefreshInProgress,
-} from '../runtime/operation-state';
+import { getOperationState } from '../runtime/operation-state';
 import { enqueueRefresh } from '../runtime/refresh-queue';
 import { calculateRankScore } from '../rank';
 
@@ -89,12 +85,12 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
     if (!admin) {
       return;
     }
-    if (isOperationBusy()) {
+    const operationState = getOperationState();
+    if (operationState.lifecycleInProgress) {
       return reply.code(409).send({
-        error: 'A player refresh or event transition is currently in progress',
+        error: 'An event transition is currently in progress',
       });
     }
-    setRefreshInProgress(true);
     try {
       const players = await getPlayers(true);
       if (players.length === 0) {
@@ -106,17 +102,20 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         `[ADMIN] ${admin.username} requested manual refresh for all ` +
           `${players.length} enabled player(s)`,
       );
-      const failedPlayers: Player[] = [];
-      for (const [index, player] of players.entries()) {
-        console.log(
-          `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
-            `${player.gameName}#${player.tagLine}`,
-        );
-        const refreshed = await refreshPlayer(player);
-        if (!refreshed) {
-          failedPlayers.push(player);
+      const failedPlayers = await enqueueRefresh(async () => {
+        const failed: Player[] = [];
+        for (const [index, player] of players.entries()) {
+          console.log(
+            `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
+              `${player.gameName}#${player.tagLine}`,
+          );
+          const refreshed = await refreshPlayer(player);
+          if (!refreshed) {
+            failed.push(player);
+          }
         }
-      }
+        return failed;
+      });
       const adminPlayers = await getAdminPlayers();
       if (failedPlayers.length > 0) {
         return reply.code(502).send({
@@ -143,8 +142,6 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(500).send({
         error: 'Could not refresh players',
       });
-    } finally {
-      setRefreshInProgress(false);
     }
   });
   app.post<{
