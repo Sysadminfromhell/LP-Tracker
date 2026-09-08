@@ -545,7 +545,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
           ) : visiblePlayers.length === 0 ? (
             <div className="admin-player-empty">No players match the current filters.</div>
           ) : (
-            <div className="admin-player-list">
+            <div className="admin-player-list admin-scroll-list">
               {visiblePlayers.map((player) => (
                 <div className="admin-player-card" key={player.id}>
                   <div className="admin-player-summary">

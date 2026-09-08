@@ -18,6 +18,7 @@ export interface EventLeaderboardDbPlayer {
   startDivision: number | null;
   startLp: number;
   startRankScore: number;
+  lpPenalty: number;
   startWins: number;
   startLosses: number;
   currentTier: string;
@@ -47,6 +48,7 @@ interface EventLeaderboardRow {
   start_division: number | null;
   start_lp: number;
   start_rank_score: number;
+  lp_penalty: number;
   start_wins: number;
   start_losses: number;
   current_tier: string;
@@ -82,6 +84,7 @@ export async function getEventLeaderboardPlayers(
       ep.start_division,
       ep.start_lp,
       ep.start_rank_score,
+      ep.lp_penalty,
       ep.start_wins,
       ep.start_losses,
       CASE
@@ -161,6 +164,7 @@ export async function getEventLeaderboardPlayers(
     startDivision: row.start_division,
     startLp: row.start_lp,
     startRankScore: row.start_rank_score,
+    lpPenalty: row.lp_penalty,
     startWins: row.start_wins,
     startLosses: row.start_losses,
     currentTier: row.current_tier,

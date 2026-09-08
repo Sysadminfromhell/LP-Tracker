@@ -6,6 +6,8 @@ import type { Player } from '../src/db/players';
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   getPlayers: vi.fn(),
+  getEventParticipantPenalties: vi.fn(),
+  setEventParticipantPenalty: vi.fn(),
   cancelScheduledEvent: vi.fn(),
   endAdminEvent: vi.fn(),
   getAdminEventById: vi.fn(),
@@ -26,6 +28,10 @@ vi.mock('../src/auth/admin-auth', () => ({
 }));
 vi.mock('../src/db/players', () => ({
   getPlayers: mocks.getPlayers,
+}));
+vi.mock('../src/db/event-penalties', () => ({
+  getEventParticipantPenalties: mocks.getEventParticipantPenalties,
+  setEventParticipantPenalty: mocks.setEventParticipantPenalty,
 }));
 vi.mock('../src/db/admin-events', () => ({
   cancelScheduledEvent: mocks.cancelScheduledEvent,
@@ -93,6 +99,19 @@ const secondPlayer: Player = {
   id: 11,
   gameName: 'Bravo',
 };
+const participantPenalty = {
+  eventId: activeEvent.id,
+  playerId: firstPlayer.id,
+  gameName: firstPlayer.gameName,
+  tagLine: firstPlayer.tagLine,
+  startTier: 'BRONZE',
+  startDivision: 2,
+  startLp: 15,
+  startRankScore: 615,
+  lpPenalty: 15,
+  penaltyReason: 'Boosting',
+  penaltyUpdatedAt: '2026-09-08T20:30:00.000Z',
+};
 
 async function createTestApp() {
   const app = Fastify({
@@ -117,6 +136,8 @@ beforeEach(() => {
   mocks.cancelScheduledEvent.mockResolvedValue(undefined);
   mocks.getEventParticipantPlayerIds.mockResolvedValue([firstPlayer.id, secondPlayer.id]);
   mocks.getPlayers.mockResolvedValue([firstPlayer, secondPlayer]);
+  mocks.getEventParticipantPenalties.mockResolvedValue([participantPenalty]);
+  mocks.setEventParticipantPenalty.mockResolvedValue(participantPenalty);
   mocks.refreshPlayersForSnapshot.mockResolvedValue([]);
   mocks.endAdminEvent.mockResolvedValue(endedEvent);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
@@ -138,6 +159,123 @@ describe('admin event routes', () => {
       expect(response.json()).toEqual({
         events: [scheduledEvent, activeEvent],
       });
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns participant penalties for an event', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/events/2/penalties',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getEventParticipantPenalties).toHaveBeenCalledWith(2);
+      expect(response.json()).toEqual({
+        participants: [participantPenalty],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('updates a participant penalty and reloads the leaderboard', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 15,
+          reason: 'Boosting',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.setEventParticipantPenalty).toHaveBeenCalledWith({
+        eventId: 2,
+        playerId: 10,
+        lpPenalty: 15,
+        reason: 'Boosting',
+      });
+      expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+      expect(response.json()).toEqual({
+        ok: true,
+        participant: participantPenalty,
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects penalty changes for non-active events', async () => {
+    mocks.getAdminEventById.mockResolvedValue(scheduledEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1/participants/10/penalty',
+        payload: {
+          lpPenalty: 15,
+          reason: 'Boosting',
+        },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({
+        error: 'Penalties can only be changed during an active event',
+      });
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('requires a reason for a non-zero penalty', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    mocks.setEventParticipantPenalty.mockRejectedValue(new Error('PENALTY_REASON_REQUIRED'));
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 15,
+          reason: '   ',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'A reason is required for an LP penalty',
+      });
+      expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('allows resetting a participant penalty to zero', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const clearedPenalty = {
+      ...participantPenalty,
+      lpPenalty: 0,
+      penaltyReason: null,
+    };
+    mocks.setEventParticipantPenalty.mockResolvedValue(clearedPenalty);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 0,
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.setEventParticipantPenalty).toHaveBeenCalledWith({
+        eventId: 2,
+        playerId: 10,
+        lpPenalty: 0,
+        reason: null,
+      });
+      expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
     } finally {
       await app.close();
     }

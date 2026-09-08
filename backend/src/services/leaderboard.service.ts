@@ -157,7 +157,7 @@ async function buildLeaderboardPlayer(
         lp: row.currentLp,
         score: row.currentRankScore,
       },
-      lpGain: row.currentRankScore - row.startRankScore,
+      lpGain: row.currentRankScore - row.startRankScore - row.lpPenalty,
       record: {
         wins: eventWins,
         losses: eventLosses,

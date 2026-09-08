@@ -2084,6 +2084,27 @@ a.social-link.twitch:hover {
   padding: 0 12px;
   white-space: nowrap;
 }
+.admin-scroll-list {
+  max-height: min(380px, 50vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+.admin-scroll-list::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-scroll-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-scroll-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.admin-scroll-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
 @keyframes leaderboardEnter {
   from {
     opacity: 0;
@@ -2254,7 +2275,7 @@ a.social-link.twitch:hover {
   border-color: rgba(234, 91, 105, 0.25);
 }
 .admin-toast-info {
-  border-color: royalblue
+  border-color: royalblue;
 }
 .admin-toast-icon {
   display: flex;
@@ -2274,7 +2295,7 @@ a.social-link.twitch:hover {
   color: #ea5b69;
 }
 .admin-toast-info .admin-toast-icon {
-  color: royalblue
+  color: royalblue;
 }
 .admin-toast-content {
   display: grid;
