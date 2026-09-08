@@ -4,10 +4,11 @@ import {
   savePlayerCacheError,
   savePlayerCacheSuccess,
 } from '../db/player-cache';
-import { getActiveEvent, getEventParticipant } from '../db/events';
+import { getActiveEvent, getEventParticipant, getLatestEventMatchCursor } from '../db/events';
 import { updateEventAfterPlayerRefresh } from '../db/event-refresh';
 import { calculateRankScore } from '../rank';
 import { getLeagueDataProvider } from './league-data.service';
+import { fetchIncrementalMatches } from './match-sync.service';
 import {
   getLeaderboardPlayer,
   loadLeaderboardFromDatabase,
@@ -55,11 +56,7 @@ export async function refreshPlayer(
       profileTimeoutMs,
       `Provider profile request timed out after ${profileTimeoutMs}ms`,
     );
-    const recentMatches = await withTimeout(
-      provider.getRecentMatches(player.gameName, player.tagLine, player.region, 20),
-      matchTimeoutMs,
-      `Provider match request timed out after ${matchTimeoutMs}ms`,
-    );
+
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
       throw new Error('No Solo Queue information returned by league data provider');
@@ -86,11 +83,34 @@ export async function refreshPlayer(
     if (event && event.startsAt) {
       const participant = await getEventParticipant(event.id, player.id);
       if (participant) {
+        const matchCursor = await getLatestEventMatchCursor(participant.id);
+        const matchSync = await fetchIncrementalMatches(
+          (limit) =>
+            withTimeout(
+              provider.getRecentMatches(player.gameName, player.tagLine, player.region, limit),
+              matchTimeoutMs,
+              `Provider match request timed out after ${matchTimeoutMs}ms`,
+            ),
+          participant.snapshotCapturedAt,
+          matchCursor,
+        );
+        if (matchSync.requestedLimit > 5) {
+          console.log(
+            `[MATCH SYNC] ${player.gameName}#${player.tagLine}: ` +
+              `backfill expanded to ${matchSync.requestedLimit} matches`,
+          );
+        }
+        if (!matchSync.anchorReached) {
+          throw new Error(
+            `Match backfill limit reached before sync anchor ` +
+              `(${matchSync.requestedLimit} matches)`,
+          );
+        }
         const matchResult = await updateEventAfterPlayerRefresh(
           participant.id,
           participant.snapshotCapturedAt,
           event.endsAt,
-          recentMatches,
+          matchSync.matches,
           rankScore,
           profile.lpHistory,
         );

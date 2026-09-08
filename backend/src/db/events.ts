@@ -49,6 +49,10 @@ export interface DbEventMatch {
   discoveredAt: string;
   updatedAt: string;
 }
+export interface EventMatchCursor {
+  providerMatchId: string;
+  gameCreatedAt: string;
+}
 export interface DbEventMatchStats {
   games: number;
   kills: number;
@@ -354,6 +358,35 @@ export async function createEventParticipant(
  * Event Matches
  * ------------------------------------------------------------
  */
+export async function getLatestEventMatchCursor(
+  eventParticipantId: number,
+): Promise<EventMatchCursor | null> {
+  const result = await db.query<{
+    provider_match_id: string;
+    game_created_at: Date;
+  }>(
+    `
+      SELECT
+        provider_match_id,
+        game_created_at
+      FROM event_matches
+      WHERE event_participant_id = $1
+      ORDER BY
+        game_created_at DESC,
+        id DESC
+      LIMIT 1
+      `,
+    [eventParticipantId],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+  return {
+    providerMatchId: row.provider_match_id,
+    gameCreatedAt: row.game_created_at.toISOString(),
+  };
+}
 export async function getEventMatches(eventParticipantId: number): Promise<DbEventMatch[]> {
   const result = await db.query<EventMatchRow>(
     `
