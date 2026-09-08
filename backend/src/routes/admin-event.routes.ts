@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../auth/admin-auth';
 import { getPlayers } from '../db/players';
+import { getEventParticipantPenalties, setEventParticipantPenalty } from '../db/event-penalties';
 import {
   cancelScheduledEvent,
   endAdminEvent,
@@ -23,6 +24,14 @@ function parseEventId(value: string): number | null {
   }
   return eventId;
 }
+function parsePlayerId(value: string): number | null {
+  const playerId = Number(value);
+  if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+    return null;
+  }
+  return playerId;
+}
+
 export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/admin/events', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
@@ -32,6 +41,32 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     const events = await getAdminEvents();
     return {
       events,
+    };
+  });
+  app.get<{
+    Params: {
+      eventId: string;
+    };
+  }>('/api/admin/events/:eventId/penalties', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const eventId = parseEventId(request.params.eventId);
+    if (eventId === null) {
+      return reply.code(400).send({
+        error: 'Invalid event ID',
+      });
+    }
+    const event = await getAdminEventById(eventId);
+    if (!event) {
+      return reply.code(404).send({
+        error: 'Event not found',
+      });
+    }
+    const participants = await getEventParticipantPenalties(eventId);
+    return {
+      participants,
     };
   });
   app.get<{
@@ -58,6 +93,91 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     return {
       event,
     };
+  });
+  app.patch<{
+    Params: {
+      eventId: string;
+      playerId: string;
+    };
+    Body: {
+      lpPenalty?: number;
+      reason?: string | null;
+    };
+  }>('/api/admin/events/:eventId/participants/:playerId/penalty', async (request, reply) => {
+    const admin = await requireAdmin(request, reply);
+    if (!admin) {
+      return;
+    }
+    const eventId = parseEventId(request.params.eventId);
+    const playerId = parsePlayerId(request.params.playerId);
+    if (eventId === null) {
+      return reply.code(400).send({
+        error: 'Invalid event ID',
+      });
+    }
+    if (playerId === null) {
+      return reply.code(400).send({
+        error: 'Invalid player ID',
+      });
+    }
+    const event = await getAdminEventById(eventId);
+    if (!event) {
+      return reply.code(404).send({
+        error: 'Event not found',
+      });
+    }
+    if (event.status !== 'active') {
+      return reply.code(409).send({
+        error: 'Penalties can only be changed during an active event',
+      });
+    }
+    const lpPenalty = request.body.lpPenalty;
+    if (!Number.isSafeInteger(lpPenalty) || (lpPenalty ?? -1) < 0) {
+      return reply.code(400).send({
+        error: 'LP penalty must be a non-negative integer',
+      });
+    }
+    try {
+      const participant = await setEventParticipantPenalty({
+        eventId,
+        playerId,
+        lpPenalty: lpPenalty as number,
+        reason: request.body.reason ?? null,
+      });
+      await loadLeaderboardFromDatabase();
+      console.log(
+        `[ADMIN] LP penalty for player ${playerId} in event ${eventId} ` +
+          `set to ${participant.lpPenalty}`,
+      );
+      return {
+        ok: true,
+        participant,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'PENALTY_REASON_REQUIRED') {
+        return reply.code(400).send({
+          error: 'A reason is required for an LP penalty',
+        });
+      }
+      if (message === 'INVALID_LP_PENALTY') {
+        return reply.code(400).send({
+          error: 'LP penalty must be a non-negative integer',
+        });
+      }
+      if (message === 'ACTIVE_EVENT_PARTICIPANT_NOT_FOUND') {
+        return reply.code(404).send({
+          error: 'Player is not a participant of the active event',
+        });
+      }
+      console.error(
+        `[ADMIN] Could not update LP penalty for player ${playerId} ` +
+          `in event ${eventId}: ${message}`,
+      );
+      return reply.code(500).send({
+        error: 'Could not update LP penalty',
+      });
+    }
   });
   app.patch<{
     Params: {

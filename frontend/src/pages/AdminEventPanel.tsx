@@ -21,6 +21,23 @@ interface EventScheduleForm {
   startsAt: string;
   endsAt: string;
 }
+interface EventParticipantPenalty {
+  eventId: number;
+  playerId: number;
+  gameName: string;
+  tagLine: string;
+  startTier: string;
+  startDivision: number | null;
+  startLp: number;
+  startRankScore: number;
+  lpPenalty: number;
+  penaltyReason: string | null;
+  penaltyUpdatedAt: string | null;
+}
+interface PenaltyForm {
+  lpPenalty: string;
+  reason: string;
+}
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
@@ -82,6 +99,17 @@ function formatEventDate(value: string | null): string {
     timeStyle: 'short',
   }).format(new Date(value));
 }
+function formatRank(tier: string, division: number | null, lp: number): string {
+  const divisionLabels: Record<number, string> = {
+    1: 'I',
+    2: 'II',
+    3: 'III',
+    4: 'IV',
+  };
+  const formattedTier = tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
+  const divisionLabel = division === null ? '' : ` ${divisionLabels[division] ?? division}`;
+  return `${formattedTier}${divisionLabel} · ${lp} LP`;
+}
 function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [event, setEvent] = useState<AdminEvent | null>(null);
@@ -90,6 +118,13 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   const [schedule, setSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
   const [scheduledSchedule, setScheduledSchedule] =
     useState<EventScheduleForm>(createDefaultSchedule);
+  const [penaltyParticipants, setPenaltyParticipants] = useState<EventParticipantPenalty[]>([]);
+  const [penaltiesLoading, setPenaltiesLoading] = useState(false);
+  const [editingPenaltyPlayerId, setEditingPenaltyPlayerId] = useState<number | null>(null);
+  const [penaltyForm, setPenaltyForm] = useState<PenaltyForm>({
+    lpPenalty: '0',
+    reason: '',
+  });
   const scheduledEvents = events
     .filter((item) => item.status === 'scheduled')
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
@@ -97,6 +132,10 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   const hasOpenEvents = events.some(
     (item) => item.status === 'scheduled' || item.status === 'active',
   );
+  const activeEventId = event?.status === 'active' ? event.id : null;
+  const selectedPenaltyParticipant =
+    penaltyParticipants.find((participant) => participant.playerId === editingPenaltyPlayerId) ??
+    null;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<'end-event' | 'cancel-scheduled-event' | null>(
@@ -146,6 +185,32 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
     },
     [onNotify, onUnauthorized],
   );
+  const loadPenalties = useCallback(
+    async (eventId: number) => {
+      setPenaltiesLoading(true);
+      try {
+        const response = await fetch(`/api/admin/events/${eventId}/penalties`, {
+          cache: 'no-store',
+        });
+        if (response.status === 401) {
+          onUnauthorized();
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(await readApiError(response));
+        }
+        const data = (await response.json()) as {
+          participants: EventParticipantPenalty[];
+        };
+        setPenaltyParticipants(data.participants);
+      } catch (err) {
+        onNotify('error', err instanceof Error ? err.message : 'Could not load LP penalties.');
+      } finally {
+        setPenaltiesLoading(false);
+      }
+    },
+    [onNotify, onUnauthorized],
+  );
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadEvents();
@@ -154,6 +219,17 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       window.clearTimeout(timer);
     };
   }, [loadEvents]);
+  useEffect(() => {
+    if (activeEventId === null) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void loadPenalties(activeEventId);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeEventId, loadPenalties]);
   useEffect(() => {
     if (!hasOpenEvents) {
       return;
@@ -375,6 +451,81 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       setSaving(false);
     }
   }
+  function handleEditPenalty(participant: EventParticipantPenalty) {
+    setEditingPenaltyPlayerId(participant.playerId);
+    setPenaltyForm({
+      lpPenalty: String(participant.lpPenalty),
+      reason: participant.penaltyReason ?? '',
+    });
+  }
+  function handleCancelPenaltyEdit() {
+    setEditingPenaltyPlayerId(null);
+    setPenaltyForm({
+      lpPenalty: '0',
+      reason: '',
+    });
+  }
+  async function handleSavePenalty(eventForm: FormEvent<HTMLFormElement>) {
+    eventForm.preventDefault();
+    if (!event || event.status !== 'active' || !selectedPenaltyParticipant) {
+      return;
+    }
+    const penaltyValue = penaltyForm.lpPenalty.trim();
+    if (!penaltyValue) {
+      onNotify('error', 'Please enter an LP penalty.');
+      return;
+    }
+    const lpPenalty = Number(penaltyValue);
+    if (!Number.isSafeInteger(lpPenalty) || lpPenalty < 0) {
+      onNotify('error', 'LP penalty must be a non-negative integer.');
+      return;
+    }
+    const reason = penaltyForm.reason.trim();
+    if (lpPenalty > 0 && !reason) {
+      onNotify('error', 'Please enter a reason for the penalty.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch(
+        `/api/admin/events/${event.id}/participants/${selectedPenaltyParticipant.playerId}/penalty`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            lpPenalty,
+            reason: lpPenalty === 0 ? null : reason,
+          }),
+        },
+      );
+      if (response.status === 401) {
+        onUnauthorized();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const data = (await response.json()) as {
+        participant: EventParticipantPenalty;
+      };
+      setPenaltyParticipants((current) =>
+        current.map((participant) =>
+          participant.playerId === data.participant.playerId ? data.participant : participant,
+        ),
+      );
+      handleCancelPenaltyEdit();
+      onNotify(
+        'success',
+        lpPenalty === 0 ? 'LP penalty removed.' : `LP penalty set to ${lpPenalty}.`,
+      );
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Could not update LP penalty.');
+    } finally {
+      setSaving(false);
+    }
+  }
   const minimumStartAt = getMinimumScheduleStart();
   const activeEventCount = events.filter((item) => item.status === 'active').length;
   const scheduledEventCount = events.filter((item) => item.status === 'scheduled').length;
@@ -451,6 +602,136 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
             </button>
           </form>
         </>
+      )}
+      {event?.status === 'active' && (
+        <div className="admin-scheduled-events">
+          <div className="admin-schedule-heading">
+            <span className="admin-section-eyebrow">LP PENALTIES</span>
+            <h3>Participant penalties</h3>
+            <p>
+              Adjust a participant&apos;s effective event gain without modifying the original start
+              snapshot.
+            </p>
+          </div>
+          {penaltiesLoading ? (
+            <div className="admin-player-empty">Loading participants...</div>
+          ) : penaltyParticipants.length === 0 ? (
+            <div className="admin-player-empty">No event participants available.</div>
+          ) : (
+            <div className="admin-scheduled-event-list admin-scroll-list">
+              {penaltyParticipants.map((participant) => (
+                <div
+                  className={`admin-scheduled-event-card ${
+                    editingPenaltyPlayerId === participant.playerId ? 'selected' : ''
+                  }`}
+                  key={participant.playerId}
+                >
+                  <div className="admin-scheduled-event-cell">
+                    <span>Player</span>
+                    <strong>
+                      {participant.gameName}#{participant.tagLine}
+                    </strong>
+                  </div>
+                  <div className="admin-scheduled-event-cell">
+                    <span>Start</span>
+                    <strong>
+                      {formatRank(
+                        participant.startTier,
+                        participant.startDivision,
+                        participant.startLp,
+                      )}
+                    </strong>
+                  </div>
+                  <div className="admin-scheduled-event-cell">
+                    <span>{participant.penaltyReason ?? 'Penalty'}</span>
+                    <strong>
+                      {participant.lpPenalty > 0 ? `${participant.lpPenalty} LP` : 'None'}
+                    </strong>
+                  </div>
+                  <button
+                    className="admin-secondary-button"
+                    type="button"
+                    disabled={saving}
+                    onClick={() => {
+                      handleEditPenalty(participant);
+                    }}
+                  >
+                    {editingPenaltyPlayerId === participant.playerId ? 'Editing' : 'Edit'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {event?.status === 'active' && selectedPenaltyParticipant && (
+        <form
+          className="admin-schedule-event admin-schedule-event-edit"
+          onSubmit={handleSavePenalty}
+        >
+          <div className="admin-schedule-heading">
+            <span className="admin-section-eyebrow">EDIT PENALTY</span>
+            <h3>
+              {selectedPenaltyParticipant.gameName}#{selectedPenaltyParticipant.tagLine}
+            </h3>
+            <p>
+              Original start:{' '}
+              {formatRank(
+                selectedPenaltyParticipant.startTier,
+                selectedPenaltyParticipant.startDivision,
+                selectedPenaltyParticipant.startLp,
+              )}
+              . Set the penalty to 0 to remove it.
+            </p>
+          </div>
+          <div className="admin-schedule-grid">
+            <label>
+              LP Penalty
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={penaltyForm.lpPenalty}
+                disabled={saving}
+                required
+                onChange={(eventInput) => {
+                  setPenaltyForm((current) => ({
+                    ...current,
+                    lpPenalty: eventInput.target.value,
+                  }));
+                }}
+              />
+            </label>
+            <label>
+              Reason
+              <input
+                type="text"
+                value={penaltyForm.reason}
+                disabled={saving}
+                placeholder="Boosting / rule violation"
+                onChange={(eventInput) => {
+                  setPenaltyForm((current) => ({
+                    ...current,
+                    reason: eventInput.target.value,
+                  }));
+                }}
+              />
+            </label>
+          </div>
+          <div className="admin-form-actions">
+            <button className="admin-primary-button" type="submit" disabled={saving}>
+              {saving ? 'Saving...' : 'Save Penalty'}
+            </button>
+            <button
+              className="admin-secondary-button"
+              type="button"
+              disabled={saving}
+              onClick={handleCancelPenaltyEdit}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
       {event?.status === 'active' && (
         <div className="admin-event-danger-zone">

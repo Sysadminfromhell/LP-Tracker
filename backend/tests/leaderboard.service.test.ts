@@ -63,6 +63,7 @@ function createRow(overrides: Partial<EventLeaderboardDbPlayer> = {}): EventLead
     startDivision: 2,
     startLp: 0,
     startRankScore: 1400,
+    lpPenalty: 0,
     startWins: 10,
     startLosses: 10,
     currentTier: 'GOLD',
@@ -205,6 +206,38 @@ describe('leaderboard service', () => {
           lpDeltaStatus: 'resolved',
         },
       ],
+    });
+  });
+  it('subtracts an LP penalty from the player event gain', async () => {
+    const row = createRow({
+      startTier: 'BRONZE',
+      startDivision: 2,
+      startLp: 15,
+      startRankScore: 615,
+      currentTier: 'BRONZE',
+      currentDivision: 2,
+      currentLp: 80,
+      currentRankScore: 680,
+      lpPenalty: 15,
+    });
+    mocks.getDisplayEvent.mockResolvedValue(event);
+    mocks.getEventLeaderboardPlayers.mockResolvedValue([row]);
+    await loadLeaderboardFromDatabase();
+    const player = getLeaderboardPlayer(row.playerId);
+    expect(player).toMatchObject({
+      start: {
+        tier: 'BRONZE',
+        division: 2,
+        lp: 15,
+        score: 615,
+      },
+      current: {
+        tier: 'BRONZE',
+        division: 2,
+        lp: 80,
+        score: 680,
+      },
+      lpGain: 50,
     });
   });
   it('calculates leaderboard highlights', async () => {
