@@ -11,6 +11,7 @@ export interface LeagueDataRateLimitStatus {
 }
 export interface LeagueDataProvider {
   readonly name: string;
+  readonly maxRecentMatches?: number;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   getSummonerProfile(gameName: string, tagLine: string, region: string): Promise<SummonerProfile>;
