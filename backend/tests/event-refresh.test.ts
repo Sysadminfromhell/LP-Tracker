@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     game_created_at?: Date;
   }>,
   insertRowCounts: [] as number[],
+  eventMatchIds: {} as Record<string, string>,
 }));
 
 vi.mock('../src/db/client', () => ({
@@ -67,6 +68,7 @@ beforeEach(() => {
   ];
   mocks.pendingRows = [];
   mocks.insertRowCounts = [];
+  mocks.eventMatchIds = {};
   mocks.connect.mockResolvedValue({
     query: mocks.query,
     release: mocks.release,
@@ -93,9 +95,23 @@ beforeEach(() => {
     }
     if (normalized.includes('INSERT INTO event_matches')) {
       const rowCount = mocks.insertRowCounts.shift() ?? 1;
+
       return {
         rows: rowCount === 1 ? [{ id: 'inserted-match' }] : [],
         rowCount,
+      };
+    }
+    if (
+      normalized.includes('SELECT id') &&
+      normalized.includes('FROM event_matches') &&
+      normalized.includes('provider_match_id = $2') &&
+      normalized.includes('LIMIT 1')
+    ) {
+      const providerMatchId = String(params?.[1]);
+      const eventMatchId = mocks.eventMatchIds[providerMatchId];
+      return {
+        rows: eventMatchId ? [{ id: eventMatchId }] : [],
+        rowCount: eventMatchId ? 1 : 0,
       };
     }
     if (
@@ -117,6 +133,19 @@ beforeEach(() => {
         rows: [],
         rowCount: 1,
       };
+    }
+    if (
+      normalized.includes('INSERT INTO event_match_details') ||
+      normalized.includes('DELETE FROM event_match_participants') ||
+      normalized.includes('INSERT INTO event_match_participants')
+    ) {
+      return {
+        rows: [],
+        rowCount: 1,
+      };
+    }
+    if (normalized.includes('DELETE FROM event_match_details')) {
+      return emptyResult();
     }
     throw new Error(
       `Unexpected SQL in test:\n${normalized}\n` + `params=${JSON.stringify(params)}`,
@@ -186,6 +215,72 @@ describe('event refresh', () => {
       1500,
     );
     expect(result.newMatches).toBe(1);
+  });
+  it('stores rich details and prunes details outside the newest three matches', async () => {
+    mocks.insertRowCounts = [1];
+    mocks.eventMatchIds = {
+      'rich-match': '501',
+    };
+    const match = createMatch({
+      id: 'rich-match',
+      participants: [
+        {
+          side: 'ALLY',
+          position: 'TOP',
+          championId: 266,
+          champion: 'Aatrox',
+          items: ['3071', '3047'],
+          damageToChampions: 25000,
+          kills: 8,
+          deaths: 3,
+          assists: 6,
+          laneCs: 190,
+          jungleCs: 12,
+          cs: 202,
+          isTrackedPlayer: true,
+        },
+        {
+          side: 'ENEMY',
+          position: 'TOP',
+          championId: 86,
+          champion: 'Garen',
+          items: ['6631', '3006'],
+          damageToChampions: 18000,
+          kills: 4,
+          deaths: 8,
+          assists: 2,
+          laneCs: 175,
+          jungleCs: 0,
+          cs: 175,
+          isTrackedPlayer: false,
+        },
+      ],
+    });
+    await updateEventAfterPlayerRefresh(
+      EVENT_PARTICIPANT_ID,
+      EVENT_START,
+      EVENT_END,
+      [match],
+      1500,
+    );
+    const detailInsert = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO event_match_details'),
+    );
+    expect(detailInsert).toBeDefined();
+    expect(detailInsert?.[1]).toEqual([501, 1800]);
+    const participantInsert = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO event_match_participants'),
+    );
+    expect(participantInsert).toBeDefined();
+    const pruneCall = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes('DELETE FROM event_match_details'),
+    );
+    expect(pruneCall).toBeDefined();
+    expect(pruneCall?.[1]).toEqual([EVENT_PARTICIPANT_ID, 3]);
+    const beginCalls = mocks.query.mock.calls.filter(([sql]) => String(sql).trim() === 'BEGIN');
+    const commitCalls = mocks.query.mock.calls.filter(([sql]) => String(sql).trim() === 'COMMIT');
+    expect(beginCalls).toHaveLength(2);
+    expect(commitCalls).toHaveLength(2);
   });
   it('resolves exactly one pending match when rank score changes', async () => {
     mocks.pendingRows = [

@@ -14,6 +14,23 @@ export interface SummonerProfile {
   queues: RankedQueue[];
   lpHistory: RankedLpHistoryEntry[];
 }
+export type MatchParticipantSide = 'ALLY' | 'ENEMY';
+export type MatchParticipantPosition = 'TOP' | 'JUNGLE' | 'MID' | 'ADC' | 'SUPPORT' | 'UNKNOWN';
+export interface SummonerMatchParticipant {
+  side: MatchParticipantSide;
+  position: MatchParticipantPosition;
+  championId: number;
+  champion: string;
+  items: string[];
+  damageToChampions: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  laneCs: number;
+  jungleCs: number;
+  cs: number;
+  isTrackedPlayer: boolean;
+}
 export interface SummonerMatch {
   id: string;
   createdAt: string;
@@ -31,6 +48,7 @@ export interface SummonerMatch {
   jungleCs: number;
   cs: number;
   result: 'WIN' | 'LOSE';
+  participants?: SummonerMatchParticipant[];
 }
 export interface RankedLpHistoryEntry {
   createdAt: string;

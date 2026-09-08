@@ -1,5 +1,5 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { parseRecentMatches, parseSummonerProfile } from './parser';
+import { parseGameDetailParticipants, parseRecentMatches, parseSummonerProfile } from './parser';
 import type { SummonerMatch, SummonerProfile } from '../league-data.types';
 import type { LeagueDataProvider } from '../league-data.provider';
 
@@ -62,6 +62,34 @@ export class OpggClient implements LeagueDataProvider {
       throw new Error('OP.GG did not return match history as text');
     }
     const recentMatches = parseRecentMatches(textBlock.text);
+    const matchesForRichDetails = [...recentMatches]
+      .filter((match) => match.gameType === 'SOLORANKED')
+      .sort(
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      )
+      .slice(0, 3);
+    for (const match of matchesForRichDetails) {
+      try {
+        const detailResult = await this.client.callTool({
+          name: 'lol_get_summoner_game_detail',
+          arguments: {
+            region,
+            lang: 'en_US',
+            game_id: match.id,
+            created_at: match.createdAt,
+          },
+        });
+        const detailTextBlock = detailResult.content.find((block) => block.type === 'text');
+        if (!detailTextBlock || detailTextBlock.type !== 'text') {
+          console.warn(`[OP.GG] Match ${match.id}: ` + 'game detail did not contain text');
+          continue;
+        }
+        match.participants = parseGameDetailParticipants(detailTextBlock.text, gameName, tagLine);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[OP.GG] Match ${match.id}: ` + `could not load rich details: ${message}`);
+      }
+    }
     console.log(`[OP.GG] ${gameName}#${tagLine}: ` + `${recentMatches.length} match(es) | `);
     for (const match of recentMatches) {
       const matchDate = new Date(match.createdAt);
