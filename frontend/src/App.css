@@ -242,17 +242,6 @@ h1 {
   color: #697086;
   font-size: 10px;
 }
-.podium-rank > strong {
-  display: block;
-  color: #b7bbc9;
-  font-size: 11px;
-}
-.podium-rank > span:not(.podium-rank-label) {
-  display: block;
-  margin-top: 2px;
-  color: #686f84;
-  font-size: 9px;
-}
 .podium-rank-label {
   display: block;
   margin-bottom: 3px;
@@ -1850,8 +1839,7 @@ a.social-link.twitch:hover {
   font-size: 9px;
   font-weight: 700;
 }
-.admin-event-rename input,
-.admin-new-event-controls input {
+.admin-event-rename input {
   width: 100%;
   height: 39px;
   padding: 0 11px;
@@ -1863,8 +1851,7 @@ a.social-link.twitch:hover {
   font: inherit;
   font-size: 11px;
 }
-.admin-event-rename input:focus,
-.admin-new-event-controls input:focus {
+.admin-event-rename input:focus {
   border-color: rgba(126, 135, 203, 0.4);
 }
 .admin-event-rename .admin-secondary-button {
@@ -1966,49 +1953,9 @@ a.social-link.twitch:hover {
   opacity: 0.45;
   cursor: default;
 }
-.admin-new-event {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-top: 20px;
-  padding: 18px;
-  border: 1px solid rgba(99, 217, 157, 0.08);
-  border-radius: 9px;
-  background: rgba(99, 217, 157, 0.018);
-}
-.admin-new-event-empty {
-  margin-top: 0;
-}
-.admin-new-event h3 {
-  margin: 4px 0;
-  color: #d7d9e2;
-  font-size: 13px;
-}
-.admin-new-event p {
-  margin: 0;
-  color: #555b70;
-  font-size: 9px;
-}
-.admin-new-event-controls {
-  display: flex;
-  gap: 8px;
-  width: min(430px, 100%);
-}
-.admin-new-event-controls .admin-primary-button {
-  width: auto;
-  white-space: nowrap;
-}
 @media (max-width: 900px) {
   .admin-event-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .admin-new-event {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .admin-new-event-controls {
-    width: 100%;
   }
 }
 @media (max-width: 600px) {
@@ -2021,9 +1968,6 @@ a.social-link.twitch:hover {
   }
   .admin-event-danger-zone {
     align-items: stretch;
-    flex-direction: column;
-  }
-  .admin-new-event-controls {
     flex-direction: column;
   }
 }
@@ -2393,10 +2337,6 @@ a.social-link.twitch:hover {
 .rank-emblem-podium {
   width: 32px;
   height: 32px;
-}
-.rank-current > div,
-.rank-start-content > div {
-  min-width: 0;
 }
 .live:not(.event-ended):not(.event-scheduled) .live-dot {
   animation: livePulse 2s ease-out infinite;
