@@ -102,6 +102,10 @@ interface PlayerVisualChange {
   lpChanged: boolean;
   newMatchIds: string[];
 }
+interface PlayerLayoutPosition {
+  left: number;
+  top: number;
+}
 interface PlayerRefreshedLiveUpdate {
   playerId: number;
   lastUpdated: string;
@@ -489,7 +493,7 @@ function LeaderboardPage() {
   const [now, setNow] = useState(0);
   const [buildInfo, setBuildInfo] = useState<HealthResponse['build']>();
   const previousPlayerDataRef = useRef<Map<number, LeaderboardPlayer>>(new Map());
-  const previousPositionsRef = useRef<Map<number, DOMRect>>(new Map());
+  const previousPositionsRef = useRef<Map<number, PlayerLayoutPosition>>(new Map());
   const pendingVisualChangesRef = useRef<Map<number, PlayerVisualChange>>(new Map());
   const pendingLayoutAnimationRef = useRef(false);
   const [matchHover, setMatchHover] = useState<MatchHoverState | null>(null);
@@ -759,7 +763,7 @@ function LeaderboardPage() {
     }
     pendingLayoutAnimationRef.current = false;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const currentPositions = new Map<number, DOMRect>();
+    const currentPositions = new Map<number, PlayerLayoutPosition>();
     const playerElements = document.querySelectorAll<HTMLElement>('.tracker [data-player-id]');
     for (const element of playerElements) {
       const playerId = Number(element.dataset.playerId);
@@ -767,11 +771,15 @@ function LeaderboardPage() {
         continue;
       }
       const currentRect = element.getBoundingClientRect();
-      const previousRect = previousPositionsRef.current.get(playerId);
-      currentPositions.set(playerId, currentRect);
-      if (!prefersReducedMotion && previousRect) {
-        const deltaX = previousRect.left - currentRect.left;
-        const deltaY = previousRect.top - currentRect.top;
+      const currentPosition: PlayerLayoutPosition = {
+        left: currentRect.left + window.scrollX,
+        top: currentRect.top + window.scrollY,
+      };
+      const previousPosition = previousPositionsRef.current.get(playerId);
+      currentPositions.set(playerId, currentPosition);
+      if (!prefersReducedMotion && previousPosition) {
+        const deltaX = previousPosition.left - currentPosition.left;
+        const deltaY = previousPosition.top - currentPosition.top;
         const moved = Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1;
         if (moved) {
           element.animate(
