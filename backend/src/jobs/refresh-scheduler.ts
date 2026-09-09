@@ -1,11 +1,13 @@
 import { getPlayers } from '../db/players';
 import { getActiveEvent } from '../db/events';
 import { refreshPlayer } from '../services/player-refresh.service';
+import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { getOperationState } from '../runtime/operation-state';
 import { enqueueRefresh } from '../runtime/refresh-queue';
 
 const TARGET_REFRESH_MS = 10_000;
 const MIN_REFRESH_SPACING_MS = 5_000;
+const PLAYER_REFRESH_CONCURRENCY = 2;
 let playerCursor = 0;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let currentRefreshSpacingMs = TARGET_REFRESH_MS;
@@ -55,9 +57,19 @@ async function schedulerTick(): Promise<void> {
     if (playerCursor >= players.length) {
       playerCursor = 0;
     }
-    const player = players[playerCursor];
-    playerCursor = (playerCursor + 1) % players.length;
-    await enqueueRefresh(() => refreshPlayer(player));
+    const batchEnd = Math.min(playerCursor + PLAYER_REFRESH_CONCURRENCY, players.length);
+    const playersToRefresh = players.slice(playerCursor, batchEnd);
+    playerCursor = batchEnd >= players.length ? 0 : batchEnd;
+    await enqueueRefresh(async () => {
+      await Promise.all(
+        playersToRefresh.map((player) =>
+          refreshPlayer(player, {
+            updateLeaderboard: false,
+          }),
+        ),
+      );
+      await loadLeaderboardFromDatabase();
+    });
   } catch (error) {
     console.error('[SCHEDULER] Refresh failed:', error);
   } finally {

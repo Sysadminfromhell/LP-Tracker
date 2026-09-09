@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getPlayers: vi.fn(),
   getActiveEvent: vi.fn(),
   refreshPlayer: vi.fn(),
+  loadLeaderboardFromDatabase: vi.fn(),
   getOperationState: vi.fn(),
   enqueueRefresh: vi.fn(),
 }));
@@ -17,6 +18,9 @@ vi.mock('../src/db/events', () => ({
 }));
 vi.mock('../src/services/player-refresh.service', () => ({
   refreshPlayer: mocks.refreshPlayer,
+}));
+vi.mock('../src/services/leaderboard.service', () => ({
+  loadLeaderboardFromDatabase: mocks.loadLeaderboardFromDatabase,
 }));
 vi.mock('../src/runtime/operation-state', () => ({
   getOperationState: mocks.getOperationState,
@@ -44,6 +48,20 @@ const secondPlayer: Player = {
   gameName: 'HealthyPlayer',
 };
 
+function deferred(): {
+  promise: Promise<void>;
+  resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return {
+    promise,
+    resolve,
+  };
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
@@ -51,6 +69,7 @@ beforeEach(() => {
     lifecycleInProgress: false,
   });
   mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
+  mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
   mocks.getActiveEvent.mockResolvedValue({
     id: 1,
     name: 'Test Event',
@@ -70,17 +89,32 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('refresh scheduler reliability', () => {
-  it('continues with the next player after a refresh failure', async () => {
-    mocks.refreshPlayer
-      .mockRejectedValueOnce(new Error('Provider exploded'))
-      .mockResolvedValueOnce(true);
+  it('refreshes two players in one scheduler batch', async () => {
+    mocks.refreshPlayer.mockResolvedValue(true);
     startRefreshScheduler();
     await vi.advanceTimersByTimeAsync(0);
-    expect(mocks.refreshPlayer).toHaveBeenNthCalledWith(1, firstPlayer);
     expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
-    expect(console.error).toHaveBeenCalledWith('[SCHEDULER] Refresh failed:', expect.any(Error));
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(mocks.refreshPlayer).toHaveBeenNthCalledWith(2, secondPlayer);
-    expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(2);
+    expect(mocks.refreshPlayer).toHaveBeenCalledTimes(2);
+    expect(mocks.refreshPlayer).toHaveBeenCalledWith(firstPlayer, {
+      updateLeaderboard: false,
+    });
+    expect(mocks.refreshPlayer).toHaveBeenCalledWith(secondPlayer, {
+      updateLeaderboard: false,
+    });
+    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+  });
+  it('starts both player refreshes before either one completes', async () => {
+    const refreshGate = deferred();
+    mocks.refreshPlayer.mockImplementation(async () => {
+      await refreshGate.promise;
+      return true;
+    });
+    startRefreshScheduler();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.refreshPlayer).toHaveBeenCalledTimes(2);
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    refreshGate.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
   });
 });

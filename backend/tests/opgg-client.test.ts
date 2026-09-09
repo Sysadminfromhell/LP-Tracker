@@ -19,6 +19,20 @@ vi.mock('@modelcontextprotocol/client', () => ({
 
 import { OpggClient } from '../src/providers/opgg/client';
 
+function deferred(): {
+  promise: Promise<void>;
+  resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return {
+    promise,
+    resolve,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mcp.connect.mockResolvedValue(undefined);
@@ -181,6 +195,7 @@ describe('OpggClient', () => {
       createMatchHistory('match-3', '2026-09-03T18:00:00.000Z'),
       createMatchHistory('match-4', '2026-09-04T18:00:00.000Z'),
     ].join('\n');
+    const detailGate = deferred();
     mcp.callTool.mockImplementation(
       async (request: { name: string; arguments?: Record<string, unknown> }) => {
         if (request.name === 'lol_list_summoner_matches') {
@@ -196,6 +211,10 @@ describe('OpggClient', () => {
         if (request.name === 'lol_get_summoner_game_detail') {
           const gameId = String(request.arguments?.game_id);
           const createdAt = String(request.arguments?.created_at);
+          await detailGate.promise;
+          if (gameId === 'match-3') {
+            throw new Error('simulated detail failure');
+          }
           return {
             content: [
               {
@@ -209,23 +228,47 @@ describe('OpggClient', () => {
       },
     );
     const client = new OpggClient();
-    const matches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 20);
+    const matchesPromise = client.getRecentMatches('FourK', 'EUW', 'EUW', 20);
+    await vi.waitFor(() => {
+      const detailCalls = mcp.callTool.mock.calls.filter(
+        ([request]) => request.name === 'lol_get_summoner_game_detail',
+      );
+      expect(detailCalls).toHaveLength(3);
+    });
     const detailCalls = mcp.callTool.mock.calls.filter(
       ([request]) => request.name === 'lol_get_summoner_game_detail',
     );
-    expect(detailCalls).toHaveLength(3);
     expect(detailCalls.map(([request]) => request.arguments.game_id)).toEqual([
       'match-4',
       'match-3',
       'match-2',
     ]);
+    detailGate.resolve();
+    const matches = await matchesPromise;
     expect(matches.find((match) => match.id === 'match-4')?.participants?.[0]).toMatchObject({
       side: 'ALLY',
       champion: 'Aatrox',
       position: 'TOP',
       isTrackedPlayer: true,
     });
+    expect(matches.find((match) => match.id === 'match-3')?.participants).toBeUndefined();
+    expect(matches.find((match) => match.id === 'match-2')?.participants?.[0]).toMatchObject({
+      side: 'ALLY',
+      champion: 'Aatrox',
+      position: 'TOP',
+      isTrackedPlayer: true,
+    });
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Match match-3'));
     expect(matches.find((match) => match.id === 'match-1')?.participants).toBeUndefined();
+    mcp.callTool.mockClear();
+    const cachedMatches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 20);
+    const cachedDetailCalls = mcp.callTool.mock.calls.filter(
+      ([request]) => request.name === 'lol_get_summoner_game_detail',
+    );
+    expect(cachedDetailCalls).toHaveLength(1);
+    expect(cachedDetailCalls[0]?.[0].arguments.game_id).toBe('match-3');
+    expect(cachedMatches.find((match) => match.id === 'match-4')?.participants).toBeDefined();
+    expect(cachedMatches.find((match) => match.id === 'match-2')?.participants).toBeDefined();
   });
   it('rejects MCP responses without text content', async () => {
     mcp.callTool.mockResolvedValue({
