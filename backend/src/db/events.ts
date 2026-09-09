@@ -55,16 +55,13 @@ export interface EventMatchCursor {
 }
 export interface DbEventMatchStats {
   games: number;
+  wins: number;
+  losses: number;
   kills: number;
   deaths: number;
   assists: number;
   longestWinStreak: number;
 }
-/*
- * ------------------------------------------------------------
- * DB rows
- * ------------------------------------------------------------
- */
 interface EventRow {
   id: string;
   name: string;
@@ -116,16 +113,13 @@ interface EventMatchRow {
 }
 interface EventMatchStatsRow {
   games: string;
+  wins: string;
+  losses: string;
   kills: string;
   deaths: string;
   assists: string;
   longest_win_streak: string;
 }
-/*
- * ------------------------------------------------------------
- * Mappers
- * ------------------------------------------------------------
- */
 function mapEvent(row: EventRow): DbEvent {
   return {
     id: Number(row.id),
@@ -353,11 +347,6 @@ export async function createEventParticipant(
   );
   return mapParticipant(result.rows[0]);
 }
-/*
- * ------------------------------------------------------------
- * Event Matches
- * ------------------------------------------------------------
- */
 export async function getLatestEventMatchCursor(
   eventParticipantId: number,
 ): Promise<EventMatchCursor | null> {
@@ -370,7 +359,9 @@ export async function getLatestEventMatchCursor(
         provider_match_id,
         game_created_at
       FROM event_matches
-      WHERE event_participant_id = $1
+      WHERE
+        event_participant_id = $1
+        AND lp_delta_status IN ('resolved', 'unknown')
       ORDER BY
         game_created_at DESC,
         id DESC
@@ -431,15 +422,17 @@ export async function getEventMatchStats(eventParticipantId: number): Promise<Db
         FROM event_matches
         WHERE event_participant_id = $1
       ),
-      totals AS (
-        SELECT
-          COUNT(*) AS games,
-          COALESCE(SUM(kills), 0) AS kills,
-          COALESCE(SUM(deaths), 0) AS deaths,
-          COALESCE(SUM(assists), 0) AS assists
-        FROM participant_matches
-      ),
-      streak_groups AS (
+        totals AS (
+          SELECT
+            COUNT(*) AS games,
+            COUNT(*) FILTER (WHERE result = 'WIN') AS wins,
+            COUNT(*) FILTER (WHERE result = 'LOSE') AS losses,
+            COALESCE(SUM(kills), 0) AS kills,
+            COALESCE(SUM(deaths), 0) AS deaths,
+            COALESCE(SUM(assists), 0) AS assists
+          FROM participant_matches
+        ),
+        streak_groups AS (
         SELECT
           result,
           SUM(
@@ -464,6 +457,8 @@ export async function getEventMatchStats(eventParticipantId: number): Promise<Db
       SELECT
         totals.games,
         totals.kills,
+        totals.wins,
+        totals.losses,
         totals.deaths,
         totals.assists,
         COALESCE(
@@ -480,6 +475,8 @@ export async function getEventMatchStats(eventParticipantId: number): Promise<Db
   const row = result.rows[0];
   return {
     games: Number(row.games),
+    wins: Number(row.wins),
+    losses: Number(row.losses),
     kills: Number(row.kills),
     deaths: Number(row.deaths),
     assists: Number(row.assists),

@@ -27,7 +27,10 @@ describe('event database queries', () => {
     });
     const result = await getLatestEventMatchCursor(42);
     expect(mocks.query).toHaveBeenCalledTimes(1);
-    expect(mocks.query).toHaveBeenCalledWith(expect.stringContaining('FROM event_matches'), [42]);
+    expect(mocks.query).toHaveBeenCalledWith(
+      expect.stringContaining("lp_delta_status IN ('resolved', 'unknown')"),
+      [42],
+    );
     expect(result).toEqual({
       providerMatchId: 'EUW1_123456789',
       gameCreatedAt: '2026-09-08T18:30:00.000Z',
