@@ -216,6 +216,43 @@ describe('event refresh', () => {
     );
     expect(result.newMatches).toBe(1);
   });
+  it('stores discovered matches without resolving LP during an incomplete sync', async () => {
+    mocks.insertRowCounts = [1];
+    mocks.pendingRows = [
+      {
+        id: '501',
+        provider_match_id: 'match-1',
+        game_created_at: new Date('2026-09-02T18:00:00.000Z'),
+      },
+    ];
+    const result = await updateEventAfterPlayerRefresh(
+      EVENT_PARTICIPANT_ID,
+      EVENT_START,
+      EVENT_END,
+      [createMatch()],
+      1524,
+      [],
+      {
+        resolveLpDeltas: false,
+        advanceSyncAnchor: false,
+      },
+    );
+    expect(result).toEqual({
+      newMatches: 1,
+      resolvedMatches: 0,
+      unknownMatches: 0,
+    });
+    const lpUpdateCalls = mocks.query.mock.calls.filter(
+      ([sql]) =>
+        String(sql).includes('UPDATE event_matches') ||
+        String(sql).includes('UPDATE event_participants'),
+    );
+    expect(lpUpdateCalls).toHaveLength(0);
+    const anchorUpdateCalls = mocks.query.mock.calls.filter(([sql]) =>
+      String(sql).includes('is_sync_anchor'),
+    );
+    expect(anchorUpdateCalls).toHaveLength(0);
+  });
   it('stores rich details and prunes details outside the newest three matches', async () => {
     mocks.insertRowCounts = [1];
     mocks.eventMatchIds = {

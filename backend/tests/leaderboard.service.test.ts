@@ -102,6 +102,8 @@ function createMatch(overrides: Partial<DbEventMatch> = {}): DbEventMatch {
 function createStats(overrides: Partial<DbEventMatchStats> = {}): DbEventMatchStats {
   return {
     games: 1,
+    wins: 1,
+    losses: 0,
     kills: 8,
     deaths: 3,
     assists: 6,
@@ -168,6 +170,8 @@ describe('leaderboard service', () => {
     mocks.getEventMatchStats.mockResolvedValue(
       createStats({
         games: 3,
+        wins: 2,
+        losses: 1,
         kills: 20,
         deaths: 5,
         assists: 10,
@@ -268,6 +272,8 @@ describe('leaderboard service', () => {
         if (eventParticipantId === 101) {
           return createStats({
             games: 3,
+            wins: 3,
+            losses: 0,
             kills: 20,
             deaths: 4,
             assists: 12,
@@ -276,6 +282,8 @@ describe('leaderboard service', () => {
         }
         return createStats({
           games: 5,
+          wins: 5,
+          losses: 0,
           kills: 15,
           deaths: 10,
           assists: 10,

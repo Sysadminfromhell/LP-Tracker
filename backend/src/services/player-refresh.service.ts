@@ -112,30 +112,33 @@ export async function refreshPlayer(
           }
           console.warn(
             `[MATCH SYNC] ${player.gameName}#${player.tagLine}: ` +
-              `${message}; keeping previously synced event matches`,
+              `${message}; storing discovered matches as pending`,
           );
-        } else {
-          const matchResult = await updateEventAfterPlayerRefresh(
-            participant.id,
-            participant.snapshotCapturedAt,
-            event.endsAt,
-            matchSync.matches,
-            rankScore,
-            profile.lpHistory,
+        }
+        const matchResult = await updateEventAfterPlayerRefresh(
+          participant.id,
+          participant.snapshotCapturedAt,
+          event.endsAt,
+          matchSync.matches,
+          rankScore,
+          profile.lpHistory,
+          {
+            resolveLpDeltas: matchSync.anchorReached,
+            advanceSyncAnchor: matchSync.anchorReached,
+          },
+        );
+        refreshedEventId = event.id;
+        if (
+          matchResult.newMatches > 0 ||
+          matchResult.resolvedMatches > 0 ||
+          matchResult.unknownMatches > 0
+        ) {
+          console.log(
+            `[EVENT] ${player.gameName}#${player.tagLine}: ` +
+              `${matchResult.newMatches} new | ` +
+              `${matchResult.resolvedMatches} resolved | ` +
+              `${matchResult.unknownMatches} unknown`,
           );
-          refreshedEventId = event.id;
-          if (
-            matchResult.newMatches > 0 ||
-            matchResult.resolvedMatches > 0 ||
-            matchResult.unknownMatches > 0
-          ) {
-            console.log(
-              `[EVENT] ${player.gameName}#${player.tagLine}: ` +
-                `${matchResult.newMatches} new | ` +
-                `${matchResult.resolvedMatches} resolved | ` +
-                `${matchResult.unknownMatches} unknown`,
-            );
-          }
         }
       }
     }

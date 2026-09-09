@@ -194,6 +194,10 @@ describe('refreshPlayer provider reliability', () => {
       recentMatches,
       1450,
       profile.lpHistory,
+      {
+        resolveLpDeltas: true,
+        advanceSyncAnchor: true,
+      },
     );
   });
   it('fails cleanly when the profile request times out', async () => {
@@ -352,6 +356,10 @@ describe('refreshPlayer provider reliability', () => {
       secondBatch,
       1450,
       profile.lpHistory,
+      {
+        resolveLpDeltas: true,
+        advanceSyncAnchor: true,
+      },
     );
   });
   it('keeps the player refresh successful when the backfill anchor cannot be reached', async () => {
@@ -388,10 +396,17 @@ describe('refreshPlayer provider reliability', () => {
       [player.gameName, player.tagLine, player.region, 5],
       [player.gameName, player.tagLine, player.region, 20],
     ]);
-    expect(mocks.updateEventAfterPlayerRefresh).not.toHaveBeenCalled();
+    expect(mocks.updateEventAfterPlayerRefresh).toHaveBeenCalledTimes(1);
+    const eventRefreshCall = mocks.updateEventAfterPlayerRefresh.mock.calls[0];
+    expect(eventRefreshCall?.[3]).toHaveLength(20);
+    expect(eventRefreshCall?.[6]).toEqual({
+      resolveLpDeltas: false,
+      advanceSyncAnchor: false,
+    });
     expect(mocks.savePlayerCacheError).not.toHaveBeenCalled();
     expect(mocks.setLeaderboardPlayerError).not.toHaveBeenCalled();
-    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+    expect(mocks.refreshLeaderboardPlayer).toHaveBeenCalledWith(10, player.id);
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
   });
   it('fails a snapshot refresh when the backfill anchor cannot be reached', async () => {
     const getRecentMatches = vi.fn(

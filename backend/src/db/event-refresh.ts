@@ -17,6 +17,10 @@ export interface EventRefreshResult {
   resolvedMatches: number;
   unknownMatches: number;
 }
+export interface EventRefreshOptions {
+  resolveLpDeltas?: boolean;
+  advanceSyncAnchor?: boolean;
+}
 export async function updateEventAfterPlayerRefresh(
   eventParticipantId: number,
   eventStartsAt: string,
@@ -24,8 +28,11 @@ export async function updateEventAfterPlayerRefresh(
   recentMatches: SummonerMatch[],
   currentRankScore: number,
   lpHistory: RankedLpHistoryEntry[] = [],
+  options: EventRefreshOptions = {},
 ): Promise<EventRefreshResult> {
   const client = await db.connect();
+  const resolveLpDeltas = options.resolveLpDeltas ?? true;
+  const advanceSyncAnchor = options.advanceSyncAnchor ?? true;
   try {
     await client.query('BEGIN');
     const participantResult = await client.query<ParticipantState>(
@@ -143,7 +150,7 @@ export async function updateEventAfterPlayerRefresh(
     let unknownMatches = 0;
     let resolvedFromHistory = false;
 
-    if (pending.length > 1 && lpHistory.length > 0) {
+    if (resolveLpDeltas && pending.length > 1 && lpHistory.length > 0) {
       const historyResolutions = resolveLpHistoryDeltas(
         previousRankScore,
         pending.map((match) => ({
@@ -193,7 +200,7 @@ export async function updateEventAfterPlayerRefresh(
         resolvedFromHistory = true;
       }
     }
-    if (!resolvedFromHistory) {
+    if (resolveLpDeltas && !resolvedFromHistory) {
       if (pending.length === 1 && scoreChanged) {
         const lpDelta = currentRankScore - previousRankScore;
         await client.query(
@@ -255,6 +262,33 @@ export async function updateEventAfterPlayerRefresh(
           [eventParticipantId, currentRankScore],
         );
       }
+    }
+    const newestRankedMatch = rankedMatches.at(-1);
+    if (advanceSyncAnchor && newestRankedMatch) {
+      await client.query(
+        `
+      UPDATE event_matches
+      SET
+        is_sync_anchor = FALSE,
+        updated_at = NOW()
+      WHERE
+        event_participant_id = $1
+        AND is_sync_anchor = TRUE
+    `,
+        [eventParticipantId],
+      );
+      await client.query(
+        `
+      UPDATE event_matches
+      SET
+        is_sync_anchor = TRUE,
+        updated_at = NOW()
+      WHERE
+        event_participant_id = $1
+        AND provider_match_id = $2
+    `,
+        [eventParticipantId, newestRankedMatch.id],
+      );
     }
     await client.query('COMMIT');
     const refreshResult = {

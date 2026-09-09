@@ -120,8 +120,8 @@ async function buildLeaderboardPlayer(
     delta: 0,
     changedAt: null,
   };
-  const eventWins = Math.max(0, row.currentWins - row.startWins);
-  const eventLosses = Math.max(0, row.currentLosses - row.startLosses);
+  const eventWins = matchStats.wins;
+  const eventLosses = matchStats.losses;
   const recentMatches: ApiEventMatch[] = recentMatchesSource.map((match) => ({
     id: match.providerMatchId,
     createdAt: match.gameCreatedAt,
