@@ -62,18 +62,6 @@ h1 {
 .event-ended .live-dot {
   box-shadow: none;
 }
-.updated {
-  color: #62687d;
-  font-size: 11px;
-}
-.summary {
-  margin-bottom: 22px;
-  color: #555b70;
-  font-size: 11px;
-}
-/*
- * Event summary
- */
 .event-summary-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -415,21 +403,6 @@ h1 {
   object-fit: cover;
   border-radius: 9px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.player-name {
-  min-width: 0;
-}
-.player-name strong {
-  display: inline;
-  font-size: 14px;
-  font-weight: 750;
-  white-space: nowrap;
-}
-.player-name span {
-  margin-left: 4px;
-  color: #62687e;
-  font-size: 11px;
-  white-space: nowrap;
 }
 .rank-cell {
   min-width: 0;
@@ -1479,8 +1452,6 @@ a.social-link.twitch:hover {
 }
 .admin-player-controls select {
   color-scheme: dark;
-  background-color: #1b1d27;
-  color: #d8dae3;
 }
 .admin-player-controls select option {
   background-color: #1b1d27;
@@ -1619,9 +1590,6 @@ a.social-link.twitch:hover {
 }
 .admin-current-event-heading {
   margin-top: 18px;
-  margin-bottom: 14px;
-}
-.admin-event-overview {
   margin-bottom: 14px;
 }
 .admin-player-edit-form {
@@ -1794,6 +1762,7 @@ a.social-link.twitch:hover {
     minmax(155px, 1fr)
     110px;
   gap: 10px;
+  margin-bottom: 14px;
 }
 .admin-event-name-block,
 .admin-event-stat {
@@ -1970,32 +1939,6 @@ a.social-link.twitch:hover {
     align-items: stretch;
     flex-direction: column;
   }
-}
-.admin-event-status-draft {
-  border: 1px solid rgba(111, 151, 255, 0.16);
-  background: rgba(111, 151, 255, 0.055);
-  color: #7ea1ff;
-}
-.admin-event-scheduled-info {
-  display: flex;
-  align-items: center;
-  margin-top: 18px;
-  padding: 14px 16px;
-  border: 1px solid rgba(111, 151, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(111, 151, 255, 0.025);
-}
-.admin-event-scheduled-info > div {
-  display: grid;
-  gap: 4px;
-}
-.admin-event-scheduled-info strong {
-  color: #9db7ff;
-  font-size: 10px;
-}
-.admin-event-scheduled-info span {
-  color: #5f6880;
-  font-size: 9px;
 }
 .admin-schedule-event {
   margin-top: 20px;
