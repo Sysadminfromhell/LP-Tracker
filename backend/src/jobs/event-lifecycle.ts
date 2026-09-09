@@ -9,8 +9,7 @@ import {
 } from '../db/admin-events';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
-import { getOperationState, setLifecycleInProgress } from '../runtime/operation-state';
-import { enqueueRefresh } from '../runtime/refresh-queue';
+import { jobCoordinator } from '../runtime/job-coordinator';
 
 const EVENT_LIFECYCLE_INTERVAL_MS = 5_000;
 let lifecycleTimer: NodeJS.Timeout | null = null;
@@ -24,12 +23,11 @@ function scheduleNextLifecycleCheck(): void {
   }, EVENT_LIFECYCLE_INTERVAL_MS);
 }
 async function eventLifecycleTick(): Promise<void> {
-  const operationState = getOperationState();
-  if (operationState.lifecycleInProgress) {
+  const releaseTransitionLock = jobCoordinator.tryAcquireLock('event-transition');
+  if (!releaseTransitionLock) {
     scheduleNextLifecycleCheck();
     return;
   }
-  setLifecycleInProgress(true);
   try {
     const activeEvent = await getActiveEvent();
     if (activeEvent && activeEvent.endsAt && new Date(activeEvent.endsAt).getTime() <= Date.now()) {
@@ -44,22 +42,28 @@ async function eventLifecycleTick(): Promise<void> {
         );
         return;
       }
-      await enqueueRefresh(async () => {
-        const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
-        if (failedPlayers.length > 0) {
-          console.warn(
-            `[EVENT] Final refresh for "${activeEvent.name}" failed for ` +
-              `${failedPlayers.length} player(s). ` +
-              `Using their last successful cached state for the final snapshot.`,
+      await jobCoordinator.enqueue(
+        {
+          type: 'event-end',
+          key: `event:${activeEvent.id}`,
+        },
+        async () => {
+          const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
+          if (failedPlayers.length > 0) {
+            console.warn(
+              `[EVENT] Final refresh for "${activeEvent.name}" failed for ` +
+                `${failedPlayers.length} player(s). ` +
+                `Using their last successful cached state for the final snapshot.`,
+            );
+          }
+          const endedEvent = await endAdminEvent(activeEvent.id, activeEvent.endsAt);
+          await loadLeaderboardFromDatabase();
+          console.log(
+            `[EVENT] "${endedEvent.name}" is now ENDED with ` +
+              `${endedEvent.participantCount} participant(s)`,
           );
-        }
-        const endedEvent = await endAdminEvent(activeEvent.id, activeEvent.endsAt);
-        await loadLeaderboardFromDatabase();
-        console.log(
-          `[EVENT] "${endedEvent.name}" is now ENDED with ` +
-            `${endedEvent.participantCount} participant(s)`,
-        );
-      });
+        },
+      );
     }
     const scheduledEvent = await getDueScheduledEvent();
     if (scheduledEvent) {
@@ -80,27 +84,33 @@ async function eventLifecycleTick(): Promise<void> {
         );
         return;
       }
-      await enqueueRefresh(async () => {
-        const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
-        if (failedPlayers.length > 0) {
-          console.error(
-            `[EVENT] Cannot start "${scheduledEvent.name}": ` +
-              `${failedPlayers.length} player refresh(es) failed`,
+      await jobCoordinator.enqueue(
+        {
+          type: 'event-start',
+          key: `event:${scheduledEvent.id}`,
+        },
+        async () => {
+          const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
+          if (failedPlayers.length > 0) {
+            console.error(
+              `[EVENT] Cannot start "${scheduledEvent.name}": ` +
+                `${failedPlayers.length} player refresh(es) failed`,
+            );
+            return;
+          }
+          const activatedEvent = await activateScheduledEvent(scheduledEvent.id);
+          await loadLeaderboardFromDatabase();
+          console.log(
+            `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
+              `${activatedEvent.participantCount} participant(s)`,
           );
-          return;
-        }
-        const activatedEvent = await activateScheduledEvent(scheduledEvent.id);
-        await loadLeaderboardFromDatabase();
-        console.log(
-          `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
-            `${activatedEvent.participantCount} participant(s)`,
-        );
-      });
+        },
+      );
     }
   } catch (error) {
     console.error('[EVENT] Lifecycle check failed:', error);
   } finally {
-    setLifecycleInProgress(false);
+    releaseTransitionLock();
     scheduleNextLifecycleCheck();
   }
 }

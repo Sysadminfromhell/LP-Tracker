@@ -13,9 +13,9 @@ const mocks = vi.hoisted(() => ({
   getEventSelectedPlayerIds: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   refreshPlayersForSnapshot: vi.fn(),
-  getOperationState: vi.fn(),
-  setLifecycleInProgress: vi.fn(),
-  enqueueRefresh: vi.fn(),
+  tryAcquireLock: vi.fn(),
+  releaseTransitionLock: vi.fn(),
+  enqueueJob: vi.fn(),
 }));
 
 vi.mock('../src/db/players', () => ({
@@ -37,12 +37,11 @@ vi.mock('../src/services/leaderboard.service', () => ({
 vi.mock('../src/services/player-refresh.service', () => ({
   refreshPlayersForSnapshot: mocks.refreshPlayersForSnapshot,
 }));
-vi.mock('../src/runtime/operation-state', () => ({
-  getOperationState: mocks.getOperationState,
-  setLifecycleInProgress: mocks.setLifecycleInProgress,
-}));
-vi.mock('../src/runtime/refresh-queue', () => ({
-  enqueueRefresh: mocks.enqueueRefresh,
+vi.mock('../src/runtime/job-coordinator', () => ({
+  jobCoordinator: {
+    enqueue: mocks.enqueueJob,
+    tryAcquireLock: mocks.tryAcquireLock,
+  },
 }));
 
 import { startEventLifecycle, stopEventLifecycle } from '../src/jobs/event-lifecycle';
@@ -110,10 +109,11 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-09-02T20:00:00.000Z'));
   vi.clearAllMocks();
-  mocks.getOperationState.mockReturnValue({
-    lifecycleInProgress: false,
-  });
-  mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
+  mocks.releaseTransitionLock.mockReset();
+  mocks.tryAcquireLock.mockReturnValue(mocks.releaseTransitionLock);
+  mocks.enqueueJob.mockImplementation(async (_request: unknown, task: () => Promise<unknown>) =>
+    task(),
+  );
   mocks.getActiveEvent.mockResolvedValue(expiredActiveEvent);
   mocks.getEventParticipantPlayerIds.mockResolvedValue([1, 2]);
   mocks.getEventSelectedPlayerIds.mockResolvedValue([1, 2]);
@@ -133,6 +133,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('event lifecycle reliability', () => {
+  it('skips a lifecycle tick when another event transition owns the lock', async () => {
+    mocks.tryAcquireLock.mockReturnValue(null);
+    startEventLifecycle();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.tryAcquireLock).toHaveBeenCalledWith('event-transition');
+    expect(mocks.getActiveEvent).not.toHaveBeenCalled();
+    expect(mocks.getDueScheduledEvent).not.toHaveBeenCalled();
+    expect(mocks.enqueueJob).not.toHaveBeenCalled();
+  });
   it('ends an expired event before starting a due back-to-back event', async () => {
     startEventLifecycle();
     await vi.advanceTimersByTimeAsync(0);
@@ -148,6 +157,24 @@ describe('event lifecycle reliability', () => {
     expect(mocks.refreshPlayersForSnapshot).toHaveBeenNthCalledWith(1, players);
     expect(mocks.refreshPlayersForSnapshot).toHaveBeenNthCalledWith(2, players);
     expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(2);
+    expect(mocks.tryAcquireLock).toHaveBeenCalledWith('event-transition');
+    expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueJob).toHaveBeenNthCalledWith(
+      1,
+      {
+        type: 'event-end',
+        key: `event:${expiredActiveEvent.id}`,
+      },
+      expect.any(Function),
+    );
+    expect(mocks.enqueueJob).toHaveBeenNthCalledWith(
+      2,
+      {
+        type: 'event-start',
+        key: `event:${dueScheduledEvent.id}`,
+      },
+      expect.any(Function),
+    );
   });
   it('ends an expired event even when the final refresh fails for a player', async () => {
     mocks.getDueScheduledEvent.mockResolvedValue(null);

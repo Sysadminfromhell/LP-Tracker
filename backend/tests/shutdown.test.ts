@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   stopEventLifecycle: vi.fn(),
   disconnectLeagueDataProvider: vi.fn(),
   closeLiveUpdateClients: vi.fn(),
+  stopAcceptingJobs: vi.fn(),
+  waitForIdle: vi.fn(),
 }));
 
 vi.mock('../src/db/client', () => ({
@@ -24,6 +26,12 @@ vi.mock('../src/services/league-data.service', () => ({
 vi.mock('../src/services/live-update.service', () => ({
   closeLiveUpdateClients: mocks.closeLiveUpdateClients,
 }));
+vi.mock('../src/runtime/job-coordinator', () => ({
+  jobCoordinator: {
+    stopAcceptingJobs: mocks.stopAcceptingJobs,
+    waitForIdle: mocks.waitForIdle,
+  },
+}));
 
 import { createShutdownHandler } from '../src/runtime/shutdown';
 
@@ -39,6 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.closeDatabase.mockResolvedValue(undefined);
   mocks.disconnectLeagueDataProvider.mockResolvedValue(undefined);
+  mocks.waitForIdle.mockResolvedValue(undefined);
 });
 
 describe('application shutdown', () => {
@@ -48,6 +57,8 @@ describe('application shutdown', () => {
     await shutdown();
     expect(mocks.stopRefreshScheduler).toHaveBeenCalledTimes(1);
     expect(mocks.stopEventLifecycle).toHaveBeenCalledTimes(1);
+    expect(mocks.stopAcceptingJobs).toHaveBeenCalledTimes(1);
+    expect(mocks.waitForIdle).toHaveBeenCalledTimes(1);
     expect(mocks.closeLiveUpdateClients).toHaveBeenCalledTimes(1);
     expect(mocks.disconnectLeagueDataProvider).toHaveBeenCalledTimes(1);
     expect(app.close).toHaveBeenCalledTimes(1);
@@ -60,6 +71,8 @@ describe('application shutdown', () => {
     await shutdown();
     expect(mocks.stopRefreshScheduler).toHaveBeenCalledTimes(1);
     expect(mocks.stopEventLifecycle).toHaveBeenCalledTimes(1);
+    expect(mocks.stopAcceptingJobs).toHaveBeenCalledTimes(1);
+    expect(mocks.waitForIdle).toHaveBeenCalledTimes(1);
     expect(mocks.closeLiveUpdateClients).toHaveBeenCalledTimes(1);
     expect(mocks.disconnectLeagueDataProvider).toHaveBeenCalledTimes(1);
     expect(app.close).toHaveBeenCalledTimes(1);
@@ -80,11 +93,45 @@ describe('application shutdown', () => {
     await expect(shutdown()).resolves.toBeUndefined();
     expect(mocks.closeDatabase).toHaveBeenCalledTimes(1);
   });
+  it('waits for coordinator work before closing dependent resources', async () => {
+    let resolveIdle!: () => void;
+    const idlePromise = new Promise<void>((resolve) => {
+      resolveIdle = resolve;
+    });
+    mocks.waitForIdle.mockReturnValue(idlePromise);
+    const app = createTestApp();
+    const shutdown = createShutdownHandler(app);
+    const shutdownPromise = shutdown();
+    await vi.waitFor(() => {
+      expect(mocks.waitForIdle).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.stopAcceptingJobs).toHaveBeenCalledTimes(1);
+    expect(mocks.disconnectLeagueDataProvider).not.toHaveBeenCalled();
+    expect(app.close).not.toHaveBeenCalled();
+    expect(mocks.closeDatabase).not.toHaveBeenCalled();
+    resolveIdle();
+    await shutdownPromise;
+    expect(mocks.disconnectLeagueDataProvider).toHaveBeenCalledTimes(1);
+    expect(app.close).toHaveBeenCalledTimes(1);
+    expect(mocks.closeDatabase).toHaveBeenCalledTimes(1);
+  });
   it('shuts down resources in the expected order', async () => {
     const app = createTestApp();
     const shutdown = createShutdownHandler(app);
     await shutdown();
     expect(mocks.stopRefreshScheduler.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.stopEventLifecycle.mock.invocationCallOrder[0],
+    );
+    expect(mocks.stopEventLifecycle.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.stopAcceptingJobs.mock.invocationCallOrder[0],
+    );
+    expect(mocks.stopAcceptingJobs.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.waitForIdle.mock.invocationCallOrder[0],
+    );
+    expect(mocks.waitForIdle.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.closeLiveUpdateClients.mock.invocationCallOrder[0],
+    );
+    expect(mocks.closeLiveUpdateClients.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.disconnectLeagueDataProvider.mock.invocationCallOrder[0],
     );
     expect(mocks.disconnectLeagueDataProvider.mock.invocationCallOrder[0]).toBeLessThan(

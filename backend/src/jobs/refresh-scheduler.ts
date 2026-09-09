@@ -1,9 +1,9 @@
 import { getPlayers } from '../db/players';
 import { getActiveEvent } from '../db/events';
+import { getEventParticipantPlayerIds } from '../db/admin-events';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
-import { getOperationState } from '../runtime/operation-state';
-import { enqueueRefresh } from '../runtime/refresh-queue';
+import { jobCoordinator } from '../runtime/job-coordinator';
 
 const TARGET_REFRESH_MS = 10_000;
 const MIN_REFRESH_SPACING_MS = 5_000;
@@ -28,8 +28,7 @@ function scheduleNextRefresh(delay: number = currentRefreshSpacingMs): void {
   }, delay);
 }
 async function schedulerTick(): Promise<void> {
-  const operationState = getOperationState();
-  if (operationState.lifecycleInProgress) {
+  if (jobCoordinator.isLockHeld('event-transition')) {
     scheduleNextRefresh(MIN_REFRESH_SPACING_MS);
     return;
   }
@@ -49,7 +48,9 @@ async function schedulerTick(): Promise<void> {
       );
       schedulerIdleLogged = false;
     }
-    const players = await getPlayers(true);
+    const participantIds = new Set(await getEventParticipantPlayerIds(activeEvent.id));
+    const allPlayers = await getPlayers(false);
+    const players = allPlayers.filter((player) => participantIds.has(player.id));
     currentRefreshSpacingMs = calculateRefreshSpacing(players.length);
     if (players.length === 0) {
       return;
@@ -60,16 +61,24 @@ async function schedulerTick(): Promise<void> {
     const batchEnd = Math.min(playerCursor + PLAYER_REFRESH_CONCURRENCY, players.length);
     const playersToRefresh = players.slice(playerCursor, batchEnd);
     playerCursor = batchEnd >= players.length ? 0 : batchEnd;
-    await enqueueRefresh(async () => {
-      await Promise.all(
-        playersToRefresh.map((player) =>
-          refreshPlayer(player, {
-            updateLeaderboard: false,
-          }),
-        ),
-      );
-      await loadLeaderboardFromDatabase();
-    });
+    await jobCoordinator.enqueue(
+      {
+        type: 'scheduled-player-refresh',
+        key:
+          `event:${activeEvent.id}:players:` +
+          playersToRefresh.map((player) => player.id).join(','),
+      },
+      async () => {
+        await Promise.all(
+          playersToRefresh.map((player) =>
+            refreshPlayer(player, {
+              updateLeaderboard: false,
+            }),
+          ),
+        );
+        await loadLeaderboardFromDatabase();
+      },
+    );
   } catch (error) {
     console.error('[SCHEDULER] Refresh failed:', error);
   } finally {

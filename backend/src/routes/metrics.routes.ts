@@ -6,8 +6,7 @@ import {
   getLeagueDataProviderStatus,
 } from '../services/league-data.service';
 import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
-import { getOperationState } from '../runtime/operation-state';
-import { getRefreshQueueState } from '../runtime/refresh-queue';
+import { jobCoordinator } from '../runtime/job-coordinator';
 import { getMonitoringState } from '../runtime/monitoring-state';
 
 function escapeLabelValue(value: string): string {
@@ -27,8 +26,7 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
     const provider = getLeagueDataProviderStatus();
     const providerDiagnostics = getLeagueDataProviderDiagnostics();
     const scheduler = getRefreshSchedulerStatus();
-    const operation = getOperationState();
-    const refreshQueue = getRefreshQueueState();
+    const jobState = jobCoordinator.getState();
     const monitoring = getMonitoringState();
     const lines: string[] = [];
 
@@ -62,14 +60,14 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
     addMetric(
       lines,
       'lp_tracker_operation_refresh_in_progress',
-      'Whether the refresh queue is currently processing work.',
-      refreshQueue.running ? 1 : 0,
+      'Whether the job coordinator is currently processing work.',
+      jobState.running !== null ? 1 : 0,
     );
     addMetric(
       lines,
       'lp_tracker_operation_lifecycle_in_progress',
-      'Whether an event lifecycle operation is currently running.',
-      operation.lifecycleInProgress ? 1 : 0,
+      'Whether an event transition currently owns the coordinator lock.',
+      jobState.locks.includes('event-transition') ? 1 : 0,
     );
     addMetric(
       lines,
