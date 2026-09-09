@@ -39,7 +39,25 @@ function formatDamage(damage: number): string {
   if (damage >= 1000) {
     return `${(damage / 1000).toFixed(1)}k`;
   }
+
   return String(damage);
+}
+function formatTeamKda(participants: MatchDetailParticipant[], side: MatchParticipantSide): string {
+  const totals = participants
+    .filter((participant) => participant.side === side)
+    .reduce(
+      (sum, participant) => ({
+        kills: sum.kills + participant.kills,
+        deaths: sum.deaths + participant.deaths,
+        assists: sum.assists + participant.assists,
+      }),
+      {
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+      },
+    );
+  return `${totals.kills}/${totals.deaths}/${totals.assists}`;
 }
 function Participant({
   participant,
@@ -84,6 +102,21 @@ function Participant({
       </span>
     </div>
   );
+  const items = (
+    <div className="match-detail-items">
+      {Array.from({
+        length: 6,
+      }).map((_, index) => {
+        const itemId = participant.items[index];
+        const itemIcon = itemId ? itemIcons.get(itemId) : undefined;
+        return (
+          <span className="match-detail-item" key={index}>
+            {itemIcon && <img src={itemIcon} alt="" aria-hidden="true" title={`Item ${itemId}`} />}
+          </span>
+        );
+      })}
+    </div>
+  );
   return (
     <div
       className={
@@ -93,24 +126,13 @@ function Participant({
       }
     >
       <div className="match-detail-player-main">
+        {side === 'ALLY' && items}
         {side === 'ENEMY' && champion}
+
         {stats}
+
         {side === 'ALLY' && champion}
-      </div>
-      <div className="match-detail-items">
-        {Array.from({
-          length: 6,
-        }).map((_, index) => {
-          const itemId = participant.items[index];
-          const itemIcon = itemId ? itemIcons.get(itemId) : undefined;
-          return (
-            <span className="match-detail-item" key={index}>
-              {itemIcon && (
-                <img src={itemIcon} alt="" aria-hidden="true" title={`Item ${itemId}`} />
-              )}
-            </span>
-          );
-        })}
+        {side === 'ENEMY' && items}
       </div>
     </div>
   );
@@ -166,12 +188,22 @@ export default function MatchDetailsPopover({
       {!loading && !error && !unavailable && details && (
         <>
           <div className="match-detail-header">
-            <span className="match-detail-team ally">ALLY</span>
+            <span className="match-detail-team ally">
+              <span className="match-detail-team-label">ALLY</span>
+              <span className="match-detail-team-kda">
+                {formatTeamKda(details.participants, 'ALLY')}
+              </span>
+            </span>
             <div>
               <strong>MATCH DETAILS</strong>
               <span>{formatDuration(details.durationSeconds)}</span>
             </div>
-            <span className="match-detail-team enemy">ENEMY</span>
+            <span className="match-detail-team enemy">
+              <span className="match-detail-team-label">ENEMY</span>
+              <span className="match-detail-team-kda">
+                {formatTeamKda(details.participants, 'ENEMY')}
+              </span>
+            </span>
           </div>
           <div className="match-detail-roles">
             {roleOrder.map((role) => {
