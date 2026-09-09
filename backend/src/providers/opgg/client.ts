@@ -4,12 +4,14 @@ import type { SummonerMatch, SummonerProfile } from '../league-data.types';
 import type { LeagueDataProvider } from '../league-data.provider';
 
 const MCP_URL = 'https://mcp-api.op.gg/mcp';
+const MAX_MATCH_DETAIL_CACHE_SIZE = 500;
 
 export class OpggClient implements LeagueDataProvider {
   readonly name = 'opgg';
   readonly maxRecentMatches = 20;
   private client: Client;
   private transport: StreamableHTTPClientTransport;
+  private readonly matchDetailCache = new Map<string, SummonerMatch['participants']>();
   constructor() {
     this.client = new Client({
       name: 'lp-tracker',
@@ -23,6 +25,33 @@ export class OpggClient implements LeagueDataProvider {
   async disconnect(): Promise<void> {
     await this.client.close();
   }
+  private getMatchDetailCacheKey(
+    gameName: string,
+    tagLine: string,
+    region: string,
+    matchId: string,
+  ): string {
+    return [
+      region.trim().toUpperCase(),
+      gameName.trim().toLowerCase(),
+      tagLine.trim().toLowerCase(),
+      matchId,
+    ].join(':');
+  }
+  private cacheMatchDetails(
+    key: string,
+    participants: NonNullable<SummonerMatch['participants']>,
+  ): void {
+    this.matchDetailCache.set(key, participants);
+    while (this.matchDetailCache.size > MAX_MATCH_DETAIL_CACHE_SIZE) {
+      const oldestKey = this.matchDetailCache.keys().next().value;
+      if (typeof oldestKey !== 'string') {
+        return;
+      }
+      this.matchDetailCache.delete(oldestKey);
+    }
+  }
+
   async getRecentMatches(
     gameName: string,
     tagLine: string,
@@ -68,28 +97,38 @@ export class OpggClient implements LeagueDataProvider {
         (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
       )
       .slice(0, 3);
-    for (const match of matchesForRichDetails) {
-      try {
-        const detailResult = await this.client.callTool({
-          name: 'lol_get_summoner_game_detail',
-          arguments: {
-            region,
-            lang: 'en_US',
-            game_id: match.id,
-            created_at: match.createdAt,
-          },
-        });
-        const detailTextBlock = detailResult.content.find((block) => block.type === 'text');
-        if (!detailTextBlock || detailTextBlock.type !== 'text') {
-          console.warn(`[OP.GG] Match ${match.id}: ` + 'game detail did not contain text');
-          continue;
+    await Promise.all(
+      matchesForRichDetails.map(async (match) => {
+        const cacheKey = this.getMatchDetailCacheKey(gameName, tagLine, region, match.id);
+        const cachedParticipants = this.matchDetailCache.get(cacheKey);
+        if (cachedParticipants) {
+          match.participants = cachedParticipants;
+          return;
         }
-        match.participants = parseGameDetailParticipants(detailTextBlock.text, gameName, tagLine);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn(`[OP.GG] Match ${match.id}: ` + `could not load rich details: ${message}`);
-      }
-    }
+        try {
+          const detailResult = await this.client.callTool({
+            name: 'lol_get_summoner_game_detail',
+            arguments: {
+              region,
+              lang: 'en_US',
+              game_id: match.id,
+              created_at: match.createdAt,
+            },
+          });
+          const detailTextBlock = detailResult.content.find((block) => block.type === 'text');
+          if (!detailTextBlock || detailTextBlock.type !== 'text') {
+            console.warn(`[OP.GG] Match ${match.id}: ` + 'game detail did not contain text');
+            return;
+          }
+          const participants = parseGameDetailParticipants(detailTextBlock.text, gameName, tagLine);
+          match.participants = participants;
+          this.cacheMatchDetails(cacheKey, participants);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn(`[OP.GG] Match ${match.id}: ` + `could not load rich details: ${message}`);
+        }
+      }),
+    );
     console.log(`[OP.GG] ${gameName}#${tagLine}: ` + `${recentMatches.length} match(es) | `);
     for (const match of recentMatches) {
       const matchDate = new Date(match.createdAt);
