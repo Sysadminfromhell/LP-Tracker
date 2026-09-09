@@ -1663,22 +1663,6 @@ a.social-link.twitch:hover {
 .admin-checkbox-row input {
   accent-color: #6d769f;
 }
-.admin-message {
-  margin-bottom: 14px;
-  padding: 9px 11px;
-  border-radius: 7px;
-  font-size: 9px;
-}
-.admin-message-error {
-  border: 1px solid rgba(237, 113, 130, 0.14);
-  background: rgba(237, 113, 130, 0.055);
-  color: #ed7182;
-}
-.admin-message-success {
-  border: 1px solid rgba(99, 217, 157, 0.12);
-  background: rgba(99, 217, 157, 0.045);
-  color: #63d99d;
-}
 .admin-player-error {
   padding: 8px 14px;
   border-top: 1px solid rgba(237, 113, 130, 0.08);
