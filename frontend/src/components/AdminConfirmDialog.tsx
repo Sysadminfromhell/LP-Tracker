@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface AdminConfirmDialogProps {
   open: boolean;
@@ -38,7 +39,7 @@ function AdminConfirmDialog({
   if (!open) {
     return null;
   }
-  return (
+  return createPortal(
     <div
       className="admin-confirm-overlay"
       role="presentation"
@@ -80,7 +81,8 @@ function AdminConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 export default AdminConfirmDialog;
