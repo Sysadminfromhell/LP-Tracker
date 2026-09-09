@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { db } from './client';
 
 export type AdminEventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
@@ -25,6 +26,7 @@ export interface ScheduleAdminEventInput {
   name: string;
   startsAt: string;
   endsAt: string;
+  playerIds?: number[];
 }
 function isEventScheduleConflict(error: unknown): boolean {
   return (
@@ -75,8 +77,23 @@ export async function scheduleAdminEvent(input: ScheduleAdminEventInput): Promis
       `,
       [name, startsAt, endsAt],
     );
-    await client.query('COMMIT');
     const eventId = Number(result.rows[0].id);
+    let selectedPlayerIds = input.playerIds;
+    if (selectedPlayerIds === undefined) {
+      const enabledPlayersResult = await client.query<{
+        id: string;
+      }>(
+        `
+        SELECT id
+        FROM players
+        WHERE enabled = TRUE
+        ORDER BY id
+        `,
+      );
+      selectedPlayerIds = enabledPlayersResult.rows.map((row) => Number(row.id));
+    }
+    await replaceEventPlayerSelections(client, eventId, selectedPlayerIds);
+    await client.query('COMMIT');
     const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_SCHEDULE');
@@ -111,37 +128,46 @@ export async function updateScheduledEvent(
   if (startsAt.getTime() < Date.now()) {
     throw new Error('EVENT_START_IN_PAST');
   }
+  const client = await db.connect();
   try {
-    const result = await db.query<{
+    await client.query('BEGIN');
+    const result = await client.query<{
       id: string;
     }>(
       `
-    UPDATE events
-    SET
-      name = $2,
-      starts_at = $3,
-      ends_at = $4,
-      updated_at = NOW()
-    WHERE
-      id = $1
-      AND status = 'scheduled'
-    RETURNING id
-    `,
+      UPDATE events
+      SET
+        name = $2,
+        starts_at = $3,
+        ends_at = $4,
+        updated_at = NOW()
+      WHERE
+        id = $1
+        AND status = 'scheduled'
+      RETURNING id
+      `,
       [eventId, name, startsAt, endsAt],
     );
     if (result.rows.length === 0) {
       throw new Error('SCHEDULED_EVENT_NOT_FOUND');
     }
+    if (input.playerIds !== undefined) {
+      await replaceEventPlayerSelections(client, eventId, input.playerIds);
+    }
+    await client.query('COMMIT');
     const event = await getAdminEventById(eventId);
     if (!event || event.id !== eventId) {
       throw new Error('EVENT_NOT_FOUND_AFTER_UPDATE');
     }
     return event;
   } catch (error) {
+    await client.query('ROLLBACK');
     if (isEventScheduleConflict(error)) {
       throw new Error('EVENT_SCHEDULE_CONFLICT');
     }
     throw error;
+  } finally {
+    client.release();
   }
 }
 export async function cancelScheduledEvent(eventId: number): Promise<void> {
@@ -184,11 +210,19 @@ export async function getAdminEvents(): Promise<AdminEvent[]> {
       e.status,
       e.created_at,
       e.updated_at,
-      COUNT(ep.id)::TEXT AS participant_count
+      CASE
+        WHEN e.status = 'scheduled' THEN (
+          SELECT COUNT(*)::TEXT
+          FROM event_player_selections eps
+          WHERE eps.event_id = e.id
+        )
+        ELSE (
+          SELECT COUNT(*)::TEXT
+          FROM event_participants ep
+          WHERE ep.event_id = e.id
+        )
+      END AS participant_count
     FROM events e
-    LEFT JOIN event_participants ep
-      ON ep.event_id = e.id
-    GROUP BY e.id
     ORDER BY
       CASE
         WHEN e.status = 'active' THEN 0
@@ -214,12 +248,20 @@ export async function getAdminEventById(eventId: number): Promise<AdminEvent | n
       e.status,
       e.created_at,
       e.updated_at,
-      COUNT(ep.id)::TEXT AS participant_count
+      CASE
+        WHEN e.status = 'scheduled' THEN (
+          SELECT COUNT(*)::TEXT
+          FROM event_player_selections eps
+          WHERE eps.event_id = e.id
+        )
+        ELSE (
+          SELECT COUNT(*)::TEXT
+          FROM event_participants ep
+          WHERE ep.event_id = e.id
+        )
+      END AS participant_count
     FROM events e
-    LEFT JOIN event_participants ep
-      ON ep.event_id = e.id
     WHERE e.id = $1
-    GROUP BY e.id
     LIMIT 1
     `,
     [eventId],
@@ -352,15 +394,16 @@ export async function getDueScheduledEvent(): Promise<AdminEvent | null> {
       e.status,
       e.created_at,
       e.updated_at,
-      COUNT(ep.id)::TEXT AS participant_count
+      (
+        SELECT COUNT(*)::TEXT
+        FROM event_player_selections eps
+        WHERE eps.event_id = e.id
+      ) AS participant_count
     FROM events e
-    LEFT JOIN event_participants ep
-      ON ep.event_id = e.id
     WHERE
       e.status = 'scheduled'
       AND e.starts_at <= NOW()
       AND e.ends_at > NOW()
-    GROUP BY e.id
     ORDER BY e.starts_at ASC
     LIMIT 1
     `,
@@ -383,6 +426,112 @@ export async function getEventParticipantPlayerIds(eventId: number): Promise<num
     [eventId],
   );
   return result.rows.map((row) => Number(row.player_id));
+}
+function normalizeSelectedPlayerIds(playerIds: number[]): number[] {
+  const uniquePlayerIds = [...new Set(playerIds)];
+  if (uniquePlayerIds.length === 0) {
+    throw new Error('NO_EVENT_PARTICIPANTS_SELECTED');
+  }
+  if (uniquePlayerIds.some((playerId) => !Number.isSafeInteger(playerId) || playerId <= 0)) {
+    throw new Error('INVALID_EVENT_PARTICIPANT_ID');
+  }
+  return uniquePlayerIds.sort((a, b) => a - b);
+}
+async function replaceEventPlayerSelections(
+  client: PoolClient,
+  eventId: number,
+  playerIds: number[],
+): Promise<number[]> {
+  const selectedPlayerIds = normalizeSelectedPlayerIds(playerIds);
+  const playersResult = await client.query<{
+    id: string;
+  }>(
+    `
+    SELECT id
+    FROM players
+    WHERE
+      id = ANY($1::BIGINT[])
+      AND enabled = TRUE
+    ORDER BY id
+    `,
+    [selectedPlayerIds],
+  );
+  if (playersResult.rows.length !== selectedPlayerIds.length) {
+    throw new Error('EVENT_PARTICIPANT_NOT_AVAILABLE');
+  }
+  await client.query(
+    `
+    DELETE FROM event_player_selections
+    WHERE event_id = $1
+    `,
+    [eventId],
+  );
+  await client.query(
+    `
+    INSERT INTO event_player_selections (
+      event_id,
+      player_id
+    )
+    SELECT
+      $1,
+      UNNEST($2::BIGINT[])
+    `,
+    [eventId, selectedPlayerIds],
+  );
+  return selectedPlayerIds;
+}
+
+export async function getEventSelectedPlayerIds(eventId: number): Promise<number[]> {
+  const result = await db.query<{
+    player_id: string;
+  }>(
+    `
+    SELECT player_id
+    FROM event_player_selections
+    WHERE event_id = $1
+    ORDER BY player_id
+    `,
+    [eventId],
+  );
+  return result.rows.map((row) => Number(row.player_id));
+}
+export async function setScheduledEventPlayerIds(
+  eventId: number,
+  playerIds: number[],
+): Promise<number[]> {
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const eventResult = await client.query(
+      `
+      SELECT id
+      FROM events
+      WHERE
+        id = $1
+        AND status = 'scheduled'
+      LIMIT 1
+      FOR UPDATE
+      `,
+      [eventId],
+    );
+
+    if (eventResult.rows.length === 0) {
+      throw new Error('SCHEDULED_EVENT_NOT_FOUND');
+    }
+
+    const selectedPlayerIds = await replaceEventPlayerSelections(client, eventId, playerIds);
+
+    await client.query('COMMIT');
+
+    return selectedPlayerIds;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 export async function activateScheduledEvent(eventId: number): Promise<AdminEvent> {
   const client = await db.connect();
@@ -417,38 +566,61 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
     if (activeEventResult.rows.length > 0) {
       throw new Error('ACTIVE_EVENT_ALREADY_EXISTS');
     }
-    const enabledPlayersResult = await client.query<{
+    const selectedPlayersResult = await client.query<{
       player_count: string;
     }>(
       `
       SELECT COUNT(*)::TEXT AS player_count
-      FROM players
-      WHERE enabled = TRUE
+      FROM event_player_selections
+      WHERE event_id = $1
       `,
+      [eventId],
     );
-    const enabledPlayerCount = Number(enabledPlayersResult.rows[0].player_count);
-    if (enabledPlayerCount === 0) {
-      throw new Error('NO_ENABLED_PLAYERS');
+    const selectedPlayerCount = Number(selectedPlayersResult.rows[0].player_count);
+    if (selectedPlayerCount === 0) {
+      throw new Error('NO_EVENT_PARTICIPANTS_SELECTED');
+    }
+    const availablePlayersResult = await client.query<{
+      player_count: string;
+    }>(
+      `
+      SELECT COUNT(*)::TEXT AS player_count
+      FROM event_player_selections eps
+      JOIN players p
+        ON p.id = eps.player_id
+      WHERE
+        eps.event_id = $1
+        AND p.enabled = TRUE
+      `,
+      [eventId],
+    );
+    const availablePlayerCount = Number(availablePlayersResult.rows[0].player_count);
+    if (availablePlayerCount !== selectedPlayerCount) {
+      throw new Error('EVENT_PARTICIPANT_NOT_AVAILABLE');
     }
     const snapshotPlayersResult = await client.query<{
       player_count: string;
     }>(
       `
       SELECT COUNT(*)::TEXT AS player_count
-      FROM players p
+      FROM event_player_selections eps
+      JOIN players p
+        ON p.id = eps.player_id
       JOIN player_cache pc
         ON pc.player_id = p.id
       WHERE
-        p.enabled = TRUE
+        eps.event_id = $1
+        AND p.enabled = TRUE
         AND pc.tier IS NOT NULL
         AND pc.lp IS NOT NULL
         AND pc.rank_score IS NOT NULL
         AND pc.season_wins IS NOT NULL
         AND pc.season_losses IS NOT NULL
       `,
+      [eventId],
     );
     const snapshotPlayerCount = Number(snapshotPlayersResult.rows[0].player_count);
-    if (snapshotPlayerCount !== enabledPlayerCount) {
+    if (snapshotPlayerCount !== selectedPlayerCount) {
       throw new Error('PLAYER_CACHE_INCOMPLETE');
     }
     const participantResult = await client.query(
@@ -476,11 +648,14 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
         pc.season_losses,
         pc.rank_score,
         NOW()
-      FROM players p
+      FROM event_player_selections eps
+      JOIN players p
+        ON p.id = eps.player_id
       JOIN player_cache pc
         ON pc.player_id = p.id
       WHERE
-        p.enabled = TRUE
+        eps.event_id = $1
+        AND p.enabled = TRUE
         AND pc.tier IS NOT NULL
         AND pc.lp IS NOT NULL
         AND pc.rank_score IS NOT NULL
@@ -489,7 +664,7 @@ export async function activateScheduledEvent(eventId: number): Promise<AdminEven
       `,
       [eventId],
     );
-    if (participantResult.rowCount !== enabledPlayerCount) {
+    if (participantResult.rowCount !== selectedPlayerCount) {
       throw new Error('EVENT_PARTICIPANT_SNAPSHOT_FAILED');
     }
     await client.query(

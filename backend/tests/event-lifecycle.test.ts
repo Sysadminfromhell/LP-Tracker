@@ -10,12 +10,14 @@ const mocks = vi.hoisted(() => ({
   endAdminEvent: vi.fn(),
   getDueScheduledEvent: vi.fn(),
   getEventParticipantPlayerIds: vi.fn(),
+  getEventSelectedPlayerIds: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   refreshPlayersForSnapshot: vi.fn(),
   getOperationState: vi.fn(),
   setLifecycleInProgress: vi.fn(),
   enqueueRefresh: vi.fn(),
 }));
+
 vi.mock('../src/db/players', () => ({
   getPlayers: mocks.getPlayers,
 }));
@@ -27,6 +29,7 @@ vi.mock('../src/db/admin-events', () => ({
   endAdminEvent: mocks.endAdminEvent,
   getDueScheduledEvent: mocks.getDueScheduledEvent,
   getEventParticipantPlayerIds: mocks.getEventParticipantPlayerIds,
+  getEventSelectedPlayerIds: mocks.getEventSelectedPlayerIds,
 }));
 vi.mock('../src/services/leaderboard.service', () => ({
   loadLeaderboardFromDatabase: mocks.loadLeaderboardFromDatabase,
@@ -113,6 +116,7 @@ beforeEach(() => {
   mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
   mocks.getActiveEvent.mockResolvedValue(expiredActiveEvent);
   mocks.getEventParticipantPlayerIds.mockResolvedValue([1, 2]);
+  mocks.getEventSelectedPlayerIds.mockResolvedValue([1, 2]);
   mocks.getPlayers.mockResolvedValue(players);
   mocks.refreshPlayersForSnapshot.mockResolvedValue([]);
   mocks.endAdminEvent.mockResolvedValue(endedEvent);
@@ -160,7 +164,18 @@ describe('event lifecycle reliability', () => {
       expect.stringContaining('Using their last successful cached state for the final snapshot.'),
     );
   });
-  it('does not activate a scheduled event when the initial refresh fails', async () => {
+  it('refreshes only the players selected for a scheduled event', async () => {
+    mocks.getActiveEvent.mockResolvedValue(null);
+    mocks.getEventSelectedPlayerIds.mockResolvedValue([2]);
+    startEventLifecycle();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.getPlayers).toHaveBeenCalledWith(false);
+    expect(mocks.refreshPlayersForSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.refreshPlayersForSnapshot).toHaveBeenCalledWith([players[1]]);
+    expect(mocks.activateScheduledEvent).toHaveBeenCalledWith(dueScheduledEvent.id);
+    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+  });
+  it('keeps an existing active event running after a restart', async () => {
     mocks.getActiveEvent.mockResolvedValue(null);
     mocks.refreshPlayersForSnapshot.mockResolvedValueOnce([players[0]]);
     startEventLifecycle();
@@ -172,25 +187,18 @@ describe('event lifecycle reliability', () => {
       expect.stringContaining('1 player refresh(es) failed'),
     );
   });
-  it('keeps an existing active event running after a restart', async () => {
-    const runningEvent: DbEvent = {
-      ...expiredActiveEvent,
-      endsAt: '2026-09-02T22:00:00.000Z',
-    };
-
-    mocks.getActiveEvent.mockResolvedValue(runningEvent);
-    mocks.getDueScheduledEvent.mockResolvedValue(null);
-
+  it('does not activate a scheduled event when the initial refresh fails', async () => {
+    mocks.getActiveEvent.mockResolvedValue(null);
+    mocks.refreshPlayersForSnapshot.mockResolvedValueOnce([players[0]]);
     startEventLifecycle();
-
     await vi.advanceTimersByTimeAsync(0);
-
-    expect(mocks.getActiveEvent).toHaveBeenCalledTimes(1);
-
-    expect(mocks.endAdminEvent).not.toHaveBeenCalled();
+    expect(mocks.getEventSelectedPlayerIds).toHaveBeenCalledWith(dueScheduledEvent.id);
+    expect(mocks.getPlayers).toHaveBeenCalledWith(false);
+    expect(mocks.refreshPlayersForSnapshot).toHaveBeenCalledWith(players);
     expect(mocks.activateScheduledEvent).not.toHaveBeenCalled();
-
-    expect(mocks.refreshPlayersForSnapshot).not.toHaveBeenCalled();
     expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('1 player refresh(es) failed'),
+    );
   });
 });

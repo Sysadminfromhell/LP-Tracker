@@ -8,6 +8,7 @@ import {
   getAdminEventById,
   getAdminEvents,
   getEventParticipantPlayerIds,
+  getEventSelectedPlayerIds,
   scheduleAdminEvent,
   updateAdminEventName,
   updateScheduledEvent,
@@ -90,8 +91,13 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         error: 'Event not found',
       });
     }
+    const selectedPlayerIds =
+      event.status === 'scheduled'
+        ? await getEventSelectedPlayerIds(eventId)
+        : [];
     return {
       event,
+      selectedPlayerIds,
     };
   });
   app.patch<{
@@ -232,6 +238,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       name?: string;
       startsAt?: string;
       endsAt?: string;
+      playerIds?: number[];
     };
   }>('/api/admin/events/:eventId', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
@@ -268,6 +275,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         name,
         startsAt,
         endsAt,
+        playerIds: request.body.playerIds,
       });
       await loadLeaderboardFromDatabase();
       console.log(
@@ -303,6 +311,21 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       if (message === 'EVENT_START_IN_PAST') {
         return reply.code(400).send({
           error: 'Event start must be in the future',
+        });
+      }
+      if (message === 'NO_EVENT_PARTICIPANTS_SELECTED') {
+        return reply.code(400).send({
+          error: 'At least one event participant must be selected',
+        });
+      }
+      if (message === 'INVALID_EVENT_PARTICIPANT_ID') {
+        return reply.code(400).send({
+          error: 'Invalid event participant',
+        });
+      }
+      if (message === 'EVENT_PARTICIPANT_NOT_AVAILABLE') {
+        return reply.code(409).send({
+          error: 'One or more selected participants are not available',
         });
       }
       console.error(`[ADMIN] Could not update scheduled event ${eventId}: ${message}`);
@@ -362,6 +385,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       name?: string;
       startsAt?: string;
       endsAt?: string;
+      playerIds?: number[];
     };
   }>('/api/admin/events', async (request, reply) => {
     const admin = await requireAdmin(request, reply);
@@ -381,6 +405,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         name,
         startsAt,
         endsAt,
+        playerIds: request.body.playerIds,
       });
       await loadLeaderboardFromDatabase();
       console.log(
@@ -410,6 +435,21 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       if (message === 'EVENT_END_BEFORE_START') {
         return reply.code(400).send({
           error: 'Event end must be after event start',
+        });
+      }
+      if (message === 'NO_EVENT_PARTICIPANTS_SELECTED') {
+        return reply.code(400).send({
+          error: 'At least one event participant must be selected',
+        });
+      }
+      if (message === 'INVALID_EVENT_PARTICIPANT_ID') {
+        return reply.code(400).send({
+          error: 'Invalid event participant',
+        });
+      }
+      if (message === 'EVENT_PARTICIPANT_NOT_AVAILABLE') {
+        return reply.code(409).send({
+          error: 'One or more selected participants are not available',
         });
       }
       console.error(`[ADMIN] Could not schedule event: ${message}`);
