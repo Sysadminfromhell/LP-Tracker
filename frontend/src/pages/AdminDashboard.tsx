@@ -174,7 +174,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   }
   async function handleAddPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    notify('info',`trying to add ${addForm.gameName}#${addForm.tagLine}`);
+    notify('info', `trying to add ${addForm.gameName}#${addForm.tagLine}`);
     setSaving(true);
     try {
       const response = await fetch('/api/admin/players', {
@@ -261,7 +261,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     if (refreshingAll || refreshingPlayerId !== null) {
       return;
     }
-    notify('info','Starting refresh all player one by one. Please wait.');
+    notify('info', 'Starting refresh all player one by one. Please wait.');
     setRefreshingAll(true);
     try {
       const response = await fetch('/api/admin/players/refresh-all', {
@@ -347,7 +347,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             </button>
           </div>
         </header>
-        <AdminEventPanel onUnauthorized={onLogout} onNotify={notify} />
+        <AdminEventPanel players={players} onUnauthorized={onLogout} onNotify={notify} />
         {providerHealth?.warning && (
           <div className="admin-provider-warning" role="status">
             <div className="admin-provider-warning-icon">!</div>

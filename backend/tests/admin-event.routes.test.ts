@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   getAdminEventById: vi.fn(),
   getAdminEvents: vi.fn(),
   getEventParticipantPlayerIds: vi.fn(),
+  getEventSelectedPlayerIds: vi.fn(),
   scheduleAdminEvent: vi.fn(),
   updateAdminEventName: vi.fn(),
   updateScheduledEvent: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock('../src/db/admin-events', () => ({
   getAdminEventById: mocks.getAdminEventById,
   getAdminEvents: mocks.getAdminEvents,
   getEventParticipantPlayerIds: mocks.getEventParticipantPlayerIds,
+  getEventSelectedPlayerIds: mocks.getEventSelectedPlayerIds,
   scheduleAdminEvent: mocks.scheduleAdminEvent,
   updateAdminEventName: mocks.updateAdminEventName,
   updateScheduledEvent: mocks.updateScheduledEvent,
@@ -135,6 +137,7 @@ beforeEach(() => {
   mocks.updateScheduledEvent.mockResolvedValue(scheduledEvent);
   mocks.cancelScheduledEvent.mockResolvedValue(undefined);
   mocks.getEventParticipantPlayerIds.mockResolvedValue([firstPlayer.id, secondPlayer.id]);
+  mocks.getEventSelectedPlayerIds.mockResolvedValue([firstPlayer.id, secondPlayer.id]);
   mocks.getPlayers.mockResolvedValue([firstPlayer, secondPlayer]);
   mocks.getEventParticipantPenalties.mockResolvedValue([participantPenalty]);
   mocks.setEventParticipantPenalty.mockResolvedValue(participantPenalty);
@@ -158,6 +161,23 @@ describe('admin event routes', () => {
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
         events: [scheduledEvent, activeEvent],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns the selected players for a scheduled event', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/events/1',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getEventSelectedPlayerIds).toHaveBeenCalledWith(scheduledEvent.id);
+      expect(response.json()).toEqual({
+        event: scheduledEvent,
+        selectedPlayerIds: [firstPlayer.id, secondPlayer.id],
       });
     } finally {
       await app.close();
@@ -377,6 +397,7 @@ describe('admin event routes', () => {
           name: '  Updated Event  ',
           startsAt: updated.startsAt,
           endsAt: updated.endsAt,
+          playerIds: [secondPlayer.id],
         },
       });
       expect(response.statusCode).toBe(200);
@@ -384,6 +405,7 @@ describe('admin event routes', () => {
         name: 'Updated Event',
         startsAt: updated.startsAt,
         endsAt: updated.endsAt,
+        playerIds: [secondPlayer.id],
       });
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
     } finally {
@@ -394,6 +416,9 @@ describe('admin event routes', () => {
     ['INVALID_EVENT_DATE', 400, 'Invalid event date'],
     ['EVENT_END_BEFORE_START', 400, 'Event end must be after event start'],
     ['EVENT_START_IN_PAST', 400, 'Event start must be in the future'],
+    ['NO_EVENT_PARTICIPANTS_SELECTED', 400, 'At least one event participant must be selected'],
+    ['INVALID_EVENT_PARTICIPANT_ID', 400, 'Invalid event participant'],
+    ['EVENT_PARTICIPANT_NOT_AVAILABLE', 409, 'One or more selected participants are not available'],
     ['EVENT_SCHEDULE_CONFLICT', 409, 'Event overlaps another scheduled or active event'],
     ['SCHEDULED_EVENT_NOT_FOUND', 409, 'The event is no longer scheduled'],
   ])('maps scheduled-event update error %s', async (errorCode, expectedStatus, expectedMessage) => {
@@ -461,6 +486,7 @@ describe('admin event routes', () => {
           name: '  September Event  ',
           startsAt: scheduledEvent.startsAt,
           endsAt: scheduledEvent.endsAt,
+          playerIds: [firstPlayer.id, secondPlayer.id],
         },
       });
       expect(response.statusCode).toBe(201);
@@ -468,6 +494,7 @@ describe('admin event routes', () => {
         name: 'September Event',
         startsAt: scheduledEvent.startsAt,
         endsAt: scheduledEvent.endsAt,
+        playerIds: [firstPlayer.id, secondPlayer.id],
       });
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
       expect(response.json()).toEqual({
@@ -483,6 +510,9 @@ describe('admin event routes', () => {
     ['EVENT_START_IN_PAST', 400, 'Event start must be in the future'],
     ['INVALID_EVENT_DATE', 400, 'Invalid event date'],
     ['EVENT_END_BEFORE_START', 400, 'Event end must be after event start'],
+    ['NO_EVENT_PARTICIPANTS_SELECTED', 400, 'At least one event participant must be selected'],
+    ['INVALID_EVENT_PARTICIPANT_ID', 400, 'Invalid event participant'],
+    ['EVENT_PARTICIPANT_NOT_AVAILABLE', 409, 'One or more selected participants are not available'],
   ])('maps schedule error %s', async (errorCode, expectedStatus, expectedMessage) => {
     mocks.scheduleAdminEvent.mockRejectedValue(new Error(errorCode));
     const app = await createTestApp();

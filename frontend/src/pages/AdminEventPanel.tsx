@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import type { AdminToastVariant } from '../components/AdminToastHost';
 
+interface EventSelectablePlayer {
+  id: number;
+  gameName: string;
+  tagLine: string;
+  enabled: boolean;
+}
 interface AdminEventPanelProps {
+  players: EventSelectablePlayer[];
   onUnauthorized: () => void;
   onNotify: (variant: AdminToastVariant, message: string) => void;
 }
@@ -61,6 +68,9 @@ function getMinimumScheduleStart(): string {
   minimum.setMinutes(minimum.getMinutes() + 1);
   return toLocalDateTimeValue(minimum);
 }
+function isDateInPast(date: Date): boolean {
+  return date.getTime() < Date.now();
+}
 function createDefaultSchedule(): EventScheduleForm {
   const start = new Date();
   start.setMinutes(start.getMinutes() + 10);
@@ -110,14 +120,17 @@ function formatRank(tier: string, division: number | null, lp: number): string {
   const divisionLabel = division === null ? '' : ` ${divisionLabels[division] ?? division}`;
   return `${formattedTier}${divisionLabel} · ${lp} LP`;
 }
-function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
+function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelProps) {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [event, setEvent] = useState<AdminEvent | null>(null);
   const [selectedScheduledId, setSelectedScheduledId] = useState<number | null>(null);
   const [eventName, setEventName] = useState('');
   const [schedule, setSchedule] = useState<EventScheduleForm>(createDefaultSchedule);
+  const [newEventPlayerIds, setNewEventPlayerIds] = useState<number[] | null>(null);
   const [scheduledSchedule, setScheduledSchedule] =
     useState<EventScheduleForm>(createDefaultSchedule);
+  const [scheduledEventPlayerIds, setScheduledEventPlayerIds] = useState<number[]>([]);
+  const [scheduledParticipantsLoading, setScheduledParticipantsLoading] = useState(false);
   const [penaltyParticipants, setPenaltyParticipants] = useState<EventParticipantPenalty[]>([]);
   const [penaltiesLoading, setPenaltiesLoading] = useState(false);
   const [editingPenaltyPlayerId, setEditingPenaltyPlayerId] = useState<number | null>(null);
@@ -125,6 +138,11 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
     lpPenalty: '0',
     reason: '',
   });
+  const enabledPlayers = players.filter((player) => player.enabled);
+  const enabledPlayerIds = new Set(enabledPlayers.map((player) => player.id));
+  const selectedNewEventPlayerIds = (
+    newEventPlayerIds ?? enabledPlayers.map((player) => player.id)
+  ).filter((playerId) => enabledPlayerIds.has(playerId));
   const scheduledEvents = events
     .filter((item) => item.status === 'scheduled')
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
@@ -282,13 +300,17 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   }
   async function handleSchedule(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
+    if (selectedNewEventPlayerIds.length === 0) {
+      onNotify('error', 'Please select at least one event participant.');
+      return;
+    }
     const startsAt = new Date(schedule.startsAt);
     const endsAt = new Date(schedule.endsAt);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
       onNotify('error', 'Please enter a valid start and end time.');
       return;
     }
-    if (startsAt.getTime() < Date.now()) {
+    if (isDateInPast(startsAt)) {
       onNotify('error', 'Event start cannot be in the past.');
       return;
     }
@@ -307,6 +329,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
           name: schedule.name,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
+          playerIds: selectedNewEventPlayerIds,
         }),
       });
       if (response.status === 401) {
@@ -321,6 +344,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       };
       setEvents((current) => [...current.filter((item) => item.id !== data.event.id), data.event]);
       setSchedule(createDefaultSchedule());
+      setNewEventPlayerIds(null);
       onNotify('success', 'Event scheduled successfully.');
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Could not schedule event.');
@@ -369,9 +393,55 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       </div>
     );
   }
+  async function handleEditScheduledEvent(scheduledEvent: AdminEvent) {
+    setSelectedScheduledId(scheduledEvent.id);
+    setScheduledSchedule(createScheduleFromEvent(scheduledEvent));
+    setScheduledParticipantsLoading(true);
+    try {
+      const response = await fetch(`/api/admin/events/${scheduledEvent.id}`, {
+        cache: 'no-store',
+      });
+      if (response.status === 401) {
+        onUnauthorized();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const data = (await response.json()) as {
+        event: AdminEvent;
+        selectedPlayerIds: number[];
+      };
+      setScheduledSchedule(createScheduleFromEvent(data.event));
+      setScheduledEventPlayerIds(data.selectedPlayerIds);
+    } catch (err) {
+      setSelectedScheduledId(null);
+      setScheduledEventPlayerIds([]);
+      onNotify(
+        'error',
+        err instanceof Error ? err.message : 'Could not load scheduled event participants.',
+      );
+    } finally {
+      setScheduledParticipantsLoading(false);
+    }
+  }
   async function handleUpdateSchedule(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
     if (!selectedScheduled) {
+      return;
+    }
+    if (scheduledEventPlayerIds.length === 0) {
+      onNotify('error', 'Please select at least one event participant.');
+      return;
+    }
+    const unavailableSelectedPlayers = players.filter(
+      (player) => !player.enabled && scheduledEventPlayerIds.includes(player.id),
+    );
+    if (unavailableSelectedPlayers.length > 0) {
+      onNotify(
+        'error',
+        'One or more selected participants are disabled. Remove them before saving.',
+      );
       return;
     }
     const startsAt = new Date(scheduledSchedule.startsAt);
@@ -380,7 +450,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
       onNotify('error', 'Please enter a valid start and end time.');
       return;
     }
-    if (startsAt.getTime() < Date.now()) {
+    if (isDateInPast(startsAt)) {
       onNotify('error', 'Event start cannot be in the past.');
       return;
     }
@@ -399,6 +469,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
           name: scheduledSchedule.name,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
+          playerIds: scheduledEventPlayerIds,
         }),
       });
       if (response.status === 401) {
@@ -425,6 +496,8 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
   function handleCancelEdit() {
     setSelectedScheduledId(null);
     setScheduledSchedule(createDefaultSchedule());
+    setScheduledEventPlayerIds([]);
+    setScheduledParticipantsLoading(false);
   }
   async function handleCancelScheduledEvent() {
     if (!selectedScheduled) {
@@ -443,6 +516,7 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
         throw new Error(await readApiError(response));
       }
       setSelectedScheduledId(null);
+      setScheduledEventPlayerIds([]);
       await loadEvents();
       onNotify('success', 'Scheduled event canceled.');
     } catch (err) {
@@ -620,118 +694,119 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
           ) : (
             <div className="admin-scheduled-event-list admin-scroll-list">
               {penaltyParticipants.map((participant) => (
-                <div
-                  className={`admin-scheduled-event-card ${
-                    editingPenaltyPlayerId === participant.playerId ? 'selected' : ''
-                  }`}
-                  key={participant.playerId}
-                >
-                  <div className="admin-scheduled-event-cell">
-                    <span>Player</span>
-                    <strong>
-                      {participant.gameName}#{participant.tagLine}
-                    </strong>
-                  </div>
-                  <div className="admin-scheduled-event-cell">
-                    <span>Start</span>
-                    <strong>
-                      {formatRank(
-                        participant.startTier,
-                        participant.startDivision,
-                        participant.startLp,
-                      )}
-                    </strong>
-                  </div>
-                  <div className="admin-scheduled-event-cell">
-                    <span>{participant.penaltyReason ?? 'Penalty'}</span>
-                    <strong>
-                      {participant.lpPenalty > 0 ? `${participant.lpPenalty} LP` : 'None'}
-                    </strong>
-                  </div>
-                  <button
-                    className="admin-secondary-button"
-                    type="button"
-                    disabled={saving}
-                    onClick={() => {
-                      handleEditPenalty(participant);
-                    }}
+                <div className="admin-scheduled-event-item" key={participant.playerId}>
+                  <div
+                    className={`admin-scheduled-event-card ${
+                      editingPenaltyPlayerId === participant.playerId ? 'selected' : ''
+                    }`}
                   >
-                    {editingPenaltyPlayerId === participant.playerId ? 'Editing' : 'Edit'}
-                  </button>
+                    <div className="admin-scheduled-event-cell">
+                      <span>Player</span>
+                      <strong>
+                        {participant.gameName}#{participant.tagLine}
+                      </strong>
+                    </div>
+                    <div className="admin-scheduled-event-cell">
+                      <span>Start</span>
+                      <strong>
+                        {formatRank(
+                          participant.startTier,
+                          participant.startDivision,
+                          participant.startLp,
+                        )}
+                      </strong>
+                    </div>
+                    <div className="admin-scheduled-event-cell">
+                      <span>{participant.penaltyReason ?? 'Penalty'}</span>
+                      <strong>
+                        {participant.lpPenalty > 0 ? `${participant.lpPenalty} LP` : 'None'}
+                      </strong>
+                    </div>
+                    <button
+                      className="admin-secondary-button"
+                      type="button"
+                      disabled={saving}
+                      onClick={() => {
+                        handleEditPenalty(participant);
+                      }}
+                    >
+                      {editingPenaltyPlayerId === participant.playerId ? 'Editing' : 'Edit'}
+                    </button>
+                  </div>
+                  {editingPenaltyPlayerId === participant.playerId && (
+                    <form
+                      className="admin-schedule-event admin-schedule-event-edit"
+                      onSubmit={handleSavePenalty}
+                    >
+                      <div className="admin-schedule-heading">
+                        <span className="admin-section-eyebrow">EDIT PENALTY</span>
+                        <h3>
+                          {participant.gameName}#{participant.tagLine}
+                        </h3>
+                        <p>
+                          Original start:{' '}
+                          {formatRank(
+                            participant.startTier,
+                            participant.startDivision,
+                            participant.startLp,
+                          )}
+                          . Set the penalty to 0 to remove it.
+                        </p>
+                      </div>
+                      <div className="admin-schedule-grid">
+                        <label>
+                          LP Penalty
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={penaltyForm.lpPenalty}
+                            disabled={saving}
+                            required
+                            onChange={(eventInput) => {
+                              setPenaltyForm((current) => ({
+                                ...current,
+                                lpPenalty: eventInput.target.value,
+                              }));
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Reason
+                          <input
+                            type="text"
+                            value={penaltyForm.reason}
+                            disabled={saving}
+                            placeholder="Boosting / rule violation"
+                            onChange={(eventInput) => {
+                              setPenaltyForm((current) => ({
+                                ...current,
+                                reason: eventInput.target.value,
+                              }));
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div className="admin-form-actions">
+                        <button className="admin-primary-button" type="submit" disabled={saving}>
+                          {saving ? 'Saving...' : 'Save Penalty'}
+                        </button>
+                        <button
+                          className="admin-secondary-button"
+                          type="button"
+                          disabled={saving}
+                          onClick={handleCancelPenaltyEdit}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
-      )}
-      {event?.status === 'active' && selectedPenaltyParticipant && (
-        <form
-          className="admin-schedule-event admin-schedule-event-edit"
-          onSubmit={handleSavePenalty}
-        >
-          <div className="admin-schedule-heading">
-            <span className="admin-section-eyebrow">EDIT PENALTY</span>
-            <h3>
-              {selectedPenaltyParticipant.gameName}#{selectedPenaltyParticipant.tagLine}
-            </h3>
-            <p>
-              Original start:{' '}
-              {formatRank(
-                selectedPenaltyParticipant.startTier,
-                selectedPenaltyParticipant.startDivision,
-                selectedPenaltyParticipant.startLp,
-              )}
-              . Set the penalty to 0 to remove it.
-            </p>
-          </div>
-          <div className="admin-schedule-grid">
-            <label>
-              LP Penalty
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={penaltyForm.lpPenalty}
-                disabled={saving}
-                required
-                onChange={(eventInput) => {
-                  setPenaltyForm((current) => ({
-                    ...current,
-                    lpPenalty: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-            <label>
-              Reason
-              <input
-                type="text"
-                value={penaltyForm.reason}
-                disabled={saving}
-                placeholder="Boosting / rule violation"
-                onChange={(eventInput) => {
-                  setPenaltyForm((current) => ({
-                    ...current,
-                    reason: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-          </div>
-          <div className="admin-form-actions">
-            <button className="admin-primary-button" type="submit" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Penalty'}
-            </button>
-            <button
-              className="admin-secondary-button"
-              type="button"
-              disabled={saving}
-              onClick={handleCancelPenaltyEdit}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
       )}
       {event?.status === 'active' && (
         <div className="admin-event-danger-zone">
@@ -760,131 +835,177 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
               {scheduledEvents.length} event{scheduledEvents.length === 1 ? '' : 's'} scheduled.
             </p>
           </div>
-
           <div className="admin-scheduled-event-list">
             {scheduledEvents.map((scheduledEvent) => (
-              <div
-                className={`admin-scheduled-event-card ${
-                  selectedScheduled?.id === scheduledEvent.id ? 'selected' : ''
-                }`}
-                key={scheduledEvent.id}
-              >
-                <div className="admin-scheduled-event-cell">
-                  <span>Event</span>
-                  <strong>{scheduledEvent.name}</strong>
-                </div>
-
-                <div className="admin-scheduled-event-cell">
-                  <span>Start</span>
-                  <strong>{formatEventDate(scheduledEvent.startsAt)}</strong>
-                </div>
-
-                <div className="admin-scheduled-event-cell">
-                  <span>End</span>
-                  <strong>{formatEventDate(scheduledEvent.endsAt)}</strong>
-                </div>
-
-                <button
-                  className="admin-secondary-button"
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    setSelectedScheduledId(scheduledEvent.id);
-                    setScheduledSchedule(createScheduleFromEvent(scheduledEvent));
-                  }}
+              <div className="admin-scheduled-event-item" key={scheduledEvent.id}>
+                <div
+                  className={`admin-scheduled-event-card ${
+                    selectedScheduled?.id === scheduledEvent.id ? 'selected' : ''
+                  }`}
                 >
-                  {selectedScheduled?.id === scheduledEvent.id ? 'Editing' : 'Edit'}
-                </button>
+                  <div className="admin-scheduled-event-cell">
+                    <span>Event</span>
+                    <strong>{scheduledEvent.name}</strong>
+                  </div>
+                  <div className="admin-scheduled-event-cell">
+                    <span>Start</span>
+                    <strong>{formatEventDate(scheduledEvent.startsAt)}</strong>
+                  </div>
+                  <div className="admin-scheduled-event-cell">
+                    <span>End</span>
+                    <strong>{formatEventDate(scheduledEvent.endsAt)}</strong>
+                  </div>
+                  <button
+                    className="admin-secondary-button"
+                    type="button"
+                    disabled={saving}
+                    onClick={() => {
+                      void handleEditScheduledEvent(scheduledEvent);
+                    }}
+                  >
+                    {selectedScheduled?.id === scheduledEvent.id ? 'Editing' : 'Edit'}
+                  </button>
+                </div>
+                {selectedScheduled?.id === scheduledEvent.id && (
+                  <form
+                    className="admin-schedule-event admin-schedule-event-edit"
+                    onSubmit={handleUpdateSchedule}
+                  >
+                    <div className="admin-schedule-heading">
+                      <span className="admin-section-eyebrow">EDIT EVENT</span>
+                      <h3>{selectedScheduled.name}</h3>
+                      <p>Changes are allowed until the event has actually started.</p>
+                    </div>
+                    <div className="admin-schedule-grid">
+                      <label>
+                        Event Name
+                        <input
+                          type="text"
+                          value={scheduledSchedule.name}
+                          disabled={saving}
+                          required
+                          onChange={(eventInput) => {
+                            setScheduledSchedule((current) => ({
+                              ...current,
+                              name: eventInput.target.value,
+                            }));
+                          }}
+                        />
+                      </label>
+                      <label>
+                        Start
+                        <input
+                          type="datetime-local"
+                          value={scheduledSchedule.startsAt}
+                          disabled={saving}
+                          min={minimumStartAt}
+                          required
+                          onChange={(eventInput) => {
+                            setScheduledSchedule((current) => ({
+                              ...current,
+                              startsAt: eventInput.target.value,
+                            }));
+                          }}
+                        />
+                      </label>
+                      <label>
+                        End
+                        <input
+                          type="datetime-local"
+                          value={scheduledSchedule.endsAt}
+                          disabled={saving}
+                          min={scheduledSchedule.startsAt || minimumStartAt}
+                          required
+                          onChange={(eventInput) => {
+                            setScheduledSchedule((current) => ({
+                              ...current,
+                              endsAt: eventInput.target.value,
+                            }));
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="admin-event-participant-picker">
+                      <div className="admin-schedule-heading">
+                        <span className="admin-section-eyebrow">PARTICIPANTS</span>
+                        <h3>Event participants</h3>
+                        <p>
+                          {scheduledEventPlayerIds.length} player
+                          {scheduledEventPlayerIds.length === 1 ? '' : 's'} selected.
+                        </p>
+                      </div>
+                      {scheduledParticipantsLoading ? (
+                        <div className="admin-player-empty">Loading participants...</div>
+                      ) : players.length === 0 ? (
+                        <div className="admin-player-empty">No players are available.</div>
+                      ) : (
+                        <div className="admin-event-participant-list">
+                          {players.map((player) => {
+                            const checked = scheduledEventPlayerIds.includes(player.id);
+                            return (
+                              <label className="admin-event-participant-option" key={player.id}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={
+                                    saving ||
+                                    scheduledParticipantsLoading ||
+                                    (!player.enabled && !checked)
+                                  }
+                                  onChange={() => {
+                                    setScheduledEventPlayerIds((current) =>
+                                      current.includes(player.id)
+                                        ? current.filter((playerId) => playerId !== player.id)
+                                        : [...current, player.id],
+                                    );
+                                  }}
+                                />
+                                <span>
+                                  <strong>{player.gameName}</strong>
+                                  <small>
+                                    #{player.tagLine}
+                                    {!player.enabled ? ' · Disabled' : ''}
+                                  </small>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <div className="admin-form-actions">
+                      <button
+                        className="admin-primary-button"
+                        type="submit"
+                        disabled={saving || scheduledParticipantsLoading}
+                      >
+                        {saving ? 'Saving...' : 'Save Schedule'}
+                      </button>
+                      <button
+                        className="admin-secondary-button"
+                        type="button"
+                        disabled={saving}
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel Editing
+                      </button>
+                      <button
+                        className="admin-danger-button"
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          setConfirmation('cancel-scheduled-event');
+                        }}
+                      >
+                        Cancel Scheduled Event
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             ))}
           </div>
         </div>
-      )}
-      {selectedScheduled && (
-        <form
-          className="admin-schedule-event admin-schedule-event-edit"
-          onSubmit={handleUpdateSchedule}
-        >
-          <div className="admin-schedule-heading">
-            <span className="admin-section-eyebrow">EDIT EVENT</span>
-            <h3>{selectedScheduled.name}</h3>
-            <p>Changes are allowed until the event has actually started.</p>
-          </div>
-          <div className="admin-schedule-grid">
-            <label>
-              Event Name
-              <input
-                type="text"
-                value={scheduledSchedule.name}
-                disabled={saving}
-                required
-                onChange={(eventInput) => {
-                  setScheduledSchedule((current) => ({
-                    ...current,
-                    name: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-            <label>
-              Start
-              <input
-                type="datetime-local"
-                value={scheduledSchedule.startsAt}
-                disabled={saving}
-                min={minimumStartAt}
-                required
-                onChange={(eventInput) => {
-                  setScheduledSchedule((current) => ({
-                    ...current,
-                    startsAt: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-            <label>
-              End
-              <input
-                type="datetime-local"
-                value={scheduledSchedule.endsAt}
-                disabled={saving}
-                min={scheduledSchedule.startsAt || minimumStartAt}
-                required
-                onChange={(eventInput) => {
-                  setScheduledSchedule((current) => ({
-                    ...current,
-                    endsAt: eventInput.target.value,
-                  }));
-                }}
-              />
-            </label>
-          </div>
-          <div className="admin-form-actions">
-            <button className="admin-primary-button" type="submit" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Schedule'}
-            </button>
-
-            <button
-              className="admin-secondary-button"
-              type="button"
-              disabled={saving}
-              onClick={handleCancelEdit}
-            >
-              Cancel Editing
-            </button>
-
-            <button
-              className="admin-danger-button"
-              type="button"
-              disabled={saving}
-              onClick={() => {
-                setConfirmation('cancel-scheduled-event');
-              }}
-            >
-              Cancel Scheduled Event
-            </button>
-          </div>
-        </form>
       )}
       <form className="admin-schedule-event admin-schedule-event-create" onSubmit={handleSchedule}>
         <div className="admin-schedule-heading">
@@ -944,8 +1065,52 @@ function AdminEventPanel({ onUnauthorized, onNotify }: AdminEventPanelProps) {
             />
           </label>
         </div>
+        <div className="admin-event-participant-picker">
+          <div className="admin-schedule-heading">
+            <span className="admin-section-eyebrow">PARTICIPANTS</span>
+            <h3>Event participants</h3>
+            <p>
+              {selectedNewEventPlayerIds.length} of {enabledPlayers.length} enabled player
+              {enabledPlayers.length === 1 ? '' : 's'} selected.
+            </p>
+          </div>
+          {enabledPlayers.length === 0 ? (
+            <div className="admin-player-empty">No enabled players are available.</div>
+          ) : (
+            <div className="admin-event-participant-list">
+              {enabledPlayers.map((player) => {
+                const checked = selectedNewEventPlayerIds.includes(player.id);
+                return (
+                  <label className="admin-event-participant-option" key={player.id}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={saving}
+                      onChange={() => {
+                        setNewEventPlayerIds((current) => {
+                          const selected = current ?? enabledPlayers.map((item) => item.id);
+                          return selected.includes(player.id)
+                            ? selected.filter((playerId) => playerId !== player.id)
+                            : [...selected, player.id];
+                        });
+                      }}
+                    />
+                    <span>
+                      <strong>{player.gameName}</strong>
+                      <small>#{player.tagLine}</small>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div className="admin-form-actions">
-          <button className="admin-primary-button" type="submit" disabled={saving}>
+          <button
+            className="admin-primary-button"
+            type="submit"
+            disabled={saving || enabledPlayers.length === 0}
+          >
             {saving ? 'Scheduling...' : 'Schedule Event'}
           </button>
         </div>

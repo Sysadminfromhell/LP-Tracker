@@ -5,6 +5,7 @@ import {
   endAdminEvent,
   getDueScheduledEvent,
   getEventParticipantPlayerIds,
+  getEventSelectedPlayerIds,
 } from '../db/admin-events';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
@@ -63,13 +64,24 @@ async function eventLifecycleTick(): Promise<void> {
     const scheduledEvent = await getDueScheduledEvent();
     if (scheduledEvent) {
       console.log(`[EVENT] Scheduled event "${scheduledEvent.name}" reached its start time`);
-      const players = await getPlayers(true);
-      if (players.length === 0) {
-        console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no enabled players`);
+      const selectedPlayerIds = new Set(await getEventSelectedPlayerIds(scheduledEvent.id));
+      if (selectedPlayerIds.size === 0) {
+        console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no participants selected`);
+        return;
+      }
+      const allPlayers = await getPlayers(false);
+      const eventPlayers = allPlayers.filter(
+        (player) => player.enabled && selectedPlayerIds.has(player.id),
+      );
+      if (eventPlayers.length !== selectedPlayerIds.size) {
+        console.error(
+          `[EVENT] Cannot start "${scheduledEvent.name}": ` +
+            `not every selected participant is available and enabled`,
+        );
         return;
       }
       await enqueueRefresh(async () => {
-        const failedPlayers = await refreshPlayersForSnapshot(players);
+        const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
         if (failedPlayers.length > 0) {
           console.error(
             `[EVENT] Cannot start "${scheduledEvent.name}": ` +
