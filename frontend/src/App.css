@@ -210,14 +210,6 @@ h1 {
 .podium-rank-current {
   background: rgba(255, 255, 255, 0.032);
 }
-.podium-rank-label {
-  display: block;
-  margin-bottom: 4px;
-  color: #555c72;
-  font-size: 7px;
-  font-weight: 850;
-  letter-spacing: 0.1em;
-}
 .podium-rank-inline {
   display: flex;
   align-items: center;
@@ -1498,13 +1490,6 @@ a.social-link.twitch:hover {
 }
 .admin-player-controls select {
   color-scheme: dark;
-}
-.admin-player-controls select option {
-  background-color: #1b1d27;
-  color: #d8dae3;
-}
-.admin-player-controls select {
-  color-scheme: dark;
   background-color: #1b1d27;
   color: #d8dae3;
 }
@@ -2782,12 +2767,6 @@ a.social-link.twitch:hover {
   display: flex;
   gap: 3px;
   margin-top: 0;
-}
-.match-detail-player.ally .match-detail-items {
-  justify-content: flex-end;
-}
-.match-detail-player.enemy .match-detail-items {
-  justify-content: flex-start;
 }
 .match-detail-item {
   display: block;
