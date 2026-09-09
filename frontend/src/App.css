@@ -62,18 +62,6 @@ h1 {
 .event-ended .live-dot {
   box-shadow: none;
 }
-.updated {
-  color: #62687d;
-  font-size: 11px;
-}
-.summary {
-  margin-bottom: 22px;
-  color: #555b70;
-  font-size: 11px;
-}
-/*
- * Event summary
- */
 .event-summary-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -210,14 +198,6 @@ h1 {
 .podium-rank-current {
   background: rgba(255, 255, 255, 0.032);
 }
-.podium-rank-label {
-  display: block;
-  margin-bottom: 4px;
-  color: #555c72;
-  font-size: 7px;
-  font-weight: 850;
-  letter-spacing: 0.1em;
-}
 .podium-rank-inline {
   display: flex;
   align-items: center;
@@ -249,17 +229,6 @@ h1 {
   margin-top: 2px;
   color: #697086;
   font-size: 10px;
-}
-.podium-rank > strong {
-  display: block;
-  color: #b7bbc9;
-  font-size: 11px;
-}
-.podium-rank > span:not(.podium-rank-label) {
-  display: block;
-  margin-top: 2px;
-  color: #686f84;
-  font-size: 9px;
 }
 .podium-rank-label {
   display: block;
@@ -434,21 +403,6 @@ h1 {
   object-fit: cover;
   border-radius: 9px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.player-name {
-  min-width: 0;
-}
-.player-name strong {
-  display: inline;
-  font-size: 14px;
-  font-weight: 750;
-  white-space: nowrap;
-}
-.player-name span {
-  margin-left: 4px;
-  color: #62687e;
-  font-size: 11px;
-  white-space: nowrap;
 }
 .rank-cell {
   min-width: 0;
@@ -1503,15 +1457,6 @@ a.social-link.twitch:hover {
   background-color: #1b1d27;
   color: #d8dae3;
 }
-.admin-player-controls select {
-  color-scheme: dark;
-  background-color: #1b1d27;
-  color: #d8dae3;
-}
-.admin-player-controls select option {
-  background-color: #1b1d27;
-  color: #d8dae3;
-}
 .admin-player-controls input:focus,
 .admin-player-controls select:focus {
   border-color: rgba(255, 255, 255, 0.16);
@@ -1647,9 +1592,6 @@ a.social-link.twitch:hover {
   margin-top: 18px;
   margin-bottom: 14px;
 }
-.admin-event-overview {
-  margin-bottom: 14px;
-}
 .admin-player-edit-form {
   margin: 0;
   border: 0;
@@ -1720,22 +1662,6 @@ a.social-link.twitch:hover {
 }
 .admin-checkbox-row input {
   accent-color: #6d769f;
-}
-.admin-message {
-  margin-bottom: 14px;
-  padding: 9px 11px;
-  border-radius: 7px;
-  font-size: 9px;
-}
-.admin-message-error {
-  border: 1px solid rgba(237, 113, 130, 0.14);
-  background: rgba(237, 113, 130, 0.055);
-  color: #ed7182;
-}
-.admin-message-success {
-  border: 1px solid rgba(99, 217, 157, 0.12);
-  background: rgba(99, 217, 157, 0.045);
-  color: #63d99d;
 }
 .admin-player-error {
   padding: 8px 14px;
@@ -1820,6 +1746,7 @@ a.social-link.twitch:hover {
     minmax(155px, 1fr)
     110px;
   gap: 10px;
+  margin-bottom: 14px;
 }
 .admin-event-name-block,
 .admin-event-stat {
@@ -1865,8 +1792,7 @@ a.social-link.twitch:hover {
   font-size: 9px;
   font-weight: 700;
 }
-.admin-event-rename input,
-.admin-new-event-controls input {
+.admin-event-rename input {
   width: 100%;
   height: 39px;
   padding: 0 11px;
@@ -1878,8 +1804,7 @@ a.social-link.twitch:hover {
   font: inherit;
   font-size: 11px;
 }
-.admin-event-rename input:focus,
-.admin-new-event-controls input:focus {
+.admin-event-rename input:focus {
   border-color: rgba(126, 135, 203, 0.4);
 }
 .admin-event-rename .admin-secondary-button {
@@ -1981,49 +1906,9 @@ a.social-link.twitch:hover {
   opacity: 0.45;
   cursor: default;
 }
-.admin-new-event {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-top: 20px;
-  padding: 18px;
-  border: 1px solid rgba(99, 217, 157, 0.08);
-  border-radius: 9px;
-  background: rgba(99, 217, 157, 0.018);
-}
-.admin-new-event-empty {
-  margin-top: 0;
-}
-.admin-new-event h3 {
-  margin: 4px 0;
-  color: #d7d9e2;
-  font-size: 13px;
-}
-.admin-new-event p {
-  margin: 0;
-  color: #555b70;
-  font-size: 9px;
-}
-.admin-new-event-controls {
-  display: flex;
-  gap: 8px;
-  width: min(430px, 100%);
-}
-.admin-new-event-controls .admin-primary-button {
-  width: auto;
-  white-space: nowrap;
-}
 @media (max-width: 900px) {
   .admin-event-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .admin-new-event {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .admin-new-event-controls {
-    width: 100%;
   }
 }
 @media (max-width: 600px) {
@@ -2038,35 +1923,6 @@ a.social-link.twitch:hover {
     align-items: stretch;
     flex-direction: column;
   }
-  .admin-new-event-controls {
-    flex-direction: column;
-  }
-}
-.admin-event-status-draft {
-  border: 1px solid rgba(111, 151, 255, 0.16);
-  background: rgba(111, 151, 255, 0.055);
-  color: #7ea1ff;
-}
-.admin-event-scheduled-info {
-  display: flex;
-  align-items: center;
-  margin-top: 18px;
-  padding: 14px 16px;
-  border: 1px solid rgba(111, 151, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(111, 151, 255, 0.025);
-}
-.admin-event-scheduled-info > div {
-  display: grid;
-  gap: 4px;
-}
-.admin-event-scheduled-info strong {
-  color: #9db7ff;
-  font-size: 10px;
-}
-.admin-event-scheduled-info span {
-  color: #5f6880;
-  font-size: 9px;
 }
 .admin-schedule-event {
   margin-top: 20px;
@@ -2409,10 +2265,6 @@ a.social-link.twitch:hover {
   width: 32px;
   height: 32px;
 }
-.rank-current > div,
-.rank-start-content > div {
-  min-width: 0;
-}
 .live:not(.event-ended):not(.event-scheduled) .live-dot {
   animation: livePulse 2s ease-out infinite;
 }
@@ -2623,26 +2475,18 @@ a.social-link.twitch:hover {
 .match-detail-popover {
   position: fixed;
   z-index: 1000;
-  width: min(
-    760px,
-    calc(100vw - 24px)
-  );
+  width: min(680px, calc(100vw - 24px));
   padding: 14px;
-  border: 1px solid
-    rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 13px;
-  background:
-    rgba(12, 14, 22, 0.98);
-  box-shadow:
-    0 24px 70px
-      rgba(0, 0, 0, 0.6);
+  background: rgba(12, 14, 22, 0.98);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(18px);
   pointer-events: none;
   transform: translateX(-50%);
 }
 .match-detail-popover-above {
-  transform:
-    translate(-50%, -100%);
+  transform: translate(-50%, -100%);
 }
 .match-detail-header {
   display: grid;
@@ -2654,9 +2498,7 @@ a.social-link.twitch:hover {
   gap: 12px;
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom:
-    1px solid
-      rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .match-detail-header > div {
   text-align: center;
@@ -2664,7 +2506,7 @@ a.social-link.twitch:hover {
 .match-detail-header strong {
   display: block;
   color: #d8dbe6;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.12em;
 }
@@ -2672,20 +2514,32 @@ a.social-link.twitch:hover {
   display: block;
   margin-top: 2px;
   color: #656c82;
-  font-size: 9px;
+  font-size: 10px;
 }
 .match-detail-team {
-  font-size: 9px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
   font-weight: 900;
-  letter-spacing: 0.12em;
 }
 .match-detail-team.ally {
   color: #7199e8;
-  text-align: right;
+  text-align: left;
 }
 .match-detail-team.enemy {
   color: #df7180;
-  text-align: left;
+  text-align: right;
+}
+.match-detail-team-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.match-detail-team-kda {
+  color: #a9aec0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 .match-detail-roles {
   display: flex;
@@ -2696,117 +2550,90 @@ a.social-link.twitch:hover {
   display: grid;
   grid-template-columns:
     minmax(0, 1fr)
-    48px
+    40px
     minmax(0, 1fr);
   align-items: stretch;
-  gap: 7px;
+  gap: 5px;
 }
 .match-detail-role {
   display: flex;
   align-items: center;
   justify-content: center;
   color: #626a82;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.08em;
 }
 .match-detail-player {
   min-width: 0;
-  padding: 7px 8px;
-  border: 1px solid
-    rgba(255, 255, 255, 0.04);
+  padding: 6px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 8px;
-  background:
-    rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.025);
 }
 .match-detail-player.tracked {
-  border-color:
-    rgba(216, 184, 95, 0.38);
-  background:
-    linear-gradient(
-      135deg,
-      rgba(216, 184, 95, 0.12),
-      rgba(255, 255, 255, 0.025)
-    );
-  box-shadow:
-    inset 0 0 18px
-      rgba(216, 184, 95, 0.05);
+  border-color: rgba(216, 184, 95, 0.38);
+  background: linear-gradient(135deg, rgba(216, 184, 95, 0.12), rgba(255, 255, 255, 0.025));
+  box-shadow: inset 0 0 18px rgba(216, 184, 95, 0.05);
 }
 .match-detail-player-main {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.match-detail-player.ally
-  .match-detail-player-main {
-  justify-content: flex-end;
-}
-.match-detail-player.enemy
-  .match-detail-player-main {
+.match-detail-player.ally .match-detail-items {
   justify-content: flex-start;
+  margin-right: auto;
+}
+.match-detail-player.enemy .match-detail-items {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 .match-detail-stats {
   min-width: 0;
 }
-.match-detail-player.ally
-  .match-detail-stats {
+.match-detail-player.ally .match-detail-stats {
   text-align: right;
 }
-.match-detail-player.enemy
-  .match-detail-stats {
+.match-detail-player.enemy .match-detail-stats {
   text-align: left;
 }
 .match-detail-stats strong {
   display: block;
   color: #d8dbe4;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 850;
   white-space: nowrap;
 }
-.match-detail-player.tracked
-  .match-detail-stats strong {
+.match-detail-player.tracked .match-detail-stats strong {
   color: #ead58e;
 }
 .match-detail-stats span {
   display: block;
   margin-top: 1px;
   color: #686f84;
-  font-size: 8px;
+  font-size: 9px;
   white-space: nowrap;
 }
 .match-detail-champion {
   width: 36px;
   height: 36px;
   flex: 0 0 auto;
-  border: 1px solid
-    rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   object-fit: cover;
 }
-.match-detail-player.tracked
-  .match-detail-champion {
-  border-color:
-    rgba(216, 184, 95, 0.65);
-  box-shadow:
-    0 0 12px
-      rgba(216, 184, 95, 0.22);
+.match-detail-player.tracked .match-detail-champion {
+  border-color: rgba(216, 184, 95, 0.65);
+  box-shadow: 0 0 12px rgba(216, 184, 95, 0.22);
 }
 .match-detail-champion-placeholder {
-  background:
-    rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 .match-detail-items {
   display: flex;
   gap: 3px;
-  margin-top: 5px;
-}
-.match-detail-player.ally
-  .match-detail-items {
-  justify-content: flex-end;
-}
-.match-detail-player.enemy
-  .match-detail-items {
-  justify-content: flex-start;
+  margin-top: 0;
 }
 .match-detail-item {
   display: block;
@@ -2814,11 +2641,9 @@ a.social-link.twitch:hover {
   height: 21px;
   flex: 0 0 auto;
   overflow: hidden;
-  border: 1px solid
-    rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: 4px;
-  background:
-    rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.025);
 }
 .match-detail-item img {
   display: block;
