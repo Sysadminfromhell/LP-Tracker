@@ -6,8 +6,7 @@ const mocks = vi.hoisted(() => ({
   getLeagueDataProviderStatus: vi.fn(),
   getLeagueDataProviderDiagnostics: vi.fn(),
   getRefreshSchedulerStatus: vi.fn(),
-  getOperationState: vi.fn(),
-  getRefreshQueueState: vi.fn(),
+  getJobCoordinatorState: vi.fn(),
   getMonitoringState: vi.fn(),
 }));
 
@@ -27,11 +26,10 @@ vi.mock('../src/services/league-data.service', () => ({
 vi.mock('../src/jobs/refresh-scheduler', () => ({
   getRefreshSchedulerStatus: mocks.getRefreshSchedulerStatus,
 }));
-vi.mock('../src/runtime/operation-state', () => ({
-  getOperationState: mocks.getOperationState,
-}));
-vi.mock('../src/runtime/refresh-queue', () => ({
-  getRefreshQueueState: mocks.getRefreshQueueState,
+vi.mock('../src/runtime/job-coordinator', () => ({
+  jobCoordinator: {
+    getState: mocks.getJobCoordinatorState,
+  },
 }));
 
 import { createApp } from '../src/app';
@@ -82,12 +80,11 @@ beforeEach(() => {
     spacingMs: 5_000,
     spacingSeconds: 5,
   });
-  mocks.getOperationState.mockReturnValue({
-    lifecycleInProgress: true,
-  });
-  mocks.getRefreshQueueState.mockReturnValue({
-    running: false,
-    pending: 0,
+  mocks.getJobCoordinatorState.mockReturnValue({
+    accepting: true,
+    running: null,
+    pending: [],
+    locks: ['event-transition'],
   });
 });
 
@@ -117,7 +114,7 @@ describe('metrics routes', () => {
     expect(response.body).toContain('lp_tracker_players_cached 1');
     expect(response.body).toContain('lp_tracker_provider_connected{provider="riot"} 1');
     expect(response.body).toContain('lp_tracker_operation_refresh_in_progress 0');
-    expect(mocks.getRefreshQueueState).toHaveBeenCalledTimes(1);
+    expect(mocks.getJobCoordinatorState).toHaveBeenCalledTimes(1);
     expect(response.body).toContain('lp_tracker_operation_lifecycle_in_progress 1');
     expect(response.body).toContain('lp_tracker_scheduler_spacing_seconds 5');
     expect(response.body).toContain('lp_tracker_riot_rate_limit{window_seconds="120"} 100');

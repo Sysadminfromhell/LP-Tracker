@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-
 import { closeDatabase } from '../db/client';
 import { stopRefreshScheduler } from '../jobs/refresh-scheduler';
 import { stopEventLifecycle } from '../jobs/event-lifecycle';
 import { disconnectLeagueDataProvider } from '../services/league-data.service';
 import { closeLiveUpdateClients } from '../services/live-update.service';
+import { jobCoordinator } from './job-coordinator';
 
 export function createShutdownHandler(app: FastifyInstance): () => Promise<void> {
   let shuttingDown = false;
@@ -17,6 +17,8 @@ export function createShutdownHandler(app: FastifyInstance): () => Promise<void>
     console.log('[APP] Shutting down...');
     stopRefreshScheduler();
     stopEventLifecycle();
+    jobCoordinator.stopAcceptingJobs();
+    await jobCoordinator.waitForIdle();
     closeLiveUpdateClients();
     await disconnectLeagueDataProvider().catch(() => {});
     await app.close().catch(() => {});

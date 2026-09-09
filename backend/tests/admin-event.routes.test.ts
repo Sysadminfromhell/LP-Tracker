@@ -19,9 +19,9 @@ const mocks = vi.hoisted(() => ({
   updateScheduledEvent: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   refreshPlayersForSnapshot: vi.fn(),
-  getOperationState: vi.fn(),
-  setLifecycleInProgress: vi.fn(),
-  enqueueRefresh: vi.fn(),
+  tryAcquireLock: vi.fn(),
+  releaseTransitionLock: vi.fn(),
+  enqueueJob: vi.fn(),
 }));
 
 vi.mock('../src/auth/admin-auth', () => ({
@@ -51,12 +51,11 @@ vi.mock('../src/services/leaderboard.service', () => ({
 vi.mock('../src/services/player-refresh.service', () => ({
   refreshPlayersForSnapshot: mocks.refreshPlayersForSnapshot,
 }));
-vi.mock('../src/runtime/operation-state', () => ({
-  getOperationState: mocks.getOperationState,
-  setLifecycleInProgress: mocks.setLifecycleInProgress,
-}));
-vi.mock('../src/runtime/refresh-queue', () => ({
-  enqueueRefresh: mocks.enqueueRefresh,
+vi.mock('../src/runtime/job-coordinator', () => ({
+  jobCoordinator: {
+    enqueue: mocks.enqueueJob,
+    tryAcquireLock: mocks.tryAcquireLock,
+  },
 }));
 
 import { adminEventRoutes } from '../src/routes/admin-event.routes';
@@ -144,10 +143,11 @@ beforeEach(() => {
   mocks.refreshPlayersForSnapshot.mockResolvedValue([]);
   mocks.endAdminEvent.mockResolvedValue(endedEvent);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
-  mocks.getOperationState.mockReturnValue({
-    lifecycleInProgress: false,
-  });
-  mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
+  mocks.releaseTransitionLock.mockReset();
+  mocks.tryAcquireLock.mockReturnValue(mocks.releaseTransitionLock);
+  mocks.enqueueJob.mockImplementation(async (_request: unknown, task: () => Promise<unknown>) =>
+    task(),
+  );
 });
 
 describe('admin event routes', () => {
@@ -546,17 +546,15 @@ describe('admin event routes', () => {
       expect(response.json()).toEqual({
         error: 'Only active events can be ended',
       });
-      expect(mocks.setLifecycleInProgress).not.toHaveBeenCalled();
-      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
+      expect(mocks.tryAcquireLock).not.toHaveBeenCalled();
+      expect(mocks.enqueueJob).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
   });
   it('rejects ending an event while another event transition is running', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
-    mocks.getOperationState.mockReturnValue({
-      lifecycleInProgress: true,
-    });
+    mocks.tryAcquireLock.mockReturnValue(null);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -567,17 +565,16 @@ describe('admin event routes', () => {
       expect(response.json()).toEqual({
         error: 'An event transition is currently in progress',
       });
-      expect(mocks.setLifecycleInProgress).not.toHaveBeenCalled();
-      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
+      expect(mocks.tryAcquireLock).toHaveBeenCalledWith('event-transition');
+      expect(mocks.releaseTransitionLock).not.toHaveBeenCalled();
+      expect(mocks.enqueueJob).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
   });
-  it('queues ending an event through the refresh queue', async () => {
+  it('queues manual event ending as an event-end job', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
-    mocks.getOperationState.mockReturnValue({
-      lifecycleInProgress: false,
-    });
+    mocks.tryAcquireLock.mockReturnValue(mocks.releaseTransitionLock);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -585,9 +582,14 @@ describe('admin event routes', () => {
         url: '/api/admin/events/2/end',
       });
       expect(response.statusCode).toBe(200);
-      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
-      expect(mocks.setLifecycleInProgress).toHaveBeenNthCalledWith(1, true);
-      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.enqueueJob).toHaveBeenCalledWith(
+        {
+          type: 'event-end',
+        },
+        expect.any(Function),
+      );
+      expect(mocks.tryAcquireLock).toHaveBeenCalledWith('event-transition');
+      expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
     } finally {
       await app.close();
     }
@@ -607,8 +609,8 @@ describe('admin event routes', () => {
         error: 'Not every event participant could be loaded',
       });
       expect(mocks.refreshPlayersForSnapshot).not.toHaveBeenCalled();
-      expect(mocks.setLifecycleInProgress).toHaveBeenNthCalledWith(1, true);
-      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.tryAcquireLock).toHaveBeenCalledWith('event-transition');
+      expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
     } finally {
       await app.close();
     }
@@ -627,7 +629,7 @@ describe('admin event routes', () => {
         error: 'Could not refresh every participant before ending the event',
       });
       expect(mocks.endAdminEvent).not.toHaveBeenCalled();
-      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
     } finally {
       await app.close();
     }
@@ -643,11 +645,16 @@ describe('admin event routes', () => {
       expect(response.statusCode).toBe(200);
       expect(mocks.getEventParticipantPlayerIds).toHaveBeenCalledWith(2);
       expect(mocks.getPlayers).toHaveBeenCalledWith(false);
-      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.enqueueJob).toHaveBeenCalledWith(
+        {
+          type: 'event-end',
+        },
+        expect.any(Function),
+      );
       expect(mocks.refreshPlayersForSnapshot).toHaveBeenCalledWith([firstPlayer, secondPlayer]);
       expect(mocks.endAdminEvent).toHaveBeenCalledWith(2);
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
-      expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
+      expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
       expect(response.json()).toEqual({
         ok: true,
         event: endedEvent,
@@ -665,7 +672,7 @@ describe('admin event routes', () => {
       'Could not create a final snapshot for every participant',
     ],
   ])(
-    'maps event-end error %s and releases the operation lock',
+    'maps event-end error %s and releases the transition lock',
     async (errorCode, expectedStatus, expectedMessage) => {
       mocks.getAdminEventById.mockResolvedValue(activeEvent);
       mocks.endAdminEvent.mockRejectedValue(new Error(errorCode));
@@ -679,7 +686,7 @@ describe('admin event routes', () => {
         expect(response.json()).toEqual({
           error: expectedMessage,
         });
-        expect(mocks.setLifecycleInProgress).toHaveBeenLastCalledWith(false);
+        expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
       } finally {
         await app.close();
       }

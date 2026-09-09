@@ -17,8 +17,8 @@ const mocks = vi.hoisted(() => ({
   getLeagueDataProvider: vi.fn(),
   refreshPlayer: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
-  getOperationState: vi.fn(),
-  enqueueRefresh: vi.fn(),
+  isLockHeld: vi.fn(),
+  enqueueJob: vi.fn(),
   calculateRankScore: vi.fn(),
   getSummonerProfile: vi.fn(),
   getRecentMatches: vi.fn(),
@@ -53,11 +53,11 @@ vi.mock('../src/services/player-refresh.service', () => ({
 vi.mock('../src/services/leaderboard.service', () => ({
   loadLeaderboardFromDatabase: mocks.loadLeaderboardFromDatabase,
 }));
-vi.mock('../src/runtime/operation-state', () => ({
-  getOperationState: mocks.getOperationState,
-}));
-vi.mock('../src/runtime/refresh-queue', () => ({
-  enqueueRefresh: mocks.enqueueRefresh,
+vi.mock('../src/runtime/job-coordinator', () => ({
+  jobCoordinator: {
+    enqueue: mocks.enqueueJob,
+    isLockHeld: mocks.isLockHeld,
+  },
 }));
 vi.mock('../src/rank', () => ({
   calculateRankScore: mocks.calculateRankScore,
@@ -135,10 +135,10 @@ beforeEach(() => {
   mocks.addPlayerToActiveEvent.mockResolvedValue(true);
   mocks.refreshPlayer.mockResolvedValue(true);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
-  mocks.getOperationState.mockReturnValue({
-    lifecycleInProgress: false,
-  });
-  mocks.enqueueRefresh.mockImplementation(async (task: () => Promise<unknown>) => task());
+  mocks.isLockHeld.mockReturnValue(false);
+  mocks.enqueueJob.mockImplementation(async (_request: unknown, task: () => Promise<unknown>) =>
+    task(),
+  );
   mocks.calculateRankScore.mockReturnValue(1450);
   mocks.getSummonerProfile.mockResolvedValue(rankedProfile);
   mocks.getRecentMatches.mockResolvedValue([]);
@@ -185,9 +185,7 @@ describe('admin player routes', () => {
     }
   });
   it('rejects a manual refresh while an event transition is running', async () => {
-    mocks.getOperationState.mockReturnValue({
-      lifecycleInProgress: true,
-    });
+    mocks.isLockHeld.mockReturnValue(true);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -198,16 +196,14 @@ describe('admin player routes', () => {
       expect(response.json()).toEqual({
         error: 'An event transition is currently in progress',
       });
-      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
+      expect(mocks.enqueueJob).not.toHaveBeenCalled();
       expect(mocks.refreshPlayer).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
   });
   it('queues a manual refresh while another refresh is already running', async () => {
-    mocks.getOperationState.mockReturnValue({
-      lifecycleInProgress: false,
-    });
+    mocks.isLockHeld.mockReturnValue(false);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -215,7 +211,13 @@ describe('admin player routes', () => {
         url: '/api/admin/players/1/refresh',
       });
       expect(response.statusCode).toBe(200);
-      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.enqueueJob).toHaveBeenCalledWith(
+        {
+          type: 'manual-player-refresh',
+          key: `player:${player.id}`,
+        },
+        expect.any(Function),
+      );
       expect(mocks.refreshPlayer).toHaveBeenCalledWith(player);
     } finally {
       await app.close();
@@ -230,7 +232,13 @@ describe('admin player routes', () => {
       });
       expect(response.statusCode).toBe(200);
       expect(mocks.getPlayers).toHaveBeenCalledWith(false);
-      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.enqueueJob).toHaveBeenCalledWith(
+        {
+          type: 'manual-player-refresh',
+          key: `player:${player.id}`,
+        },
+        expect.any(Function),
+      );
       expect(mocks.refreshPlayer).toHaveBeenCalledWith(player);
       expect(response.json()).toEqual({
         ok: true,
@@ -266,16 +274,20 @@ describe('admin player routes', () => {
         ],
       });
       expect(mocks.getPlayers).toHaveBeenCalledWith(true);
-      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.enqueueJob).toHaveBeenCalledWith(
+        {
+          type: 'manual-refresh-all',
+          key: 'enabled-players',
+        },
+        expect.any(Function),
+      );
       expect(mocks.refreshPlayer).toHaveBeenCalledTimes(2);
     } finally {
       await app.close();
     }
   });
   it('queues refresh-all while another refresh is already running', async () => {
-    mocks.getOperationState.mockReturnValue({
-      lifecycleInProgress: false,
-    });
+    mocks.isLockHeld.mockReturnValue(false);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -283,16 +295,20 @@ describe('admin player routes', () => {
         url: '/api/admin/players/refresh-all',
       });
       expect(response.statusCode).toBe(200);
-      expect(mocks.enqueueRefresh).toHaveBeenCalledTimes(1);
+      expect(mocks.enqueueJob).toHaveBeenCalledWith(
+        {
+          type: 'manual-refresh-all',
+          key: 'enabled-players',
+        },
+        expect.any(Function),
+      );
       expect(mocks.refreshPlayer).toHaveBeenCalledWith(player);
     } finally {
       await app.close();
     }
   });
   it('rejects refresh-all while an event transition is running', async () => {
-    mocks.getOperationState.mockReturnValue({
-      lifecycleInProgress: true,
-    });
+    mocks.isLockHeld.mockReturnValue(true);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -303,7 +319,7 @@ describe('admin player routes', () => {
       expect(response.json()).toEqual({
         error: 'An event transition is currently in progress',
       });
-      expect(mocks.enqueueRefresh).not.toHaveBeenCalled();
+      expect(mocks.enqueueJob).not.toHaveBeenCalled();
       expect(mocks.refreshPlayer).not.toHaveBeenCalled();
     } finally {
       await app.close();

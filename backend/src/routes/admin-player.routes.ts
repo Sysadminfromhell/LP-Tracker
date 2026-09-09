@@ -12,8 +12,7 @@ import {
 import { getLeagueDataProvider } from '../services/league-data.service';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
-import { getOperationState } from '../runtime/operation-state';
-import { enqueueRefresh } from '../runtime/refresh-queue';
+import { jobCoordinator } from '../runtime/job-coordinator';
 import { calculateRankScore } from '../rank';
 
 export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
@@ -42,8 +41,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         error: 'Invalid player id',
       });
     }
-    const operationState = getOperationState();
-    if (operationState.lifecycleInProgress) {
+    if (jobCoordinator.isLockHeld('event-transition')) {
       return reply.code(409).send({
         error: 'An event transition is currently in progress',
       });
@@ -60,7 +58,13 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         `[ADMIN] ${admin.username} requested manual refresh for ` +
           `${player.gameName}#${player.tagLine}`,
       );
-      const refreshed = await enqueueRefresh(() => refreshPlayer(player));
+      const refreshed = await jobCoordinator.enqueue(
+        {
+          type: 'manual-player-refresh',
+          key: `player:${player.id}`,
+        },
+        () => refreshPlayer(player),
+      );
       if (!refreshed) {
         return reply.code(502).send({
           error: `Could not refresh ${player.gameName}#${player.tagLine}`,
@@ -85,8 +89,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
     if (!admin) {
       return;
     }
-    const operationState = getOperationState();
-    if (operationState.lifecycleInProgress) {
+    if (jobCoordinator.isLockHeld('event-transition')) {
       return reply.code(409).send({
         error: 'An event transition is currently in progress',
       });
@@ -102,20 +105,26 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         `[ADMIN] ${admin.username} requested manual refresh for all ` +
           `${players.length} enabled player(s)`,
       );
-      const failedPlayers = await enqueueRefresh(async () => {
-        const failed: Player[] = [];
-        for (const [index, player] of players.entries()) {
-          console.log(
-            `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
-              `${player.gameName}#${player.tagLine}`,
-          );
-          const refreshed = await refreshPlayer(player);
-          if (!refreshed) {
-            failed.push(player);
+      const failedPlayers = await jobCoordinator.enqueue(
+        {
+          type: 'manual-refresh-all',
+          key: 'enabled-players',
+        },
+        async () => {
+          const failed: Player[] = [];
+          for (const [index, player] of players.entries()) {
+            console.log(
+              `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
+                `${player.gameName}#${player.tagLine}`,
+            );
+            const refreshed = await refreshPlayer(player);
+            if (!refreshed) {
+              failed.push(player);
+            }
           }
-        }
-        return failed;
-      });
+          return failed;
+        },
+      );
       const adminPlayers = await getAdminPlayers();
       if (failedPlayers.length > 0) {
         return reply.code(502).send({
