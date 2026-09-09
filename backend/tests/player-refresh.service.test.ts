@@ -196,6 +196,7 @@ describe('refreshPlayer provider reliability', () => {
       profile.lpHistory,
       {
         resolveLpDeltas: true,
+        advanceSyncAnchor: true,
       },
     );
   });
@@ -357,6 +358,7 @@ describe('refreshPlayer provider reliability', () => {
       profile.lpHistory,
       {
         resolveLpDeltas: true,
+        advanceSyncAnchor: true,
       },
     );
   });
@@ -399,6 +401,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(eventRefreshCall?.[3]).toHaveLength(20);
     expect(eventRefreshCall?.[6]).toEqual({
       resolveLpDeltas: false,
+      advanceSyncAnchor: false,
     });
     expect(mocks.savePlayerCacheError).not.toHaveBeenCalled();
     expect(mocks.setLeaderboardPlayerError).not.toHaveBeenCalled();

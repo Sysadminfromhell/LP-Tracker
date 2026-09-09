@@ -28,7 +28,7 @@ describe('event database queries', () => {
     const result = await getLatestEventMatchCursor(42);
     expect(mocks.query).toHaveBeenCalledTimes(1);
     expect(mocks.query).toHaveBeenCalledWith(
-      expect.stringContaining("lp_delta_status IN ('resolved', 'unknown')"),
+      expect.stringContaining('is_sync_anchor = TRUE'),
       [42],
     );
     expect(result).toEqual({

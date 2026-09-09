@@ -361,7 +361,7 @@ export async function getLatestEventMatchCursor(
       FROM event_matches
       WHERE
         event_participant_id = $1
-        AND lp_delta_status IN ('resolved', 'unknown')
+        AND is_sync_anchor = TRUE
       ORDER BY
         game_created_at DESC,
         id DESC

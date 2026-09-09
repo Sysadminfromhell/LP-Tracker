@@ -124,6 +124,7 @@ export async function refreshPlayer(
           profile.lpHistory,
           {
             resolveLpDeltas: matchSync.anchorReached,
+            advanceSyncAnchor: matchSync.anchorReached,
           },
         );
         refreshedEventId = event.id;

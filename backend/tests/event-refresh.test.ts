@@ -234,6 +234,7 @@ describe('event refresh', () => {
       [],
       {
         resolveLpDeltas: false,
+        advanceSyncAnchor: false,
       },
     );
     expect(result).toEqual({
@@ -247,6 +248,10 @@ describe('event refresh', () => {
         String(sql).includes('UPDATE event_participants'),
     );
     expect(lpUpdateCalls).toHaveLength(0);
+    const anchorUpdateCalls = mocks.query.mock.calls.filter(([sql]) =>
+      String(sql).includes('is_sync_anchor'),
+    );
+    expect(anchorUpdateCalls).toHaveLength(0);
   });
   it('stores rich details and prunes details outside the newest three matches', async () => {
     mocks.insertRowCounts = [1];

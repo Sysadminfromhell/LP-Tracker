@@ -19,6 +19,7 @@ export interface EventRefreshResult {
 }
 export interface EventRefreshOptions {
   resolveLpDeltas?: boolean;
+  advanceSyncAnchor?: boolean;
 }
 export async function updateEventAfterPlayerRefresh(
   eventParticipantId: number,
@@ -31,6 +32,7 @@ export async function updateEventAfterPlayerRefresh(
 ): Promise<EventRefreshResult> {
   const client = await db.connect();
   const resolveLpDeltas = options.resolveLpDeltas ?? true;
+  const advanceSyncAnchor = options.advanceSyncAnchor ?? true;
   try {
     await client.query('BEGIN');
     const participantResult = await client.query<ParticipantState>(
@@ -260,6 +262,33 @@ export async function updateEventAfterPlayerRefresh(
           [eventParticipantId, currentRankScore],
         );
       }
+    }
+    const newestRankedMatch = rankedMatches.at(-1);
+    if (advanceSyncAnchor && newestRankedMatch) {
+      await client.query(
+        `
+      UPDATE event_matches
+      SET
+        is_sync_anchor = FALSE,
+        updated_at = NOW()
+      WHERE
+        event_participant_id = $1
+        AND is_sync_anchor = TRUE
+    `,
+        [eventParticipantId],
+      );
+      await client.query(
+        `
+      UPDATE event_matches
+      SET
+        is_sync_anchor = TRUE,
+        updated_at = NOW()
+      WHERE
+        event_participant_id = $1
+        AND provider_match_id = $2
+    `,
+        [eventParticipantId, newestRankedMatch.id],
+      );
     }
     await client.query('COMMIT');
     const refreshResult = {
