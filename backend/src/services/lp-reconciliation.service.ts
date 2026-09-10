@@ -101,16 +101,18 @@ export async function reconcileLpParticipant(
         `LP chain ended at ${finalResolution.rankScoreAfter}, expected ${expectedRightRankScore}`,
       );
     }
-    const result = await applyLpReconciliationResolutions(
+    const result = await applyLpReconciliationResolutions({
       eventParticipantId,
-      context.leftRankScore,
-      context.rightRankScore,
-      resolutions.map((resolution) => ({
+      attemptCount,
+      expectedLeftRankScore: context.leftRankScore,
+      expectedRightRankScore: context.rightRankScore,
+      expectedRightBoundaryAt: context.rightBoundaryAt,
+      resolutions: resolutions.map((resolution) => ({
         providerMatchId: resolution.matchId,
         lpDelta: resolution.lpDelta,
         rankScoreAfter: resolution.rankScoreAfter,
       })),
-    );
+    });
     if (!result.applied) {
       if (!result.remainingUnresolved) {
         await completeLpReconciliation(eventParticipantId);
