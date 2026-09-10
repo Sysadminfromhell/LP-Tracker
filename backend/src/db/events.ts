@@ -36,6 +36,7 @@ export interface DbEventMatch {
   eventParticipantId: number;
   providerMatchId: string;
   gameCreatedAt: string;
+  durationSeconds: number | null;
   championId: number;
   champion: string;
   position: string;
@@ -98,6 +99,7 @@ interface EventMatchRow {
   event_participant_id: string;
   provider_match_id: string;
   game_created_at: Date;
+  duration_seconds: number | null;
   champion_id: number;
   champion: string;
   position: string;
@@ -161,6 +163,7 @@ function mapMatch(row: EventMatchRow): DbEventMatch {
     eventParticipantId: Number(row.event_participant_id),
     providerMatchId: row.provider_match_id,
     gameCreatedAt: row.game_created_at.toISOString(),
+    durationSeconds: row.duration_seconds,
     championId: row.champion_id,
     champion: row.champion,
     position: row.position,
@@ -175,11 +178,6 @@ function mapMatch(row: EventMatchRow): DbEventMatch {
     updatedAt: row.updated_at.toISOString(),
   };
 }
-/*
- * ------------------------------------------------------------
- * Events
- * ------------------------------------------------------------
- */
 export async function getActiveEvent(): Promise<DbEvent | null> {
   const result = await db.query<EventRow>(
     `
@@ -487,6 +485,7 @@ export interface CreateEventMatchInput {
   eventParticipantId: number;
   providerMatchId: string;
   gameCreatedAt: string;
+  durationSeconds: number | null;
   championId: number;
   champion: string;
   position: string;
@@ -505,6 +504,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
         event_participant_id,
         provider_match_id,
         game_created_at,
+        duration_seconds,
         champion_id,
         champion,
         position,
@@ -529,7 +529,8 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
         $10,
         $11,
         $12,
-        $13
+        $13,
+        $14
       )
       ON CONFLICT (
         event_participant_id,
@@ -542,6 +543,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
         event_participant_id,
         provider_match_id,
         game_created_at,
+        duration_seconds,
         champion_id,
         champion,
         position,
@@ -559,6 +561,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
       input.eventParticipantId,
       input.providerMatchId,
       input.gameCreatedAt,
+      input.durationSeconds,
       input.championId,
       input.champion,
       input.position,

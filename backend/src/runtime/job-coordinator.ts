@@ -3,7 +3,8 @@ export type JobType =
   | 'event-end'
   | 'manual-player-refresh'
   | 'manual-refresh-all'
-  | 'scheduled-player-refresh';
+  | 'scheduled-player-refresh'
+  | 'lp-reconciliation';
 export type CoordinatorLock = 'event-transition';
 export const JOB_PRIORITIES: Readonly<Record<JobType, number>> = {
   'event-end': 110,
@@ -11,6 +12,7 @@ export const JOB_PRIORITIES: Readonly<Record<JobType, number>> = {
   'manual-refresh-all': 60,
   'manual-player-refresh': 50,
   'scheduled-player-refresh': 10,
+  'lp-reconciliation': 5,
 };
 
 export interface JobRequest {

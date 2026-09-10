@@ -10,6 +10,9 @@ export interface ResolvedMatchLpDelta {
   lpDelta: number;
   rankScoreAfter: number;
 }
+export interface LpHistoryResolutionOptions {
+  rightBoundaryAt?: string | null;
+}
 interface ScoredHistoryEntry {
   createdAt: number;
   rankScore: number;
@@ -19,6 +22,7 @@ export function resolveLpHistoryDeltas(
   previousRankScore: number,
   matches: LpHistoryMatchReference[],
   lpHistory: RankedLpHistoryEntry[],
+  options: LpHistoryResolutionOptions = {},
 ): ResolvedMatchLpDelta[] {
   const rankedMatches = [...matches].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
@@ -37,6 +41,14 @@ export function resolveLpHistoryDeltas(
     .filter((entry): entry is ScoredHistoryEntry => entry !== null)
     .sort((a, b) => a.createdAt - b.createdAt);
 
+  let rightBoundary = Number.POSITIVE_INFINITY;
+  if (options.rightBoundaryAt !== undefined && options.rightBoundaryAt !== null) {
+    rightBoundary = new Date(options.rightBoundaryAt).getTime();
+    if (!Number.isFinite(rightBoundary)) {
+      throw new Error(`Invalid LP history right boundary: ${options.rightBoundaryAt}`);
+    }
+  }
+
   const resolutions: ResolvedMatchLpDelta[] = [];
   let previousScore = previousRankScore;
   let historyIndex = 0;
@@ -45,9 +57,7 @@ export function resolveLpHistoryDeltas(
     const match = rankedMatches[index];
     const windowStart = new Date(match.createdAt).getTime();
     const nextMatch = rankedMatches[index + 1];
-    const windowEnd = nextMatch
-      ? new Date(nextMatch.createdAt).getTime()
-      : Number.POSITIVE_INFINITY;
+    const windowEnd = nextMatch ? new Date(nextMatch.createdAt).getTime() : rightBoundary;
     while (historyIndex < history.length && history[historyIndex].createdAt < windowStart) {
       historyIndex++;
     }

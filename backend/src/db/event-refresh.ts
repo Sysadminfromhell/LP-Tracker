@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { db } from './client';
 import { syncRecentEventMatchDetails } from './event-match-details';
 import type { RankedLpHistoryEntry, SummonerMatch } from '../providers/league-data.types';
@@ -12,6 +13,52 @@ interface PendingMatchRow {
   provider_match_id: string;
   game_created_at: Date;
 }
+
+async function syncLpReconciliationQueueState(
+  client: PoolClient,
+  eventParticipantId: number,
+): Promise<void> {
+  const unresolvedResult = await client.query<{ has_unresolved: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM event_matches
+        WHERE
+          event_participant_id = $1
+          AND lp_delta_status IN ('pending', 'unknown')
+      ) AS has_unresolved
+    `,
+    [eventParticipantId],
+  );
+  const hasUnresolved = unresolvedResult.rows[0]?.has_unresolved ?? false;
+  if (hasUnresolved) {
+    await client.query(
+      `
+        INSERT INTO lp_reconciliation_queue (
+          event_participant_id,
+          next_attempt_at
+        )
+        VALUES (
+          $1,
+          NOW()
+        )
+        ON CONFLICT (event_participant_id)
+        DO NOTHING
+      `,
+      [eventParticipantId],
+    );
+
+    return;
+  }
+  await client.query(
+    `
+      DELETE FROM lp_reconciliation_queue
+      WHERE event_participant_id = $1
+    `,
+    [eventParticipantId],
+  );
+}
+
 export interface EventRefreshResult {
   newMatches: number;
   resolvedMatches: number;
@@ -76,6 +123,7 @@ export async function updateEventAfterPlayerRefresh(
             event_participant_id,
             provider_match_id,
             game_created_at,
+            duration_seconds,
             champion_id,
             champion,
             position,
@@ -86,7 +134,7 @@ export async function updateEventAfterPlayerRefresh(
             result,
             lp_delta,
             lp_delta_status
-          )
+            )
           VALUES (
             $1,
             $2,
@@ -99,6 +147,7 @@ export async function updateEventAfterPlayerRefresh(
             $9,
             $10,
             $11,
+            $12,
             NULL,
             'pending'
           )
@@ -113,6 +162,7 @@ export async function updateEventAfterPlayerRefresh(
           eventParticipantId,
           match.id,
           match.createdAt,
+          match.durationSeconds,
           match.championId,
           match.champion,
           match.position,
@@ -125,6 +175,20 @@ export async function updateEventAfterPlayerRefresh(
       );
       if (result.rowCount === 1) {
         newMatches++;
+      } else {
+        await client.query(
+          `
+          UPDATE event_matches
+          SET
+            duration_seconds = $3,
+            updated_at = NOW()
+          WHERE
+           event_participant_id = $1
+            AND provider_match_id = $2
+            AND duration_seconds IS NULL
+          `,
+          [eventParticipantId, match.id, match.durationSeconds],
+        );
       }
     }
     const pendingResult = await client.query<PendingMatchRow>(
@@ -176,14 +240,15 @@ export async function updateEventAfterPlayerRefresh(
           }
           await client.query(
             `
-        UPDATE event_matches
-        SET
-          lp_delta = $2,
-          lp_delta_status = 'resolved',
-          updated_at = NOW()
-        WHERE id = $1
-        `,
-            [match.id, resolution.lpDelta],
+            UPDATE event_matches
+            SET
+              lp_delta = $2,
+              rank_score_after = $3,
+              lp_delta_status = 'resolved',
+              updated_at = NOW()
+            WHERE id = $1
+            `,
+            [match.id, resolution.lpDelta, resolution.rankScoreAfter],
           );
         }
         await client.query(
@@ -205,14 +270,15 @@ export async function updateEventAfterPlayerRefresh(
         const lpDelta = currentRankScore - previousRankScore;
         await client.query(
           `
-      UPDATE event_matches
-      SET
-        lp_delta = $2,
-        lp_delta_status = 'resolved',
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-          [pending[0].id, lpDelta],
+          UPDATE event_matches
+          SET
+            lp_delta = $2,
+            rank_score_after = $3,
+            lp_delta_status = 'resolved',
+            updated_at = NOW()
+          WHERE id = $1
+          `,
+          [pending[0].id, lpDelta, currentRankScore],
         );
         await client.query(
           `
@@ -290,6 +356,7 @@ export async function updateEventAfterPlayerRefresh(
         [eventParticipantId, newestRankedMatch.id],
       );
     }
+    await syncLpReconciliationQueueState(client, eventParticipantId);
     await client.query('COMMIT');
     const refreshResult = {
       newMatches,

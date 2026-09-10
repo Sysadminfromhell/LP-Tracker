@@ -5,6 +5,7 @@ import { stopEventLifecycle } from '../jobs/event-lifecycle';
 import { disconnectLeagueDataProvider } from '../services/league-data.service';
 import { closeLiveUpdateClients } from '../services/live-update.service';
 import { jobCoordinator } from './job-coordinator';
+import { stopLpReconciliationWorker } from '../jobs/lp-reconciliation';
 
 export function createShutdownHandler(app: FastifyInstance): () => Promise<void> {
   let shuttingDown = false;
@@ -18,6 +19,7 @@ export function createShutdownHandler(app: FastifyInstance): () => Promise<void>
     stopRefreshScheduler();
     stopEventLifecycle();
     jobCoordinator.stopAcceptingJobs();
+    stopLpReconciliationWorker();
     await jobCoordinator.waitForIdle();
     closeLiveUpdateClients();
     await disconnectLeagueDataProvider().catch(() => {});

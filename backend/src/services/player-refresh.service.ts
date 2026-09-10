@@ -23,6 +23,7 @@ import {
   recordPlayerRefreshSuccess,
   recordPlayerRefreshSuccessTimestamp,
 } from '../runtime/monitoring-state';
+import { recordLpRankObservation } from '../db/lp-reconciliation';
 
 interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
@@ -58,7 +59,7 @@ export async function refreshPlayer(
       profileTimeoutMs,
       `Provider profile request timed out after ${profileTimeoutMs}ms`,
     );
-
+    const rankObservedAt = new Date();
     const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
     if (!solo) {
       throw new Error('No Solo Queue information returned by league data provider');
@@ -123,9 +124,15 @@ export async function refreshPlayer(
           rankScore,
           profile.lpHistory,
           {
-            resolveLpDeltas: matchSync.anchorReached,
+            resolveLpDeltas: false,
             advanceSyncAnchor: matchSync.anchorReached,
           },
+        );
+        await recordLpRankObservation(
+          participant.id,
+          rankScore,
+          rankObservedAt,
+          matchResult.newMatches > 0,
         );
         refreshedEventId = event.id;
         if (

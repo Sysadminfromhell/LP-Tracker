@@ -3,6 +3,7 @@ import { bootstrapApplication } from './runtime/bootstrap';
 import { createShutdownHandler } from './runtime/shutdown';
 import { startRefreshScheduler } from './jobs/refresh-scheduler';
 import { startEventLifecycle } from './jobs/event-lifecycle';
+import { startLpReconciliationWorker } from './jobs/lp-reconciliation';
 
 const fastify = createApplication();
 const shutdown = createShutdownHandler(fastify);
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
   console.log();
   startRefreshScheduler();
   startEventLifecycle();
+  startLpReconciliationWorker();
 }
 process.on('SIGINT', () => {
   void shutdown().finally(() => process.exit(0));
@@ -30,11 +32,6 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   void shutdown().finally(() => process.exit(0));
 });
-/*
- * ============================================================
- * Start
- * ============================================================
- */
 main().catch(async (error) => {
   console.error();
   console.error('[APP] Fatal startup error:');
