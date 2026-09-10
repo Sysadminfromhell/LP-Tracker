@@ -102,6 +102,23 @@ describe('LP history resolver', () => {
       },
     ]);
   });
+  it('limits the final match window with rightBoundaryAt', () => {
+    const matches = [createMatch('match-1', '2026-09-05T10:00:00.000Z', 'WIN')];
+    const history = [
+      createHistory('2026-09-05T10:20:00.000Z', 72),
+      createHistory('2026-09-05T11:00:00.000Z', 90),
+    ];
+    const result = resolveLpHistoryDeltas(1450, matches, history, {
+      rightBoundaryAt: '2026-09-05T10:30:00.000Z',
+    });
+    expect(result).toEqual([
+      {
+        matchId: 'match-1',
+        lpDelta: 22,
+        rankScoreAfter: 1472,
+      },
+    ]);
+  });
   it('ignores invalid LP history entries', () => {
     const matches = [createMatch('match-1', '2026-09-05T10:00:00.000Z', 'WIN')];
     const history: RankedLpHistoryEntry[] = [
