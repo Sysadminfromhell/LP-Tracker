@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   insertRowCounts: [] as number[],
   eventMatchIds: {} as Record<string, string>,
+  queueHasUnresolved: false,
 }));
 
 vi.mock('../src/db/client', () => ({
@@ -69,6 +70,7 @@ beforeEach(() => {
   mocks.pendingRows = [];
   mocks.insertRowCounts = [];
   mocks.eventMatchIds = {};
+  mocks.queueHasUnresolved = false;
   mocks.connect.mockResolvedValue({
     query: mocks.query,
     release: mocks.release,
@@ -147,6 +149,32 @@ beforeEach(() => {
     if (normalized.includes('DELETE FROM event_match_details')) {
       return emptyResult();
     }
+    if (
+      normalized.includes('SELECT EXISTS') &&
+      normalized.includes("lp_delta_status IN ('pending', 'unknown')") &&
+      normalized.includes('AS has_unresolved')
+    ) {
+      return {
+        rows: [
+          {
+            has_unresolved: mocks.queueHasUnresolved,
+          },
+        ],
+        rowCount: 1,
+      };
+    }
+    if (normalized.includes('INSERT INTO lp_reconciliation_queue')) {
+      return {
+        rows: [],
+        rowCount: 1,
+      };
+    }
+    if (normalized.includes('DELETE FROM lp_reconciliation_queue')) {
+      return {
+        rows: [],
+        rowCount: 1,
+      };
+    }
     throw new Error(
       `Unexpected SQL in test:\n${normalized}\n` + `params=${JSON.stringify(params)}`,
     );
@@ -197,7 +225,7 @@ describe('event refresh', () => {
       unknownMatches: 0,
     });
   });
-  it('counts only matches that were actually inserted', async () => {
+  it('stores match duration and repairs it without counting an existing match as new', async () => {
     mocks.insertRowCounts = [1, 0];
     const result = await updateEventAfterPlayerRefresh(
       EVENT_PARTICIPANT_ID,
@@ -206,15 +234,28 @@ describe('event refresh', () => {
       [
         createMatch({
           id: 'new-match',
+          durationSeconds: 1800,
         }),
         createMatch({
           id: 'existing-match',
           createdAt: '2026-09-02T19:00:00.000Z',
+          durationSeconds: 2100,
         }),
       ],
       1500,
     );
     expect(result.newMatches).toBe(1);
+    const insertCalls = mocks.query.mock.calls.filter(([sql]) =>
+      String(sql).includes('INSERT INTO event_matches'),
+    );
+    expect(insertCalls).toHaveLength(2);
+    expect(insertCalls[0][1]?.[3]).toBe(1800);
+    expect(insertCalls[1][1]?.[3]).toBe(2100);
+    const durationRepairCall = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes('duration_seconds = $3'),
+    );
+    expect(durationRepairCall).toBeDefined();
+    expect(durationRepairCall?.[1]).toEqual([EVENT_PARTICIPANT_ID, 'existing-match', 2100]);
   });
   it('stores discovered matches without resolving LP during an incomplete sync', async () => {
     mocks.insertRowCounts = [1];
@@ -341,7 +382,7 @@ describe('event refresh', () => {
       String(sql).includes("lp_delta_status = 'resolved'"),
     );
     expect(resolvedCall).toBeDefined();
-    expect(resolvedCall?.[1]).toEqual(['501', 24]);
+    expect(resolvedCall?.[1]).toEqual(['501', 24, 1524]);
     const participantUpdate = mocks.query.mock.calls.find(([sql]) =>
       String(sql).includes('UPDATE event_participants'),
     );
@@ -396,8 +437,8 @@ describe('event refresh', () => {
       String(sql).includes("lp_delta_status = 'resolved'"),
     );
     expect(resolvedCalls).toHaveLength(2);
-    expect(resolvedCalls[0][1]).toEqual(['501', 22]);
-    expect(resolvedCalls[1][1]).toEqual(['502', -18]);
+    expect(resolvedCalls[0][1]).toEqual(['501', 22, 1472]);
+    expect(resolvedCalls[1][1]).toEqual(['502', -18, 1454]);
     const unknownCall = mocks.query.mock.calls.find(([sql]) =>
       String(sql).includes("lp_delta_status = 'unknown'"),
     );

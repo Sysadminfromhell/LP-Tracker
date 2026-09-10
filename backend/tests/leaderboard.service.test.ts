@@ -84,6 +84,7 @@ function createMatch(overrides: Partial<DbEventMatch> = {}): DbEventMatch {
     eventParticipantId: 101,
     providerMatchId: 'match-1',
     gameCreatedAt: '2026-09-02T19:00:00.000Z',
+    durationSeconds: 1800,
     championId: 266,
     champion: 'Aatrox',
     position: 'TOP',
