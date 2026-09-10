@@ -45,6 +45,14 @@ export interface LpReconciliationResolution {
   lpDelta: number;
   rankScoreAfter: number;
 }
+export interface ApplyLpReconciliationRequest {
+  eventParticipantId: number;
+  attemptCount: number;
+  expectedLeftRankScore: number;
+  expectedRightRankScore: number | null;
+  expectedRightBoundaryAt: string | null;
+  resolutions: LpReconciliationResolution[];
+}
 export interface ApplyLpReconciliationResult {
   applied: boolean;
   resolvedMatches: number;
@@ -53,15 +61,23 @@ export interface ApplyLpReconciliationResult {
 }
 interface ReconciliationApplyParticipantRow {
   start_rank_score: number;
+  end_rank_score: number | null;
+  event_status: 'draft' | 'scheduled' | 'active' | 'ended';
+  event_ends_at: Date | null;
 }
-
 interface ReconciliationApplyMatchRow {
   id: string;
   provider_match_id: string;
   game_created_at: Date;
+  result: 'WIN' | 'LOSE';
   lp_delta: number | null;
   rank_score_after: number | null;
   lp_delta_status: 'pending' | 'resolved' | 'unknown';
+  is_sync_anchor: boolean;
+}
+interface ReconciliationApplyClaimRow {
+  attempt_count: number;
+  lease_active: boolean;
 }
 interface LpRankObservationRow {
   id: string;
@@ -343,13 +359,11 @@ export async function getLpReconciliationContext(
         em.id,
         em.provider_match_id,
         em.game_created_at,
-        details.duration_seconds,
+        em.duration_seconds,
         em.result,
         em.lp_delta_status
 
       FROM event_matches em
-      LEFT JOIN event_matches_details details
-        ON details.event_match_id = em.id
 
       WHERE
         event_participant_id = $1
@@ -454,7 +468,11 @@ export async function getLpReconciliationContext(
   ) {
     rightRankScore = rightBoundary.rank_score_after - rightBoundary.lp_delta;
     rightBoundaryAt = rightBoundary.game_created_at.toISOString();
-  } else if (participant.event_status === 'ended' && participant.end_rank_score !== null) {
+  } else if (
+    rightBoundary === null &&
+    participant.event_status === 'ended' &&
+    participant.end_rank_score !== null
+  ) {
     rightRankScore = participant.end_rank_score;
     rightBoundaryAt = participant.event_ends_at?.toISOString() ?? null;
   }
@@ -463,13 +481,14 @@ export async function getLpReconciliationContext(
     unresolvedResult = await db.query<ReconciliationMatchRow>(
       `
         SELECT
-          id,
-          provider_match_id,
-          game_created_at,
-          result,
-          lp_delta_status
+          em.id,
+          em.provider_match_id,
+          em.game_created_at,
+          em.duration_seconds,
+          em.result,
+          em.lp_delta_status
 
-        FROM event_matches
+        FROM event_matches em
 
         WHERE
           event_participant_id = $1
@@ -511,14 +530,11 @@ export async function getLpReconciliationContext(
           em.id,
           em.provider_match_id,
           em.game_created_at,
-          details.duration_seconds,
+          em.duration_seconds,
           em.result,
           em.lp_delta_status
 
         FROM event_matches em
-
-        LEFT JOIN event_match_details details
-          ON details.event_match_id = em.id
 
         WHERE
           event_participant_id = $1
@@ -591,11 +607,16 @@ export async function getLpReconciliationContext(
   };
 }
 export async function applyLpReconciliationResolutions(
-  eventParticipantId: number,
-  expectedLeftRankScore: number,
-  expectedRightRankScore: number | null,
-  resolutions: LpReconciliationResolution[],
+  request: ApplyLpReconciliationRequest,
 ): Promise<ApplyLpReconciliationResult> {
+  const {
+    eventParticipantId,
+    attemptCount,
+    expectedLeftRankScore,
+    expectedRightRankScore,
+    expectedRightBoundaryAt,
+    resolutions,
+  } = request;
   if (resolutions.length === 0) {
     return {
       applied: false,
@@ -610,13 +631,19 @@ export async function applyLpReconciliationResolutions(
     const participantResult = await client.query<ReconciliationApplyParticipantRow>(
       `
           SELECT
-            start_rank_score
+            ep.start_rank_score,
+            ep.end_rank_score,
+            e.status AS event_status,
+            e.ends_at AS event_ends_at
 
-          FROM event_participants
+          FROM event_participants ep
 
-          WHERE id = $1
+          JOIN events e
+            ON e.id = ep.event_id
 
-          FOR UPDATE
+          WHERE ep.id = $1
+
+          FOR UPDATE OF ep
         `,
       [eventParticipantId],
     );
@@ -627,29 +654,31 @@ export async function applyLpReconciliationResolutions(
         applied: false,
         resolvedMatches: 0,
         remainingUnresolved: false,
-        reason: `Event participant ${eventParticipantId} no longer exists`,
+        reason: `Event participant ${eventParticipantId} ` + `no longer exists`,
       };
     }
     const matchesResult = await client.query<ReconciliationApplyMatchRow>(
       `
-        SELECT
-          id,
-          provider_match_id,
-          game_created_at,
-          lp_delta,
-          rank_score_after,
-          lp_delta_status
+          SELECT
+            id,
+            provider_match_id,
+            game_created_at,
+            result,
+            lp_delta,
+            rank_score_after,
+            lp_delta_status,
+            is_sync_anchor
 
-        FROM event_matches
+          FROM event_matches
 
-        WHERE event_participant_id = $1
+          WHERE event_participant_id = $1
 
-        ORDER BY
-          game_created_at ASC,
-          id ASC
+          ORDER BY
+            game_created_at ASC,
+            id ASC
 
-        FOR UPDATE
-      `,
+          FOR UPDATE
+        `,
       [eventParticipantId],
     );
     const matches = matchesResult.rows;
@@ -665,6 +694,33 @@ export async function applyLpReconciliationResolutions(
         reason: null,
       };
     }
+    const claimResult = await client.query<ReconciliationApplyClaimRow>(
+      `
+          SELECT
+            attempt_count,
+            (
+              locked_until IS NOT NULL
+              AND locked_until > NOW()
+            ) AS lease_active
+
+          FROM lp_reconciliation_queue
+
+          WHERE event_participant_id = $1
+
+          FOR UPDATE
+        `,
+      [eventParticipantId],
+    );
+    const claim = claimResult.rows[0];
+    if (!claim || claim.attempt_count !== attemptCount || !claim.lease_active) {
+      await client.query('COMMIT');
+      return {
+        applied: false,
+        resolvedMatches: 0,
+        remainingUnresolved: true,
+        reason: 'LP reconciliation claim is no longer active',
+      };
+    }
     let blockEndIndex = firstUnresolvedIndex;
     while (
       blockEndIndex < matches.length &&
@@ -674,6 +730,30 @@ export async function applyLpReconciliationResolutions(
       blockEndIndex++;
     }
     const unresolvedBlock = matches.slice(firstUnresolvedIndex, blockEndIndex);
+    const unresolvedBlockSynchronized = matches.some(
+      (match, index) => match.is_sync_anchor && index >= blockEndIndex - 1,
+    );
+    if (!unresolvedBlockSynchronized) {
+      await client.query('COMMIT');
+      return {
+        applied: false,
+        resolvedMatches: 0,
+        remainingUnresolved: true,
+        reason: 'Unresolved block is not fully synchronized',
+      };
+    }
+    if (resolutions.length > unresolvedBlock.length) {
+      await client.query('COMMIT');
+      return {
+        applied: false,
+        resolvedMatches: 0,
+        remainingUnresolved: true,
+        reason:
+          `Unresolved block contains only ` +
+          `${unresolvedBlock.length} match(es), but ` +
+          `${resolutions.length} resolutions were supplied`,
+      };
+    }
     let actualLeftRankScore = participant.start_rank_score;
     for (let index = firstUnresolvedIndex - 1; index >= 0; index--) {
       const match = matches[index];
@@ -692,50 +772,43 @@ export async function applyLpReconciliationResolutions(
           `Left rank anchor changed from ` + `${expectedLeftRankScore} to ${actualLeftRankScore}`,
       };
     }
-    const rightBoundary = blockEndIndex < matches.length ? matches[blockEndIndex] : null;
-    const actualRightRankScore =
-      rightBoundary?.lp_delta_status === 'resolved' &&
-      rightBoundary.rank_score_after !== null &&
-      rightBoundary.lp_delta !== null
-        ? rightBoundary.rank_score_after - rightBoundary.lp_delta
-        : null;
-
-    if (actualRightRankScore !== expectedRightRankScore) {
-      await client.query('COMMIT');
-      return {
-        applied: false,
-        resolvedMatches: 0,
-        remainingUnresolved: true,
-        reason:
-          `Right rank anchor changed from ` +
-          `${expectedRightRankScore ?? 'none'} to ` +
-          `${actualRightRankScore ?? 'none'}`,
-      };
-    }
-    if (unresolvedBlock.length !== resolutions.length) {
-      await client.query('COMMIT');
-      return {
-        applied: false,
-        resolvedMatches: 0,
-        remainingUnresolved: true,
-        reason:
-          `Unresolved block changed from ${resolutions.length} ` +
-          `to ${unresolvedBlock.length} match(es)`,
-      };
-    }
-    for (let index = 0; index < unresolvedBlock.length; index++) {
-      if (unresolvedBlock[index].provider_match_id !== resolutions[index].providerMatchId) {
+    const targetMatches = unresolvedBlock.slice(0, resolutions.length);
+    for (let index = 0; index < targetMatches.length; index++) {
+      if (targetMatches[index].provider_match_id !== resolutions[index].providerMatchId) {
         await client.query('COMMIT');
         return {
           applied: false,
           resolvedMatches: 0,
           remainingUnresolved: true,
-          reason: 'Unresolved match order changed during reconciliation',
+          reason: 'LP resolutions no longer match the earliest ' + 'unresolved prefix',
         };
       }
     }
     let calculatedRankScore = actualLeftRankScore;
-    for (const resolution of resolutions) {
+    for (let index = 0; index < resolutions.length; index++) {
+      const resolution = resolutions[index];
+      const match = targetMatches[index];
+      if (!Number.isInteger(resolution.lpDelta) || !Number.isInteger(resolution.rankScoreAfter)) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason: `Invalid LP resolution for match ` + `${resolution.providerMatchId}`,
+        };
+      }
+      const directionValid =
+        (match.result === 'WIN' && resolution.lpDelta > 0) ||
+        (match.result === 'LOSE' && resolution.lpDelta < 0);
+      if (!directionValid) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason: `LP direction does not match result for match ` + `${resolution.providerMatchId}`,
+        };
+      }
       calculatedRankScore += resolution.lpDelta;
       if (calculatedRankScore !== resolution.rankScoreAfter) {
         await client.query('COMMIT');
@@ -747,22 +820,63 @@ export async function applyLpReconciliationResolutions(
         };
       }
     }
-    if (actualRightRankScore !== null && calculatedRankScore !== actualRightRankScore) {
-      await client.query('COMMIT');
-
-      return {
-        applied: false,
-        resolvedMatches: 0,
-        remainingUnresolved: true,
-        reason:
-          `Resolved LP chain ended at ${calculatedRankScore}, ` +
-          `expected ${actualRightRankScore}`,
-      };
+    const resolvesEntireBlock = resolutions.length === unresolvedBlock.length;
+    const rightBoundary = blockEndIndex < matches.length ? matches[blockEndIndex] : null;
+    let actualRightRankScore: number | null = null;
+    let actualRightBoundaryAt: string | null = null;
+    if (
+      rightBoundary?.lp_delta_status === 'resolved' &&
+      rightBoundary.rank_score_after !== null &&
+      rightBoundary.lp_delta !== null
+    ) {
+      actualRightRankScore = rightBoundary.rank_score_after - rightBoundary.lp_delta;
+      actualRightBoundaryAt = rightBoundary.game_created_at.toISOString();
+    } else if (
+      rightBoundary === null &&
+      participant.event_status === 'ended' &&
+      participant.end_rank_score !== null
+    ) {
+      actualRightRankScore = participant.end_rank_score;
+      actualRightBoundaryAt = participant.event_ends_at?.toISOString() ?? null;
     }
-    for (let index = 0; index < unresolvedBlock.length; index++) {
-      const match = unresolvedBlock[index];
+    if (resolvesEntireBlock) {
+      if (expectedRightRankScore === null || expectedRightBoundaryAt === null) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason: 'Complete unresolved block requires a stable ' + 'right rank anchor',
+        };
+      }
+      if (
+        actualRightRankScore !== expectedRightRankScore ||
+        actualRightBoundaryAt !== expectedRightBoundaryAt
+      ) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason: 'Right rank anchor changed during reconciliation',
+        };
+      }
+      if (calculatedRankScore !== actualRightRankScore) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason:
+            `Resolved LP chain ended at ` +
+            `${calculatedRankScore}, expected ` +
+            `${actualRightRankScore}`,
+        };
+      }
+    }
+    for (let index = 0; index < targetMatches.length; index++) {
+      const match = targetMatches[index];
       const resolution = resolutions[index];
-
       const updateResult = await client.query(
         `
           UPDATE event_matches
@@ -775,15 +889,16 @@ export async function applyLpReconciliationResolutions(
 
           WHERE
             id = $1
+            AND event_participant_id = $4
             AND lp_delta_status IN (
               'pending',
               'unknown'
             )
         `,
-        [match.id, resolution.lpDelta, resolution.rankScoreAfter],
+        [match.id, resolution.lpDelta, resolution.rankScoreAfter, eventParticipantId],
       );
       if (updateResult.rowCount !== 1) {
-        throw new Error(`Could not apply LP reconciliation for match ${match.id}`);
+        throw new Error(`Could not apply LP reconciliation for match ` + `${match.id}`);
       }
     }
     if (rightBoundary === null) {

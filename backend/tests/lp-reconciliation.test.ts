@@ -12,6 +12,7 @@ vi.mock('../src/db/client', () => ({
 
 import {
   completeClaimedLpReconciliation,
+  getLpReconciliationContext,
   recordLpRankObservation,
   releaseClaimedLpReconciliation,
   retryClaimedLpReconciliation,
@@ -122,5 +123,238 @@ describe('LP reconciliation queue', () => {
     });
     const released = await releaseClaimedLpReconciliation(50, 4);
     expect(released).toBe(false);
+  });
+});
+describe('LP reconciliation context', () => {
+  it('reads permanent match duration without depending on rich match details', async () => {
+    mocks.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            event_participant_id: '50',
+            event_id: '33',
+            event_status: 'active',
+            event_ends_at: null,
+            player_id: '5',
+            game_name: 'Mante',
+            tag_line: 'Pog',
+            region: 'euw',
+            start_rank_score: 2197,
+            end_rank_score: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ rank_score_after: 2235 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+          {
+            id: '102',
+            provider_match_id: 'match-2',
+            game_created_at: new Date('2026-09-08T19:00:00.000Z'),
+            duration_seconds: 2100,
+            result: 'LOSE',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '1',
+            event_participant_id: '50',
+            rank_score: 2254,
+            observed_at: new Date('2026-09-08T18:40:00.000Z'),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ synchronized: true }],
+      });
+    const context = await getLpReconciliationContext(50);
+    expect(context?.leftRankScore).toBe(2235);
+    expect(context?.unresolvedBlockSynchronized).toBe(true);
+    expect(context?.unresolvedMatches).toEqual([
+      {
+        id: 101,
+        providerMatchId: 'match-1',
+        gameCreatedAt: '2026-09-08T18:00:00.000Z',
+        durationSeconds: 1800,
+        result: 'WIN',
+        lpDeltaStatus: 'unknown',
+      },
+      {
+        id: 102,
+        providerMatchId: 'match-2',
+        gameCreatedAt: '2026-09-08T19:00:00.000Z',
+        durationSeconds: 2100,
+        result: 'LOSE',
+        lpDeltaStatus: 'unknown',
+      },
+    ]);
+    const firstUnresolvedSql = String(mocks.query.mock.calls[1]?.[0]);
+    const unresolvedBlockSql = String(mocks.query.mock.calls[4]?.[0]);
+    expect(firstUnresolvedSql).toContain('em.duration_seconds');
+    expect(unresolvedBlockSql).toContain('em.duration_seconds');
+    expect(firstUnresolvedSql).not.toContain('event_match_details');
+    expect(unresolvedBlockSql).not.toContain('event_match_details');
+  });
+  it('includes permanent match duration when a right anchor exists', async () => {
+    mocks.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            event_participant_id: '50',
+            event_id: '33',
+            event_status: 'active',
+            event_ends_at: null,
+            player_id: '5',
+            game_name: 'Mante',
+            tag_line: 'Pog',
+            region: 'euw',
+            start_rank_score: 2197,
+            end_rank_score: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ rank_score_after: 2235 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '103',
+            game_created_at: new Date('2026-09-08T20:00:00.000Z'),
+            lp_delta: 20,
+            rank_score_after: 2275,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ synchronized: true }],
+      });
+    const context = await getLpReconciliationContext(50);
+    expect(context?.rightRankScore).toBe(2255);
+    expect(context?.rightBoundaryAt).toBe('2026-09-08T20:00:00.000Z');
+    expect(context?.unresolvedMatches[0]?.durationSeconds).toBe(1800);
+    const unresolvedBlockSql = String(mocks.query.mock.calls[4]?.[0]);
+    expect(unresolvedBlockSql).toContain('em.duration_seconds');
+    expect(unresolvedBlockSql).not.toContain('event_match_details');
+  });
+  it('does not skip an unusable resolved right boundary to use the event end score', async () => {
+    mocks.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            event_participant_id: '50',
+            event_id: '33',
+            event_status: 'ended',
+            event_ends_at: new Date('2026-09-08T23:00:00.000Z'),
+            player_id: '5',
+            game_name: 'Mante',
+            tag_line: 'Pog',
+            region: 'euw',
+            start_rank_score: 2197,
+            end_rank_score: 2500,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ rank_score_after: 2235 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '103',
+            game_created_at: new Date('2026-09-08T20:00:00.000Z'),
+            lp_delta: 20,
+            rank_score_after: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ synchronized: true }],
+      });
+    const context = await getLpReconciliationContext(50);
+    expect(context?.rightRankScore).toBeNull();
+    expect(context?.rightBoundaryAt).toBeNull();
   });
 });
