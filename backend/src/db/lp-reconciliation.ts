@@ -200,15 +200,6 @@ export async function claimLpReconciliationJobs(
   );
   return result.rows.map(mapQueueItem);
 }
-export async function completeLpReconciliation(eventParticipantId: number): Promise<void> {
-  await db.query(
-    `
-      DELETE FROM lp_reconciliation_queue
-      WHERE event_participant_id = $1
-      `,
-    [eventParticipantId],
-  );
-}
 export async function completeClaimedLpReconciliation(
   eventParticipantId: number,
   attemptCount: number,
@@ -233,25 +224,6 @@ export async function completeClaimedLpReconciliation(
     [eventParticipantId, attemptCount],
   );
   return result.rowCount === 1;
-}
-export async function retryLpReconciliation(
-  eventParticipantId: number,
-  delaySeconds: number,
-  error: string | null,
-): Promise<void> {
-  const safeDelaySeconds = Math.max(30, Math.min(86_400, Math.floor(delaySeconds)));
-  await db.query(
-    `
-      UPDATE lp_reconciliation_queue
-      SET
-        next_attempt_at = NOW() + ($2 * INTERVAL '1 second'),
-        last_error = $3,
-        locked_until = NULL,
-        updated_at = NOW()
-      WHERE event_participant_id = $1
-      `,
-    [eventParticipantId, safeDelaySeconds, error],
-  );
 }
 export async function retryClaimedLpReconciliation(
   eventParticipantId: number,
@@ -285,18 +257,6 @@ export async function retryClaimedLpReconciliation(
     [eventParticipantId, attemptCount, safeDelaySeconds, error],
   );
   return result.rowCount === 1;
-}
-export async function releaseLpReconciliation(eventParticipantId: number): Promise<void> {
-  await db.query(
-    `
-      UPDATE lp_reconciliation_queue
-      SET
-        locked_until = NULL,
-        updated_at = NOW()
-      WHERE event_participant_id = $1
-      `,
-    [eventParticipantId],
-  );
 }
 export async function releaseClaimedLpReconciliation(
   eventParticipantId: number,

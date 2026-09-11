@@ -1,13 +1,10 @@
 import {
   applyLpReconciliationResolutions,
-  completeLpReconciliation,
+  completeClaimedLpReconciliation,
   getLpReconciliationContext,
-  retryLpReconciliation,
+  retryClaimedLpReconciliation,
 } from '../db/lp-reconciliation';
-import { calculateRankScore } from '../rank';
-import { getLeagueDataProvider } from './league-data.service';
-import { resolveLpHistoryDeltas } from './lp-history-resolver';
-
+import { resolveLpObservationDeltas } from './lp-observation-resolver';
 export interface LpReconciliationRunResult {
   status: 'resolved' | 'retry' | 'complete';
   resolvedMatches: number;
@@ -24,12 +21,11 @@ export async function reconcileLpParticipant(
   eventParticipantId: number,
   attemptCount: number,
 ): Promise<LpReconciliationRunResult> {
-  const retry = async (message: string): Promise<LpReconciliationRunResult> => {
-    await retryLpReconciliation(
-      eventParticipantId,
-      getLpReconciliationRetryDelaySeconds(attemptCount),
-      message,
-    );
+  const retry = async (
+    message: string,
+    delaySeconds = getLpReconciliationRetryDelaySeconds(attemptCount),
+  ): Promise<LpReconciliationRunResult> => {
+    await retryClaimedLpReconciliation(eventParticipantId, attemptCount, delaySeconds, message);
     return {
       status: 'retry',
       resolvedMatches: 0,
@@ -39,8 +35,7 @@ export async function reconcileLpParticipant(
   try {
     const context = await getLpReconciliationContext(eventParticipantId);
     if (!context || context.unresolvedMatches.length === 0) {
-      await completeLpReconciliation(eventParticipantId);
-
+      await completeClaimedLpReconciliation(eventParticipantId, attemptCount);
       return {
         status: 'complete',
         resolvedMatches: 0,
@@ -48,58 +43,30 @@ export async function reconcileLpParticipant(
       };
     }
     if (context.eventStatus !== 'active' && context.eventStatus !== 'ended') {
-      await completeLpReconciliation(eventParticipantId);
-      return {
-        status: 'complete',
-        resolvedMatches: 0,
-        message: `Event is ${context.eventStatus}`,
-      };
+      return retry(`Event is ${context.eventStatus}`);
     }
-    const provider = await getLeagueDataProvider();
-    const profile = await provider.getSummonerProfile(
-      context.gameName,
-      context.tagLine,
-      context.region,
-    );
-    if (profile.lpHistory.length === 0) {
-      return retry('No LP history available');
+    if (!context.unresolvedBlockSynchronized) {
+      return retry('Unresolved block is not fully synchronized');
     }
-    let expectedRightRankScore = context.rightRankScore;
-    if (expectedRightRankScore === null && context.eventStatus === 'active') {
-      const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
-      if (!solo) {
-        return retry('No Solo Queue rank available');
-      }
-      expectedRightRankScore = calculateRankScore(solo.tier, solo.division, solo.lp);
-      if (expectedRightRankScore === null) {
-        return retry('Invalid Solo Queue rank');
-      }
-    }
-    if (expectedRightRankScore === null) {
-      return retry('No right rank anchor available');
-    }
-    const resolutions = resolveLpHistoryDeltas(
+    const resolutions = resolveLpObservationDeltas(
       context.leftRankScore,
       context.unresolvedMatches.map((match) => ({
         id: match.providerMatchId,
         createdAt: match.gameCreatedAt,
+        durationSeconds: match.durationSeconds,
+        result: match.result,
       })),
-      profile.lpHistory,
+      context.rankObservations.map((observation) => ({
+        rankScore: observation.rankScore,
+        observedAt: observation.observedAt,
+      })),
       {
+        rightRankScore: context.rightRankScore,
         rightBoundaryAt: context.rightBoundaryAt,
       },
     );
-    if (resolutions.length !== context.unresolvedMatches.length) {
-      return retry(`Resolved ${resolutions.length}/${context.unresolvedMatches.length} matches`);
-    }
-    const finalResolution = resolutions.at(-1);
-    if (!finalResolution) {
-      return retry('No LP resolutions produced');
-    }
-    if (finalResolution.rankScoreAfter !== expectedRightRankScore) {
-      return retry(
-        `LP chain ended at ${finalResolution.rankScoreAfter}, expected ${expectedRightRankScore}`,
-      );
+    if (resolutions.length === 0) {
+      return retry(`Resolved 0/${context.unresolvedMatches.length} matches`);
     }
     const result = await applyLpReconciliationResolutions({
       eventParticipantId,
@@ -115,7 +82,8 @@ export async function reconcileLpParticipant(
     });
     if (!result.applied) {
       if (!result.remainingUnresolved) {
-        await completeLpReconciliation(eventParticipantId);
+        await completeClaimedLpReconciliation(eventParticipantId, attemptCount);
+
         return {
           status: 'complete',
           resolvedMatches: 0,
@@ -125,15 +93,28 @@ export async function reconcileLpParticipant(
       return retry(result.reason ?? 'Could not apply LP reconciliation');
     }
     if (result.remainingUnresolved) {
-      await retryLpReconciliation(eventParticipantId, 30, null);
-
+      await retryClaimedLpReconciliation(eventParticipantId, attemptCount, 30, null);
       return {
         status: 'resolved',
         resolvedMatches: result.resolvedMatches,
-        message: 'Resolved block, more unresolved matches remain',
+        message:
+          `Resolved ${result.resolvedMatches} match(es), ` + `more unresolved matches remain`,
       };
     }
-    await completeLpReconciliation(eventParticipantId);
+    const completed = await completeClaimedLpReconciliation(eventParticipantId, attemptCount);
+    if (!completed) {
+      await retryClaimedLpReconciliation(
+        eventParticipantId,
+        attemptCount,
+        30,
+        'Reconciliation state changed before completion',
+      );
+      return {
+        status: 'retry',
+        resolvedMatches: result.resolvedMatches,
+        message: 'Reconciliation state changed before completion',
+      };
+    }
     return {
       status: 'resolved',
       resolvedMatches: result.resolvedMatches,
