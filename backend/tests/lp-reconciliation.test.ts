@@ -56,6 +56,8 @@ describe('LP reconciliation queue', () => {
     expect(normalized).toContain('observation.created_at > queue.last_attempt_at');
     expect(normalized).toContain('THEN NOW()');
     expect(normalized).toContain('queue.attempt_count = $2');
+    expect(normalized).toContain('queue.locked_until IS NOT NULL');
+    expect(normalized).toContain('queue.locked_until > NOW()');
     expect(params).toEqual([50, 4, 900, 'Still unresolved']);
   });
   it('rejects a retry from a stale claim', async () => {
@@ -92,6 +94,8 @@ describe('LP reconciliation queue', () => {
     const [sql, params] = mocks.query.mock.calls[0];
     const normalized = String(sql).replace(/\s+/g, ' ');
     expect(normalized).toContain('queue.attempt_count = $2');
+    expect(normalized).toContain('queue.locked_until IS NOT NULL');
+    expect(normalized).toContain('queue.locked_until > NOW()');
     expect(normalized).toContain("match.lp_delta_status IN ( 'pending', 'unknown' )");
     expect(params).toEqual([50, 4]);
   });
@@ -113,6 +117,8 @@ describe('LP reconciliation queue', () => {
     const [sql, params] = mocks.query.mock.calls[0];
     const normalized = String(sql).replace(/\s+/g, ' ');
     expect(normalized).toContain('attempt_count = $2');
+    expect(normalized).toContain('locked_until IS NOT NULL');
+    expect(normalized).toContain('locked_until > NOW()');
     expect(normalized).toContain('locked_until = NULL');
     expect(params).toEqual([50, 4]);
   });

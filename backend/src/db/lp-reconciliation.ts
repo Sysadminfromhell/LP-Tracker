@@ -210,6 +210,8 @@ export async function completeClaimedLpReconciliation(
       WHERE
         queue.event_participant_id = $1
         AND queue.attempt_count = $2
+        AND queue.locked_until IS NOT NULL
+        AND queue.locked_until > NOW()
         AND NOT EXISTS (
           SELECT 1
           FROM event_matches match
@@ -250,9 +252,11 @@ export async function retryClaimedLpReconciliation(
         last_error = $4,
         locked_until = NULL,
         updated_at = NOW()
-      WHERE
-        queue.event_participant_id = $1
-        AND queue.attempt_count = $2
+        WHERE
+          queue.event_participant_id = $1
+          AND queue.attempt_count = $2
+          AND queue.locked_until IS NOT NULL
+          AND queue.locked_until > NOW()
     `,
     [eventParticipantId, attemptCount, safeDelaySeconds, error],
   );
@@ -268,9 +272,11 @@ export async function releaseClaimedLpReconciliation(
       SET
         locked_until = NULL,
         updated_at = NOW()
-      WHERE
-        event_participant_id = $1
-        AND attempt_count = $2
+        WHERE
+          event_participant_id = $1
+          AND attempt_count = $2
+          AND locked_until IS NOT NULL
+          AND locked_until > NOW()
     `,
     [eventParticipantId, attemptCount],
   );
