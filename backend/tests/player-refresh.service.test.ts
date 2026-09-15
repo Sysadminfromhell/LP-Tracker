@@ -133,7 +133,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('refreshPlayer provider reliability', () => {
-  it('passes LP history to the event refresh', async () => {
+  it('passes synchronized matches to the event refresh', async () => {
     const recentMatches = [
       {
         id: 'match-1',
@@ -177,8 +177,6 @@ describe('refreshPlayer provider reliability', () => {
     });
     mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
       newMatches: 1,
-      resolvedMatches: 1,
-      unknownMatches: 0,
     });
     mocks.getLeaderboardPlayer.mockReturnValue(null);
     const result = await refreshPlayer(player);
@@ -196,10 +194,7 @@ describe('refreshPlayer provider reliability', () => {
       '2026-09-01T18:00:00.000Z',
       '2026-09-03T18:00:00.000Z',
       recentMatches,
-      1450,
-      profile.lpHistory,
       {
-        resolveLpDeltas: false,
         advanceSyncAnchor: true,
       },
     );
@@ -210,8 +205,6 @@ describe('refreshPlayer provider reliability', () => {
     mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches);
     mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
       newMatches: 0,
-      resolvedMatches: 0,
-      unknownMatches: 0,
     });
     mocks.getLeaderboardPlayer.mockReturnValue(null);
     const result = await refreshPlayer(player);
@@ -357,8 +350,6 @@ describe('refreshPlayer provider reliability', () => {
     });
     mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
       newMatches: 2,
-      resolvedMatches: 2,
-      unknownMatches: 0,
     });
     mocks.getLeaderboardPlayer.mockReturnValue(null);
     mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches);
@@ -373,10 +364,7 @@ describe('refreshPlayer provider reliability', () => {
       '2026-09-01T18:00:00.000Z',
       '2026-09-03T18:00:00.000Z',
       secondBatch,
-      1450,
-      profile.lpHistory,
       {
-        resolveLpDeltas: false,
         advanceSyncAnchor: true,
       },
     );
@@ -418,8 +406,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.updateEventAfterPlayerRefresh).toHaveBeenCalledTimes(1);
     const eventRefreshCall = mocks.updateEventAfterPlayerRefresh.mock.calls[0];
     expect(eventRefreshCall?.[3]).toHaveLength(20);
-    expect(eventRefreshCall?.[6]).toEqual({
-      resolveLpDeltas: false,
+    expect(eventRefreshCall?.[4]).toEqual({
       advanceSyncAnchor: false,
     });
     expect(mocks.savePlayerCacheError).not.toHaveBeenCalled();

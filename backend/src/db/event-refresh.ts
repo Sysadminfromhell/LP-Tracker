@@ -1,17 +1,10 @@
 import type { PoolClient } from 'pg';
 import { db } from './client';
 import { syncRecentEventMatchDetails } from './event-match-details';
-import type { RankedLpHistoryEntry, SummonerMatch } from '../providers/league-data.types';
-import { resolveLpHistoryDeltas } from '../services/lp-history-resolver';
+import type { SummonerMatch } from '../providers/league-data.types';
 
 interface ParticipantState {
   id: string;
-  last_resolved_rank_score: number;
-}
-interface PendingMatchRow {
-  id: string;
-  provider_match_id: string;
-  game_created_at: Date;
 }
 
 async function syncLpReconciliationQueueState(
@@ -61,11 +54,8 @@ async function syncLpReconciliationQueueState(
 
 export interface EventRefreshResult {
   newMatches: number;
-  resolvedMatches: number;
-  unknownMatches: number;
 }
 export interface EventRefreshOptions {
-  resolveLpDeltas?: boolean;
   advanceSyncAnchor?: boolean;
 }
 export async function updateEventAfterPlayerRefresh(
@@ -73,30 +63,25 @@ export async function updateEventAfterPlayerRefresh(
   eventStartsAt: string,
   eventEndsAt: string | null,
   recentMatches: SummonerMatch[],
-  currentRankScore: number,
-  lpHistory: RankedLpHistoryEntry[] = [],
   options: EventRefreshOptions = {},
 ): Promise<EventRefreshResult> {
   const client = await db.connect();
-  const resolveLpDeltas = options.resolveLpDeltas ?? true;
   const advanceSyncAnchor = options.advanceSyncAnchor ?? true;
   try {
     await client.query('BEGIN');
     const participantResult = await client.query<ParticipantState>(
       `
-        SELECT
-          id,
-          last_resolved_rank_score
+        SELECT id
         FROM event_participants
         WHERE id = $1
         FOR UPDATE
-        `,
+      `,
       [eventParticipantId],
     );
+
     if (participantResult.rows.length === 0) {
       throw new Error(`Event participant ${eventParticipantId} not found`);
     }
-    const participant = participantResult.rows[0];
 
     const eventStart = new Date(eventStartsAt).getTime();
     const eventEnd = eventEndsAt === null ? null : new Date(eventEndsAt).getTime();
@@ -191,144 +176,6 @@ export async function updateEventAfterPlayerRefresh(
         );
       }
     }
-    const pendingResult = await client.query<PendingMatchRow>(
-      `
-    SELECT
-      id,
-      provider_match_id,
-      game_created_at
-    FROM event_matches
-    WHERE
-      event_participant_id = $1
-      AND lp_delta_status = 'pending'
-    ORDER BY
-      game_created_at ASC
-    FOR UPDATE
-    `,
-      [eventParticipantId],
-    );
-    const pending = pendingResult.rows;
-    const previousRankScore = participant.last_resolved_rank_score;
-    const scoreChanged = currentRankScore !== previousRankScore;
-    let resolvedMatches = 0;
-    let unknownMatches = 0;
-    let resolvedFromHistory = false;
-
-    if (resolveLpDeltas && pending.length > 1 && lpHistory.length > 0) {
-      const historyResolutions = resolveLpHistoryDeltas(
-        previousRankScore,
-        pending.map((match) => ({
-          id: match.provider_match_id,
-          createdAt: match.game_created_at.toISOString(),
-        })),
-        lpHistory,
-      );
-
-      const finalResolution = historyResolutions.at(-1);
-      const completeHistoryResolution =
-        historyResolutions.length === pending.length &&
-        finalResolution?.rankScoreAfter === currentRankScore;
-
-      if (completeHistoryResolution) {
-        const resolutionsByMatchId = new Map(
-          historyResolutions.map((resolution) => [resolution.matchId, resolution]),
-        );
-        for (const match of pending) {
-          const resolution = resolutionsByMatchId.get(match.provider_match_id);
-          if (!resolution) {
-            throw new Error(`LP history resolution missing for match ${match.provider_match_id}`);
-          }
-          await client.query(
-            `
-            UPDATE event_matches
-            SET
-              lp_delta = $2,
-              rank_score_after = $3,
-              lp_delta_status = 'resolved',
-              updated_at = NOW()
-            WHERE id = $1
-            `,
-            [match.id, resolution.lpDelta, resolution.rankScoreAfter],
-          );
-        }
-        await client.query(
-          `
-      UPDATE event_participants
-      SET
-        last_resolved_rank_score = $2,
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-          [eventParticipantId, currentRankScore],
-        );
-        resolvedMatches = pending.length;
-        resolvedFromHistory = true;
-      }
-    }
-    if (resolveLpDeltas && !resolvedFromHistory) {
-      if (pending.length === 1 && scoreChanged) {
-        const lpDelta = currentRankScore - previousRankScore;
-        await client.query(
-          `
-          UPDATE event_matches
-          SET
-            lp_delta = $2,
-            rank_score_after = $3,
-            lp_delta_status = 'resolved',
-            updated_at = NOW()
-          WHERE id = $1
-          `,
-          [pending[0].id, lpDelta, currentRankScore],
-        );
-        await client.query(
-          `
-      UPDATE event_participants
-      SET
-        last_resolved_rank_score = $2,
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-          [eventParticipantId, currentRankScore],
-        );
-        resolvedMatches = 1;
-      } else if (pending.length > 1 && scoreChanged) {
-        await client.query(
-          `
-      UPDATE event_matches
-      SET
-        lp_delta = NULL,
-        lp_delta_status = 'unknown',
-        updated_at = NOW()
-      WHERE
-        event_participant_id = $1
-        AND lp_delta_status = 'pending'
-      `,
-          [eventParticipantId],
-        );
-        await client.query(
-          `
-      UPDATE event_participants
-      SET
-        last_resolved_rank_score = $2,
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-          [eventParticipantId, currentRankScore],
-        );
-        unknownMatches = pending.length;
-      } else if (pending.length === 0 && scoreChanged) {
-        await client.query(
-          `
-      UPDATE event_participants
-      SET
-        last_resolved_rank_score = $2,
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-          [eventParticipantId, currentRankScore],
-        );
-      }
-    }
     const newestRankedMatch = rankedMatches.at(-1);
     if (advanceSyncAnchor && newestRankedMatch) {
       await client.query(
@@ -360,8 +207,6 @@ export async function updateEventAfterPlayerRefresh(
     await client.query('COMMIT');
     const refreshResult = {
       newMatches,
-      resolvedMatches,
-      unknownMatches,
     };
     try {
       await syncRecentEventMatchDetails(client, eventParticipantId, recentMatches);

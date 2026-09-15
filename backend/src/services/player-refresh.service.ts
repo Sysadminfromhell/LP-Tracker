@@ -121,10 +121,7 @@ export async function refreshPlayer(
           participant.snapshotCapturedAt,
           event.endsAt,
           matchSync.matches,
-          rankScore,
-          profile.lpHistory,
           {
-            resolveLpDeltas: false,
             advanceSyncAnchor: matchSync.anchorReached,
           },
         );
@@ -135,16 +132,9 @@ export async function refreshPlayer(
           matchResult.newMatches > 0,
         );
         refreshedEventId = event.id;
-        if (
-          matchResult.newMatches > 0 ||
-          matchResult.resolvedMatches > 0 ||
-          matchResult.unknownMatches > 0
-        ) {
+        if (matchResult.newMatches > 0) {
           console.log(
-            `[EVENT] ${player.gameName}#${player.tagLine}: ` +
-              `${matchResult.newMatches} new | ` +
-              `${matchResult.resolvedMatches} resolved | ` +
-              `${matchResult.unknownMatches} unknown`,
+            `[EVENT] ${player.gameName}#${player.tagLine}: ` + `${matchResult.newMatches} new`,
           );
         }
       }

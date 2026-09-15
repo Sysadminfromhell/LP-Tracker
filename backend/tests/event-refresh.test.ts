@@ -7,12 +7,6 @@ const mocks = vi.hoisted(() => ({
   release: vi.fn(),
   participantRows: [] as Array<{
     id: string;
-    last_resolved_rank_score: number;
-  }>,
-  pendingRows: [] as Array<{
-    id: string;
-    provider_match_id?: string;
-    game_created_at?: Date;
   }>,
   insertRowCounts: [] as number[],
   eventMatchIds: {} as Record<string, string>,
@@ -64,10 +58,8 @@ beforeEach(() => {
   mocks.participantRows = [
     {
       id: String(EVENT_PARTICIPANT_ID),
-      last_resolved_rank_score: 1500,
     },
   ];
-  mocks.pendingRows = [];
   mocks.insertRowCounts = [];
   mocks.eventMatchIds = {};
   mocks.queueHasUnresolved = false;
@@ -86,10 +78,7 @@ beforeEach(() => {
     if (normalized === 'ROLLBACK') {
       return emptyResult();
     }
-    if (
-      normalized.includes('SELECT id, last_resolved_rank_score') &&
-      normalized.includes('FROM event_participants')
-    ) {
+    if (normalized.includes('SELECT id') && normalized.includes('FROM event_participants')) {
       return {
         rows: mocks.participantRows,
         rowCount: mocks.participantRows.length,
@@ -116,21 +105,7 @@ beforeEach(() => {
         rowCount: eventMatchId ? 1 : 0,
       };
     }
-    if (
-      normalized.includes('provider_match_id') &&
-      normalized.includes('game_created_at') &&
-      normalized.includes('FROM event_matches') &&
-      normalized.includes("lp_delta_status = 'pending'")
-    ) {
-      return {
-        rows: mocks.pendingRows,
-        rowCount: mocks.pendingRows.length,
-      };
-    }
-    if (
-      normalized.includes('UPDATE event_matches') ||
-      normalized.includes('UPDATE event_participants')
-    ) {
+    if (normalized.includes('UPDATE event_matches')) {
       return {
         rows: [],
         rowCount: 1,
@@ -211,7 +186,6 @@ describe('event refresh', () => {
       EVENT_START,
       EVENT_END,
       matches,
-      1500,
     );
     const insertCalls = mocks.query.mock.calls.filter(([sql]) =>
       String(sql).includes('INSERT INTO event_matches'),
@@ -221,8 +195,6 @@ describe('event refresh', () => {
     expect(insertCalls[1][1]?.[1]).toBe('later');
     expect(result).toEqual({
       newMatches: 2,
-      resolvedMatches: 0,
-      unknownMatches: 0,
     });
   });
   it('stores match duration and repairs it without counting an existing match as new', async () => {
@@ -242,7 +214,6 @@ describe('event refresh', () => {
           durationSeconds: 2100,
         }),
       ],
-      1500,
     );
     expect(result.newMatches).toBe(1);
     const insertCalls = mocks.query.mock.calls.filter(([sql]) =>
@@ -257,41 +228,46 @@ describe('event refresh', () => {
     expect(durationRepairCall).toBeDefined();
     expect(durationRepairCall?.[1]).toEqual([EVENT_PARTICIPANT_ID, 'existing-match', 2100]);
   });
-  it('stores discovered matches without resolving LP during an incomplete sync', async () => {
+  it('stores discovered matches for reconciliation without resolving LP', async () => {
     mocks.insertRowCounts = [1];
-    mocks.pendingRows = [
-      {
-        id: '501',
-        provider_match_id: 'match-1',
-        game_created_at: new Date('2026-09-02T18:00:00.000Z'),
-      },
-    ];
+    mocks.queueHasUnresolved = true;
+
     const result = await updateEventAfterPlayerRefresh(
       EVENT_PARTICIPANT_ID,
       EVENT_START,
       EVENT_END,
       [createMatch()],
-      1524,
-      [],
       {
-        resolveLpDeltas: false,
         advanceSyncAnchor: false,
       },
     );
+
     expect(result).toEqual({
       newMatches: 1,
-      resolvedMatches: 0,
-      unknownMatches: 0,
     });
-    const lpUpdateCalls = mocks.query.mock.calls.filter(
-      ([sql]) =>
-        String(sql).includes('UPDATE event_matches') ||
-        String(sql).includes('UPDATE event_participants'),
-    );
+
+    const lpUpdateCalls = mocks.query.mock.calls.filter(([sql]) => {
+      const statement = String(sql);
+
+      return (
+        statement.includes("lp_delta_status = 'resolved'") ||
+        statement.includes("lp_delta_status = 'unknown'") ||
+        statement.includes('UPDATE event_participants')
+      );
+    });
+
     expect(lpUpdateCalls).toHaveLength(0);
+
+    const queueInsert = mocks.query.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO lp_reconciliation_queue'),
+    );
+
+    expect(queueInsert).toBeDefined();
+
     const anchorUpdateCalls = mocks.query.mock.calls.filter(([sql]) =>
       String(sql).includes('is_sync_anchor'),
     );
+
     expect(anchorUpdateCalls).toHaveLength(0);
   });
   it('stores rich details and prunes details outside the newest three matches', async () => {
@@ -334,13 +310,7 @@ describe('event refresh', () => {
         },
       ],
     });
-    await updateEventAfterPlayerRefresh(
-      EVENT_PARTICIPANT_ID,
-      EVENT_START,
-      EVENT_END,
-      [match],
-      1500,
-    );
+    await updateEventAfterPlayerRefresh(EVENT_PARTICIPANT_ID, EVENT_START, EVENT_END, [match]);
     const detailInsert = mocks.query.mock.calls.find(([sql]) =>
       String(sql).includes('INSERT INTO event_match_details'),
     );
@@ -360,180 +330,16 @@ describe('event refresh', () => {
     expect(beginCalls).toHaveLength(2);
     expect(commitCalls).toHaveLength(2);
   });
-  it('resolves exactly one pending match when rank score changes', async () => {
-    mocks.pendingRows = [
-      {
-        id: '501',
-      },
-    ];
-    const result = await updateEventAfterPlayerRefresh(
-      EVENT_PARTICIPANT_ID,
-      EVENT_START,
-      EVENT_END,
-      [],
-      1524,
-    );
-    expect(result).toEqual({
-      newMatches: 0,
-      resolvedMatches: 1,
-      unknownMatches: 0,
-    });
-    const resolvedCall = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes("lp_delta_status = 'resolved'"),
-    );
-    expect(resolvedCall).toBeDefined();
-    expect(resolvedCall?.[1]).toEqual(['501', 24, 1524]);
-    const participantUpdate = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes('UPDATE event_participants'),
-    );
-    expect(participantUpdate?.[1]).toEqual([EVENT_PARTICIPANT_ID, 1524]);
-  });
-  it('resolves multiple pending matches from LP history', async () => {
-    mocks.participantRows = [
-      {
-        id: String(EVENT_PARTICIPANT_ID),
-        last_resolved_rank_score: 1450,
-      },
-    ];
-    mocks.pendingRows = [
-      {
-        id: '501',
-        provider_match_id: 'match-1',
-        game_created_at: new Date('2026-09-02T10:00:00.000Z'),
-      },
-      {
-        id: '502',
-        provider_match_id: 'match-2',
-        game_created_at: new Date('2026-09-02T11:00:00.000Z'),
-      },
-    ];
-    const result = await updateEventAfterPlayerRefresh(
-      EVENT_PARTICIPANT_ID,
-      EVENT_START,
-      EVENT_END,
-      [],
-      1454,
-      [
-        {
-          createdAt: '2026-09-02T10:35:00.000Z',
-          tier: 'GOLD',
-          division: 2,
-          lp: 72,
-        },
-        {
-          createdAt: '2026-09-02T11:35:00.000Z',
-          tier: 'GOLD',
-          division: 2,
-          lp: 54,
-        },
-      ],
-    );
-    expect(result).toEqual({
-      newMatches: 0,
-      resolvedMatches: 2,
-      unknownMatches: 0,
-    });
-    const resolvedCalls = mocks.query.mock.calls.filter(([sql]) =>
-      String(sql).includes("lp_delta_status = 'resolved'"),
-    );
-    expect(resolvedCalls).toHaveLength(2);
-    expect(resolvedCalls[0][1]).toEqual(['501', 22, 1472]);
-    expect(resolvedCalls[1][1]).toEqual(['502', -18, 1454]);
-    const unknownCall = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes("lp_delta_status = 'unknown'"),
-    );
-    expect(unknownCall).toBeUndefined();
-    const participantUpdate = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes('UPDATE event_participants'),
-    );
-    expect(participantUpdate?.[1]).toEqual([EVENT_PARTICIPANT_ID, 1454]);
-  });
-  it('marks multiple pending matches as unknown when rank score changes', async () => {
-    mocks.pendingRows = [
-      {
-        id: '501',
-      },
-      {
-        id: '502',
-      },
-    ];
-    const result = await updateEventAfterPlayerRefresh(
-      EVENT_PARTICIPANT_ID,
-      EVENT_START,
-      EVENT_END,
-      [],
-      1550,
-    );
-    expect(result).toEqual({
-      newMatches: 0,
-      resolvedMatches: 0,
-      unknownMatches: 2,
-    });
-    const unknownCall = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes("lp_delta_status = 'unknown'"),
-    );
-    expect(unknownCall).toBeDefined();
-    expect(unknownCall?.[1]).toEqual([EVENT_PARTICIPANT_ID]);
-    const participantUpdate = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes('UPDATE event_participants'),
-    );
-    expect(participantUpdate?.[1]).toEqual([EVENT_PARTICIPANT_ID, 1550]);
-  });
-  it('updates the resolved rank score when the score changes without pending matches', async () => {
-    mocks.pendingRows = [];
-    const result = await updateEventAfterPlayerRefresh(
-      EVENT_PARTICIPANT_ID,
-      EVENT_START,
-      EVENT_END,
-      [],
-      1530,
-    );
-    expect(result).toEqual({
-      newMatches: 0,
-      resolvedMatches: 0,
-      unknownMatches: 0,
-    });
-    const participantUpdate = mocks.query.mock.calls.find(([sql]) =>
-      String(sql).includes('UPDATE event_participants'),
-    );
-    expect(participantUpdate).toBeDefined();
-    expect(participantUpdate?.[1]).toEqual([EVENT_PARTICIPANT_ID, 1530]);
-  });
-  it('leaves pending matches untouched when rank score did not change', async () => {
-    mocks.pendingRows = [
-      {
-        id: '501',
-      },
-    ];
-    const result = await updateEventAfterPlayerRefresh(
-      EVENT_PARTICIPANT_ID,
-      EVENT_START,
-      EVENT_END,
-      [],
-      1500,
-    );
-    expect(result).toEqual({
-      newMatches: 0,
-      resolvedMatches: 0,
-      unknownMatches: 0,
-    });
-    const updateCalls = mocks.query.mock.calls.filter(
-      ([sql]) =>
-        String(sql).includes('UPDATE event_matches') ||
-        String(sql).includes('UPDATE event_participants'),
-    );
-    expect(updateCalls).toHaveLength(0);
-  });
   it('rolls back when the event participant does not exist', async () => {
     mocks.participantRows = [];
     await expect(
-      updateEventAfterPlayerRefresh(EVENT_PARTICIPANT_ID, EVENT_START, EVENT_END, [], 1500),
+      updateEventAfterPlayerRefresh(EVENT_PARTICIPANT_ID, EVENT_START, EVENT_END, []),
     ).rejects.toThrow(`Event participant ${EVENT_PARTICIPANT_ID} not found`);
     expect(mocks.query).toHaveBeenCalledWith('ROLLBACK');
     expect(mocks.release).toHaveBeenCalledTimes(1);
   });
   it('commits successful refreshes and always releases the DB client', async () => {
-    await updateEventAfterPlayerRefresh(EVENT_PARTICIPANT_ID, EVENT_START, EVENT_END, [], 1500);
+    await updateEventAfterPlayerRefresh(EVENT_PARTICIPANT_ID, EVENT_START, EVENT_END, []);
     expect(mocks.query).toHaveBeenCalledWith('BEGIN');
     expect(mocks.query).toHaveBeenCalledWith('COMMIT');
     expect(mocks.release).toHaveBeenCalledTimes(1);
