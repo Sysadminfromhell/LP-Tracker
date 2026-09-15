@@ -16,6 +16,10 @@ export interface LpRankObservation {
   rankScore: number;
   observedAt: string;
 }
+export interface LpProviderHistoryObservation {
+  rankScore: number;
+  observedAt: Date;
+}
 export interface LpReconciliationMatch {
   id: number;
   providerMatchId: string;
@@ -950,6 +954,76 @@ export async function recordLpRankObservation(
   );
 
   return result.rows[0]?.inserted ?? false;
+}
+export async function recordLpProviderHistoryObservations(
+  eventParticipantId: number,
+  observations: LpProviderHistoryObservation[],
+): Promise<number> {
+  if (observations.length === 0) {
+    return 0;
+  }
+  const rankScores = observations.map((observation) => {
+    if (!Number.isInteger(observation.rankScore) || observation.rankScore < 0) {
+      throw new Error(`Invalid provider history rank score: ${observation.rankScore}`);
+    }
+    return observation.rankScore;
+  });
+  const observedAts = observations.map((observation) => {
+    if (!Number.isFinite(observation.observedAt.getTime())) {
+      throw new Error('Invalid provider history observation timestamp');
+    }
+
+    return observation.observedAt.toISOString();
+  });
+  const result = await db.query<{ inserted_count: number }>(
+    `
+      WITH inserted AS (
+        INSERT INTO lp_rank_observations (
+          event_participant_id,
+          rank_score,
+          observed_at,
+          source
+        )
+        SELECT
+          $1,
+          history.rank_score,
+          history.observed_at,
+          'provider_history'
+        FROM UNNEST(
+          $2::integer[],
+          $3::timestamptz[]
+        ) AS history(
+          rank_score,
+          observed_at
+        )
+        ON CONFLICT (
+          event_participant_id,
+          observed_at,
+          rank_score,
+          source
+        )
+        DO NOTHING
+        RETURNING id
+      ),
+      woken AS (
+        UPDATE lp_reconciliation_queue
+        SET
+          next_attempt_at = NOW(),
+          updated_at = NOW()
+        WHERE
+          event_participant_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM inserted
+          )
+        RETURNING event_participant_id
+      )
+      SELECT COUNT(*)::integer AS inserted_count
+      FROM inserted
+    `,
+    [eventParticipantId, rankScores, observedAts],
+  );
+  return result.rows[0]?.inserted_count ?? 0;
 }
 export async function getLpRankObservations(
   eventParticipantId: number,

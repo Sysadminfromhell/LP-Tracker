@@ -13,6 +13,7 @@ vi.mock('../src/db/client', () => ({
 import {
   completeClaimedLpReconciliation,
   getLpReconciliationContext,
+  recordLpProviderHistoryObservations,
   recordLpRankObservation,
   releaseClaimedLpReconciliation,
   retryClaimedLpReconciliation,
@@ -43,6 +44,63 @@ describe('LP reconciliation queue', () => {
     });
     const inserted = await recordLpRankObservation(50, 2441);
     expect(inserted).toBe(false);
+  });
+  it('stores provider history observations in bulk and wakes reconciliation', async () => {
+    mocks.query.mockResolvedValue({
+      rows: [{ inserted_count: 2 }],
+      rowCount: 1,
+    });
+    const inserted = await recordLpProviderHistoryObservations(50, [
+      {
+        rankScore: 1472,
+        observedAt: new Date('2026-09-02T10:35:00.000Z'),
+      },
+      {
+        rankScore: 1454,
+        observedAt: new Date('2026-09-02T11:35:00.000Z'),
+      },
+    ]);
+    expect(inserted).toBe(2);
+    const [sql, params] = mocks.query.mock.calls[0];
+    const normalized = String(sql).replace(/\s+/g, ' ');
+    expect(normalized).toContain("'provider_history'");
+    expect(normalized).toContain('ON CONFLICT');
+    expect(normalized).toContain('DO NOTHING');
+    expect(normalized).toContain('next_attempt_at = NOW()');
+    expect(normalized).not.toContain('locked_until = NULL');
+    expect(params).toEqual([
+      50,
+      [1472, 1454],
+      ['2026-09-02T10:35:00.000Z', '2026-09-02T11:35:00.000Z'],
+    ]);
+  });
+  it('does not query when provider history is empty', async () => {
+    const inserted = await recordLpProviderHistoryObservations(50, []);
+    expect(inserted).toBe(0);
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+  it('rejects an invalid provider history rank score before querying', async () => {
+    await expect(
+      recordLpProviderHistoryObservations(50, [
+        {
+          rankScore: -1,
+          observedAt: new Date('2026-09-02T10:35:00.000Z'),
+        },
+      ]),
+    ).rejects.toThrow('Invalid provider history rank score: -1');
+
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+  it('rejects an invalid provider history timestamp before querying', async () => {
+    await expect(
+      recordLpProviderHistoryObservations(50, [
+        {
+          rankScore: 1472,
+          observedAt: new Date('invalid'),
+        },
+      ]),
+    ).rejects.toThrow('Invalid provider history observation timestamp');
+    expect(mocks.query).not.toHaveBeenCalled();
   });
   it('retries a matching claim and preserves a newer observation wake-up', async () => {
     mocks.query.mockResolvedValue({
