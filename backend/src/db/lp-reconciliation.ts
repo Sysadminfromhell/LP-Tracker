@@ -434,13 +434,6 @@ export async function getLpReconciliationContext(
   ) {
     rightRankScore = rightBoundary.rank_score_after - rightBoundary.lp_delta;
     rightBoundaryAt = rightBoundary.game_created_at.toISOString();
-  } else if (
-    rightBoundary === null &&
-    participant.event_status === 'ended' &&
-    participant.end_rank_score !== null
-  ) {
-    rightRankScore = participant.end_rank_score;
-    rightBoundaryAt = participant.event_ends_at?.toISOString() ?? null;
   }
   let unresolvedResult;
   if (rightBoundary) {
@@ -797,13 +790,6 @@ export async function applyLpReconciliationResolutions(
     ) {
       actualRightRankScore = rightBoundary.rank_score_after - rightBoundary.lp_delta;
       actualRightBoundaryAt = rightBoundary.game_created_at.toISOString();
-    } else if (
-      rightBoundary === null &&
-      participant.event_status === 'ended' &&
-      participant.end_rank_score !== null
-    ) {
-      actualRightRankScore = participant.end_rank_score;
-      actualRightBoundaryAt = participant.event_ends_at?.toISOString() ?? null;
     }
     if (resolvesEntireBlock) {
       if (expectedRightRankScore === null || expectedRightBoundaryAt === null) {
