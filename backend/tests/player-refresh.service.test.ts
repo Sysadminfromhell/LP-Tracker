@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   savePlayerCacheError: vi.fn(),
   savePlayerCacheSuccess: vi.fn(),
   recordLpRankObservation: vi.fn(),
+  recordLpProviderHistoryObservations: vi.fn(),
   getActiveEvent: vi.fn(),
   getEventParticipant: vi.fn(),
   getLatestEventMatchCursor: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../src/db/player-cache', () => ({
   savePlayerCacheSuccess: mocks.savePlayerCacheSuccess,
 }));
 vi.mock('../src/db/lp-reconciliation', () => ({
+  recordLpProviderHistoryObservations: mocks.recordLpProviderHistoryObservations,
   recordLpRankObservation: mocks.recordLpRankObservation,
 }));
 vi.mock('../src/db/events', () => ({
@@ -121,11 +123,13 @@ beforeEach(() => {
   mocks.savePlayerCacheError.mockResolvedValue(undefined);
   mocks.savePlayerCacheSuccess.mockResolvedValue(undefined);
   mocks.recordLpRankObservation.mockResolvedValue(true);
+  mocks.recordLpProviderHistoryObservations.mockResolvedValue(0);
   mocks.getActiveEvent.mockResolvedValue(null);
   mocks.getLatestEventMatchCursor.mockResolvedValue(null);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
   mocks.refreshLeaderboardPlayer.mockResolvedValue(undefined);
   vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -133,7 +137,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('refreshPlayer provider reliability', () => {
-  it('passes LP history to the event refresh', async () => {
+  it('passes synchronized matches to the event refresh', async () => {
     const recentMatches = [
       {
         id: 'match-1',
@@ -177,8 +181,6 @@ describe('refreshPlayer provider reliability', () => {
     });
     mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
       newMatches: 1,
-      resolvedMatches: 1,
-      unknownMatches: 0,
     });
     mocks.getLeaderboardPlayer.mockReturnValue(null);
     const result = await refreshPlayer(player);
@@ -196,13 +198,79 @@ describe('refreshPlayer provider reliability', () => {
       '2026-09-01T18:00:00.000Z',
       '2026-09-03T18:00:00.000Z',
       recentMatches,
-      1450,
-      profile.lpHistory,
       {
-        resolveLpDeltas: false,
         advanceSyncAnchor: true,
       },
     );
+  });
+  it('stores only provider history observations inside the event window', async () => {
+    mockActiveEventParticipant();
+    const historyProfile: SummonerProfile = {
+      ...profile,
+      lpHistory: [
+        {
+          createdAt: '2026-08-31T18:00:00.000Z',
+          tier: 'GOLD',
+          division: 2,
+          lp: 40,
+        },
+        {
+          createdAt: '2026-09-02T18:35:00.000Z',
+          tier: 'GOLD',
+          division: 2,
+          lp: 50,
+        },
+        {
+          createdAt: '2026-09-04T18:00:00.000Z',
+          tier: 'GOLD',
+          division: 2,
+          lp: 60,
+        },
+      ],
+    };
+    mockProvider(vi.fn().mockResolvedValue(historyProfile), vi.fn().mockResolvedValue([]));
+    mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
+      newMatches: 0,
+    });
+    mocks.getLeaderboardPlayer.mockReturnValue(null);
+    const result = await refreshPlayer(player);
+    expect(result).toBe(true);
+    expect(mocks.recordLpProviderHistoryObservations).toHaveBeenCalledTimes(1);
+    expect(mocks.recordLpProviderHistoryObservations).toHaveBeenCalledWith(100, [
+      {
+        rankScore: 1450,
+        observedAt: new Date('2026-09-02T18:35:00.000Z'),
+      },
+    ]);
+  });
+  it('ignores invalid provider history entries and warns without failing refresh', async () => {
+    mockActiveEventParticipant();
+    const historyProfile: SummonerProfile = {
+      ...profile,
+      lpHistory: [
+        {
+          createdAt: 'invalid',
+          tier: 'GOLD',
+          division: 2,
+          lp: 50,
+        },
+        {
+          createdAt: '2026-09-02T18:35:00.000Z',
+          tier: 'UNKNOWN',
+          division: 2,
+          lp: 50,
+        },
+      ],
+    };
+    mockProvider(vi.fn().mockResolvedValue(historyProfile), vi.fn().mockResolvedValue([]));
+    mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
+      newMatches: 0,
+    });
+    mocks.getLeaderboardPlayer.mockReturnValue(null);
+    const result = await refreshPlayer(player);
+    expect(result).toBe(true);
+    expect(mocks.recordLpProviderHistoryObservations).toHaveBeenCalledWith(100, []);
+    expect(console.warn).toHaveBeenCalledTimes(2);
   });
   it('records a non-forced rank observation when no new matches were discovered', async () => {
     mockActiveEventParticipant();
@@ -210,8 +278,6 @@ describe('refreshPlayer provider reliability', () => {
     mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches);
     mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
       newMatches: 0,
-      resolvedMatches: 0,
-      unknownMatches: 0,
     });
     mocks.getLeaderboardPlayer.mockReturnValue(null);
     const result = await refreshPlayer(player);
@@ -279,6 +345,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.getEventParticipant).not.toHaveBeenCalled();
     expect(mocks.getLatestEventMatchCursor).not.toHaveBeenCalled();
     expect(mocks.updateEventAfterPlayerRefresh).not.toHaveBeenCalled();
+    expect(mocks.recordLpProviderHistoryObservations).not.toHaveBeenCalled();
     expect(mocks.savePlayerCacheSuccess).toHaveBeenCalledTimes(1);
     expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
   });
@@ -357,8 +424,6 @@ describe('refreshPlayer provider reliability', () => {
     });
     mocks.updateEventAfterPlayerRefresh.mockResolvedValue({
       newMatches: 2,
-      resolvedMatches: 2,
-      unknownMatches: 0,
     });
     mocks.getLeaderboardPlayer.mockReturnValue(null);
     mockProvider(vi.fn().mockResolvedValue(profile), getRecentMatches);
@@ -373,10 +438,7 @@ describe('refreshPlayer provider reliability', () => {
       '2026-09-01T18:00:00.000Z',
       '2026-09-03T18:00:00.000Z',
       secondBatch,
-      1450,
-      profile.lpHistory,
       {
-        resolveLpDeltas: false,
         advanceSyncAnchor: true,
       },
     );
@@ -418,8 +480,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.updateEventAfterPlayerRefresh).toHaveBeenCalledTimes(1);
     const eventRefreshCall = mocks.updateEventAfterPlayerRefresh.mock.calls[0];
     expect(eventRefreshCall?.[3]).toHaveLength(20);
-    expect(eventRefreshCall?.[6]).toEqual({
-      resolveLpDeltas: false,
+    expect(eventRefreshCall?.[4]).toEqual({
       advanceSyncAnchor: false,
     });
     expect(mocks.savePlayerCacheError).not.toHaveBeenCalled();

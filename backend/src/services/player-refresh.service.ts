@@ -23,7 +23,10 @@ import {
   recordPlayerRefreshSuccess,
   recordPlayerRefreshSuccessTimestamp,
 } from '../runtime/monitoring-state';
-import { recordLpRankObservation } from '../db/lp-reconciliation';
+import {
+  recordLpProviderHistoryObservations,
+  recordLpRankObservation,
+} from '../db/lp-reconciliation';
 
 interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
@@ -86,6 +89,42 @@ export async function refreshPlayer(
     if (event && event.startsAt) {
       const participant = await getEventParticipant(event.id, player.id);
       if (participant) {
+        const historyStartsAt = new Date(participant.snapshotCapturedAt).getTime();
+        const historyEndsAt = event.endsAt ? new Date(event.endsAt).getTime() : null;
+        const providerHistoryObservations = profile.lpHistory.flatMap((entry) => {
+          const observedAt = new Date(entry.createdAt);
+          const observedAtMs = observedAt.getTime();
+          if (!Number.isFinite(observedAtMs)) {
+            console.warn(
+              `[LP HISTORY] ${player.gameName}#${player.tagLine}: ` +
+                `ignoring provider history entry with invalid timestamp: ${entry.createdAt}`,
+            );
+            return [];
+          }
+          if (
+            observedAtMs < historyStartsAt ||
+            (historyEndsAt !== null && observedAtMs > historyEndsAt) ||
+            !entry.tier ||
+            entry.lp === null
+          ) {
+            return [];
+          }
+          try {
+            const historyRankScore = calculateRankScore(entry.tier, entry.division, entry.lp);
+            if (historyRankScore === null) {
+              return [];
+            }
+            return [{ rankScore: historyRankScore, observedAt }];
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn(
+              `[LP HISTORY] ${player.gameName}#${player.tagLine}: ` +
+                `ignoring invalid provider history entry ` +
+                `(${entry.tier} ${entry.division ?? ''} ${entry.lp} LP): ${message}`,
+            );
+            return [];
+          }
+        });
         const matchCursor = await getLatestEventMatchCursor(participant.id);
         const matchSync = await fetchIncrementalMatches(
           (limit) =>
@@ -121,13 +160,11 @@ export async function refreshPlayer(
           participant.snapshotCapturedAt,
           event.endsAt,
           matchSync.matches,
-          rankScore,
-          profile.lpHistory,
           {
-            resolveLpDeltas: false,
             advanceSyncAnchor: matchSync.anchorReached,
           },
         );
+        await recordLpProviderHistoryObservations(participant.id, providerHistoryObservations);
         await recordLpRankObservation(
           participant.id,
           rankScore,
@@ -135,16 +172,9 @@ export async function refreshPlayer(
           matchResult.newMatches > 0,
         );
         refreshedEventId = event.id;
-        if (
-          matchResult.newMatches > 0 ||
-          matchResult.resolvedMatches > 0 ||
-          matchResult.unknownMatches > 0
-        ) {
+        if (matchResult.newMatches > 0) {
           console.log(
-            `[EVENT] ${player.gameName}#${player.tagLine}: ` +
-              `${matchResult.newMatches} new | ` +
-              `${matchResult.resolvedMatches} resolved | ` +
-              `${matchResult.unknownMatches} unknown`,
+            `[EVENT] ${player.gameName}#${player.tagLine}: ` + `${matchResult.newMatches} new`,
           );
         }
       }
