@@ -132,6 +132,66 @@ describe('LP reconciliation queue', () => {
   });
 });
 describe('LP reconciliation context', () => {
+  it('does not use the event end snapshot as a right rank anchor', async () => {
+    mocks.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            event_participant_id: '50',
+            event_id: '33',
+            event_status: 'ended',
+            event_ends_at: new Date('2026-09-08T23:00:00.000Z'),
+            player_id: '5',
+            game_name: 'Mante',
+            tag_line: 'Pog',
+            region: 'euw',
+            start_rank_score: 2197,
+            end_rank_score: 2254,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ rank_score_after: 2235 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '101',
+            provider_match_id: 'match-1',
+            game_created_at: new Date('2026-09-08T18:00:00.000Z'),
+            duration_seconds: 1800,
+            result: 'WIN',
+            lp_delta_status: 'unknown',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ synchronized: true }],
+      });
+    const context = await getLpReconciliationContext(50);
+    expect(context?.rightRankScore).toBeNull();
+    expect(context?.rightBoundaryAt).toBeNull();
+    expect(context?.eventStatus).toBe('ended');
+    expect(context?.unresolvedMatches).toHaveLength(1);
+  });
   it('reads permanent match duration without depending on rich match details', async () => {
     mocks.query
       .mockResolvedValueOnce({

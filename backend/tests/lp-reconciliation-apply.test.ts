@@ -134,6 +134,44 @@ beforeEach(() => {
 });
 
 describe('LP reconciliation apply', () => {
+  it('does not use the event end snapshot to complete an unresolved block', async () => {
+    mockApplyScenario({
+      participant: {
+        start_rank_score: 1500,
+        end_rank_score: 1520,
+        event_status: 'ended',
+        event_ends_at: new Date('2026-09-08T23:00:00.000Z'),
+      },
+      matches: [
+        unresolvedMatch({
+          is_sync_anchor: true,
+        }),
+      ],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 1500,
+      expectedRightRankScore: 1520,
+      expectedRightBoundaryAt: '2026-09-08T23:00:00.000Z',
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 20,
+          rankScoreAfter: 1520,
+        },
+      ],
+    });
+    expect(result).toEqual({
+      applied: false,
+      resolvedMatches: 0,
+      remainingUnresolved: true,
+      reason: 'Right rank anchor changed during reconciliation',
+    });
+    expect(
+      mocks.clientQuery.mock.calls.some(([sql]) => String(sql).includes('UPDATE event_matches')),
+    ).toBe(false);
+  });
   it('rejects a stale worker claim before writing matches', async () => {
     mockApplyScenario({
       matches: [unresolvedMatch()],
