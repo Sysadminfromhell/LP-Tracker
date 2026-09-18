@@ -8,7 +8,6 @@ export const eventIdParamsSchema = {
     },
   },
 } as const;
-
 export const eventPlayerIdParamsSchema = {
   type: 'object',
   additionalProperties: false,
@@ -18,6 +17,16 @@ export const eventPlayerIdParamsSchema = {
       type: 'string',
     },
     playerId: {
+      type: 'string',
+    },
+  },
+} as const;
+export const playerIdParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id'],
+  properties: {
+    id: {
       type: 'string',
     },
   },
