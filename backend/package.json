@@ -34,8 +34,10 @@
   },
   "devDependencies": {
     "@fastify/type-provider-json-schema-to-ts": "^5.0.0",
+    "@lp-tracker/contracts": "file:../contracts",
     "@types/node": "^26.5.1",
     "@types/pg": "^8.23.1",
+    "json-schema-to-ts": "^3.1.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
