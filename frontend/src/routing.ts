@@ -5,10 +5,10 @@ export interface PlayerOverlayRouteParams {
 }
 
 export function getLegacyRedirect(hash: string): string | null {
-  if (hash.startsWith('#admin')) {
+  if (hash === '#admin') {
     return '/admin';
   }
-  if (hash.startsWith('#overlay_generator')) {
+  if (hash === '#overlay_generator') {
     return '/overlay-generator';
   }
   if (hash.startsWith('#overlay?')) {

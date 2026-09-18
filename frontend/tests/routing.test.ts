@@ -19,6 +19,10 @@ describe('legacy routing', () => {
   it('does not redirect an empty hash', () => {
     expect(getLegacyRedirect('')).toBeNull();
   });
+  it('does not redirect similar legacy hashes', () => {
+    expect(getLegacyRedirect('#administrator')).toBeNull();
+    expect(getLegacyRedirect('#overlay_generator_old')).toBeNull();
+  });
 });
 
 describe('player overlay routing', () => {
