@@ -1,4 +1,4 @@
-const leaderboardMatchSchema = {
+export const leaderboardMatchSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -38,7 +38,7 @@ const leaderboardMatchSchema = {
     },
   },
 } as const;
-const leaderboardRankSchema = {
+export const leaderboardRankSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['tier', 'division', 'lp', 'score'],
@@ -49,6 +49,32 @@ const leaderboardRankSchema = {
     },
     lp: { type: 'number' },
     score: { type: 'number' },
+  },
+} as const;
+export const leaderboardPlayerIdentitySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'gameName',
+    'tagLine',
+    'region',
+    'profileImageUrl',
+    'twitchUsername',
+    'twitterUsername',
+  ],
+  properties: {
+    id: { type: 'number' },
+    gameName: { type: 'string' },
+    tagLine: { type: 'string' },
+    region: { type: 'string' },
+    profileImageUrl: { type: 'string' },
+    twitchUsername: {
+      type: ['string', 'null'],
+    },
+    twitterUsername: {
+      type: ['string', 'null'],
+    },
   },
 } as const;
 const leaderboardPlayerSchema = {
@@ -68,32 +94,7 @@ const leaderboardPlayerSchema = {
     'error',
   ],
   properties: {
-    player: {
-      type: 'object',
-      additionalProperties: false,
-      required: [
-        'id',
-        'gameName',
-        'tagLine',
-        'region',
-        'profileImageUrl',
-        'twitchUsername',
-        'twitterUsername',
-      ],
-      properties: {
-        id: { type: 'number' },
-        gameName: { type: 'string' },
-        tagLine: { type: 'string' },
-        region: { type: 'string' },
-        profileImageUrl: { type: 'string' },
-        twitchUsername: {
-          type: ['string', 'null'],
-        },
-        twitterUsername: {
-          type: ['string', 'null'],
-        },
-      },
-    },
+    player: leaderboardPlayerIdentitySchema,
     startedAt: { type: 'string' },
     start: leaderboardRankSchema,
     current: leaderboardRankSchema,

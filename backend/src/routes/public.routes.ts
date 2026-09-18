@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import { eventPlayerMatchParamsSchema } from './schemas/id.schemas';
 import { healthResponseSchema } from './schemas/health.schemas';
+import { eventPlayerResponseSchema } from './schemas/event-player.schemas';
 import { leaderboardResponseSchema } from './schemas/leaderboard.schemas';
 import {
   matchDetailsErrorResponseSchema,
@@ -58,28 +59,38 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       };
     },
   );
-  app.get('/api/event', async () => {
-    const leaderboard = getLeaderboard();
-    const first = leaderboard[0];
-    if (!first) {
+  typedApp.get(
+    '/api/event',
+    {
+      schema: {
+        response: {
+          200: eventPlayerResponseSchema,
+        },
+      },
+    },
+    async () => {
+      const leaderboard = getLeaderboard();
+      const first = leaderboard[0];
+      if (!first) {
+        return {
+          ready: false as const,
+          error: 'No leaderboard data available',
+        };
+      }
       return {
-        ready: false,
-        error: 'No leaderboard data available',
+        ready: true as const,
+        player: first.player,
+        startedAt: first.startedAt,
+        start: first.start,
+        current: first.current,
+        lpGain: first.lpGain,
+        record: first.record,
+        recentMatches: first.recentMatches,
+        lastUpdated: first.lastUpdated,
+        error: first.error,
       };
-    }
-    return {
-      ready: true,
-      player: first.player,
-      startedAt: first.startedAt,
-      start: first.start,
-      current: first.current,
-      lpGain: first.lpGain,
-      record: first.record,
-      recentMatches: first.recentMatches,
-      lastUpdated: first.lastUpdated,
-      error: first.error,
-    };
-  });
+    },
+  );
   typedApp.get(
     '/api/events/:eventId/players/:playerId/matches/:matchId',
     {
