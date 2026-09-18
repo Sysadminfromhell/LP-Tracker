@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import type {
   HealthResponse,
   LeaderboardHighlight,
@@ -892,9 +893,12 @@ function LeaderboardPage() {
           >
             <span className="live-dot" />
             {eventStatus === 'scheduled' ? 'SCHEDULED' : eventStatus === 'ended' ? 'ENDED' : 'LIVE'}
-            <a className="overlay-link" href="#overlay_generator">
+            <Link className="overlay-link" to="/admin">
+              Admin
+            </Link>
+            <Link className="overlay-link" to="/overlay-generator">
               OBS Overlay
-            </a>
+            </Link>
           </div>
         </header>
         {eventStatus && (

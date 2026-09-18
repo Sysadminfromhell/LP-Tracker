@@ -76,8 +76,8 @@ function PlayerOverlay() {
     void loadChampionIcons().then(setChampionIcons);
   }, []);
   useEffect(() => {
-    const query = window.location.hash.split('?')[1] ?? '';
-    const params = new URLSearchParams(query);
+    const legacyQuery = window.location.hash.split('?')[1] ?? '';
+    const params = new URLSearchParams(window.location.search || legacyQuery);
     const region = params.get('region');
     const name = params.get('name');
     const tag = params.get('tag');

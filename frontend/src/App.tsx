@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { getLegacyRedirect } from './routing';
 import './App.css';
 
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
@@ -6,45 +8,27 @@ const OverlayGenerator = lazy(() => import('./pages/OverlayGenerator'));
 const PlayerOverlay = lazy(() => import('./pages/PlayerOverlay'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 
-function useHash(): string {
-  const [hash, setHash] = useState(window.location.hash);
-  useEffect(() => {
-    function handleHashChange() {
-      setHash(window.location.hash);
-    }
-    window.addEventListener('hashchange', handleHashChange);
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
-  return hash;
-}
 function App() {
-  const hash = useHash();
+  const location = useLocation();
+  const legacyRedirect = getLegacyRedirect(location.hash);
   useEffect(() => {
-    if (hash.startsWith('#admin')) {
+    if (location.pathname === '/admin') {
       document.title = 'LP Gain Event - Admin';
       return;
     }
-    if (hash.startsWith('#overlay_generator')) {
+    if (location.pathname === '/overlay-generator') {
       document.title = 'LP Gain Event - OBS Overlay';
       return;
     }
-    if (hash.startsWith('#overlay?')) {
+    if (location.pathname === '/overlay') {
       document.title = 'LP Gain Event - Player Overlay';
       return;
     }
     document.title = 'LP Gain Event - Leaderboard';
-  }, [hash]);
-  let page;
-  if (hash.startsWith('#admin')) {
-    page = <AdminPage />;
-  } else if (hash.startsWith('#overlay_generator')) {
-    page = <OverlayGenerator />;
-  } else if (hash.startsWith('#overlay?')) {
-    page = <PlayerOverlay key={hash} />;
-  } else {
-    page = <LeaderboardPage />;
+  }, [location.pathname]);
+
+  if (legacyRedirect) {
+    return <Navigate to={legacyRedirect} replace />;
   }
   return (
     <Suspense
@@ -54,8 +38,15 @@ function App() {
         </main>
       }
     >
-      {page}
+      <Routes>
+        <Route path="/" element={<LeaderboardPage />} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/overlay-generator" element={<OverlayGenerator />} />
+        <Route path="/overlay" element={<PlayerOverlay key={location.search} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Suspense>
   );
 }
+
 export default App;

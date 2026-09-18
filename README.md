@@ -365,7 +365,7 @@ The footer also shows the frontend version, backend version and the Git commit u
 Open:
 
 ```text
-https://tracker.example.com/#admin
+https://tracker.example.com/admin
 ```
 
 The admin interface is used to manage players and events, update social profiles and trigger manual refreshes.
@@ -397,7 +397,7 @@ Before an event is ended, participant data is refreshed so the final event state
 The leaderboard provides access to the OBS overlay generator:
 
 ```text
-https://tracker.example.com/#overlay_generator
+https://tracker.example.com/overlay_generator
 ```
 
 Use the generator to create the player overlay URL required for your scene, then add that URL as a Browser Source in OBS.

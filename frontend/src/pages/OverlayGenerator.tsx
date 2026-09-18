@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPlayerOverlayPath } from '../routing';
 import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
 
 function getPlayerKey(player: LeaderboardPlayer): string {
@@ -34,12 +35,14 @@ function OverlayGenerator() {
     if (!selectedPlayer) {
       return '';
     }
-    const params = new URLSearchParams({
-      region: selectedPlayer.player.region,
-      name: selectedPlayer.player.gameName,
-      tag: selectedPlayer.player.tagLine,
-    });
-    return window.location.origin + window.location.pathname + '#overlay?' + params.toString();
+    return (
+      window.location.origin +
+      createPlayerOverlayPath({
+        region: selectedPlayer.player.region,
+        name: selectedPlayer.player.gameName,
+        tag: selectedPlayer.player.tagLine,
+      })
+    );
   }, [selectedPlayer]);
   async function copyUrl() {
     if (!overlayUrl) {
