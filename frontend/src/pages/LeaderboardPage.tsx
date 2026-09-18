@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { HealthResponse } from '@lp-tracker/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import { loadChampionIcons } from '../championIcons';
 import {
@@ -8,12 +9,6 @@ import {
 } from '../matchDetails';
 import { getRankIconUrl } from '../rankIcons';
 
-interface HealthResponse {
-  build?: {
-    version?: string;
-    gitHead?: string;
-  };
-}
 interface EventMatch {
   id: string;
   createdAt: string;

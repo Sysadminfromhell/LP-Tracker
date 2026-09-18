@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import type { HealthResponse, ProviderHealth } from '@lp-tracker/contracts';
 import AdminToastHost, {
   type AdminToastMessage,
   type AdminToastVariant,
@@ -38,23 +39,6 @@ interface PlayerForm {
 }
 type PlayerStatusFilter = 'all' | 'enabled' | 'disabled';
 type PlayerSort = 'name' | 'rank' | 'updated';
-interface ProviderRateLimitBucket {
-  limit: number;
-  count: number | null;
-  windowSeconds: number;
-}
-interface ProviderHealth {
-  name: string | null;
-  connected: boolean;
-  rateLimit: {
-    buckets: ProviderRateLimitBucket[];
-    restricted: boolean;
-  } | null;
-  warning: string | null;
-}
-interface HealthResponse {
-  provider: ProviderHealth;
-}
 const EMPTY_PLAYER_FORM: PlayerForm = {
   gameName: '',
   tagLine: '',

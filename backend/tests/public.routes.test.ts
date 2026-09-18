@@ -377,8 +377,9 @@ describe('public routes', () => {
       connected: true,
     });
     mocks.getRefreshSchedulerStatus.mockReturnValue({
-      running: true,
-      intervalMs: 30_000,
+      targetRefreshMs: 10_000,
+      spacingMs: 5_000,
+      spacingSeconds: 5,
     });
     mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
       rateLimit: {
@@ -453,8 +454,9 @@ describe('public routes', () => {
           cached: 5,
         },
         scheduler: {
-          running: true,
-          intervalMs: 30_000,
+          targetRefreshMs: 10_000,
+          spacingMs: 5_000,
+          spacingSeconds: 5,
         },
       });
       mocks.getLeagueDataProviderDiagnostics.mockReturnValue({

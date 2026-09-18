@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import { eventPlayerMatchParamsSchema } from './schemas/id.schemas';
+import { healthResponseSchema } from './schemas/health.schemas';
 import { findEventMatchDetails } from '../db/event-match-details-reader';
 import { getPlayers } from '../db/players';
 import {
@@ -103,33 +104,44 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       };
     },
   );
-  app.get('/api/health', async () => {
-    const enabledPlayers = await getPlayers(true);
-    const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
-    const provider = getLeagueDataProviderStatus();
-    const providerDiagnostics = getLeagueDataProviderDiagnostics();
-    return {
-      status: 'ok',
-      build: getBuildInfo(),
-      database: {
-        connected: true,
+  typedApp.get(
+    '/api/health',
+    {
+      schema: {
+        response: {
+          200: healthResponseSchema,
+        },
       },
-      provider: {
-        name: provider.name,
-        connected: provider.connected,
-        rateLimit: providerDiagnostics.rateLimit,
-        warning: providerDiagnostics.warning,
-      },
-      event: {
-        id: event?.id ?? null,
-        status: event?.status ?? null,
-      },
-      players: {
-        enabled: enabledPlayers.length,
-        event: totalPlayers,
-        cached: cachedPlayers,
-      },
-      scheduler: getRefreshSchedulerStatus(),
-    };
-  });
+    },
+    async () => {
+      const enabledPlayers = await getPlayers(true);
+      const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
+      const provider = getLeagueDataProviderStatus();
+      const providerDiagnostics = getLeagueDataProviderDiagnostics();
+
+      return {
+        status: 'ok' as const,
+        build: getBuildInfo(),
+        database: {
+          connected: true,
+        },
+        provider: {
+          name: provider.name,
+          connected: provider.connected,
+          rateLimit: providerDiagnostics.rateLimit,
+          warning: providerDiagnostics.warning,
+        },
+        event: {
+          id: event?.id ?? null,
+          status: event?.status ?? null,
+        },
+        players: {
+          enabled: enabledPlayers.length,
+          event: totalPlayers,
+          cached: cachedPlayers,
+        },
+        scheduler: getRefreshSchedulerStatus(),
+      };
+    },
+  );
 }
