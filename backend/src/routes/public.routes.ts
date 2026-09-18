@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import { eventPlayerMatchParamsSchema } from './schemas/id.schemas';
 import { healthResponseSchema } from './schemas/health.schemas';
+import { leaderboardResponseSchema } from './schemas/leaderboard.schemas';
 import { findEventMatchDetails } from '../db/event-match-details-reader';
 import { getPlayers } from '../db/players';
 import {
@@ -18,31 +19,41 @@ import { getBuildInfo } from '../runtime/build-info';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
   const typedApp = app.withTypeProvider<JsonSchemaToTsProvider>();
-  app.get('/api/leaderboard', async () => {
-    const leaderboard = getLeaderboard();
-    const highlights = getLeaderboardHighlights();
-    const { event, totalPlayers } = getLeaderboardMeta();
-    const newestUpdate =
-      leaderboard
-        .map((player) => player.lastUpdated)
-        .sort()
-        .at(-1) ?? null;
-    return {
-      ready: leaderboard.length > 0,
-      event: {
-        id: event?.id ?? null,
-        name: event?.name ?? null,
-        startsAt: event?.startsAt ?? null,
-        endsAt: event?.endsAt ?? null,
-        status: event?.status ?? null,
+  typedApp.get(
+    '/api/leaderboard',
+    {
+      schema: {
+        response: {
+          200: leaderboardResponseSchema,
+        },
       },
-      totalPlayers,
-      loadedPlayers: leaderboard.length,
-      lastUpdated: newestUpdate,
-      highlights,
-      players: leaderboard,
-    };
-  });
+    },
+    async () => {
+      const leaderboard = getLeaderboard();
+      const highlights = getLeaderboardHighlights();
+      const { event, totalPlayers } = getLeaderboardMeta();
+      const newestUpdate =
+        leaderboard
+          .map((player) => player.lastUpdated)
+          .sort()
+          .at(-1) ?? null;
+      return {
+        ready: leaderboard.length > 0,
+        event: {
+          id: event?.id ?? null,
+          name: event?.name ?? null,
+          startsAt: event?.startsAt ?? null,
+          endsAt: event?.endsAt ?? null,
+          status: event?.status ?? null,
+        },
+        totalPlayers,
+        loadedPlayers: leaderboard.length,
+        lastUpdated: newestUpdate,
+        highlights,
+        players: leaderboard,
+      };
+    },
+  );
   app.get('/api/event', async () => {
     const leaderboard = getLeaderboard();
     const first = leaderboard[0];

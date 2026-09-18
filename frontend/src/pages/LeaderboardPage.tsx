@@ -1,5 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { HealthResponse } from '@lp-tracker/contracts';
+import type {
+  HealthResponse,
+  LeaderboardHighlight,
+  LeaderboardPlayer,
+  LeaderboardResponse,
+} from '@lp-tracker/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import { loadChampionIcons } from '../championIcons';
 import {
@@ -9,90 +14,6 @@ import {
 } from '../matchDetails';
 import { getRankIconUrl } from '../rankIcons';
 
-interface EventMatch {
-  id: string;
-  createdAt: string;
-  championId: number;
-  champion: string;
-  position: string;
-  kills: number;
-  deaths: number;
-  assists: number;
-  cs: number;
-  result: 'WIN' | 'LOSE';
-  lpDelta: number | null;
-  lpDeltaStatus: 'pending' | 'resolved' | 'unknown';
-}
-interface LeaderboardPlayer {
-  player: {
-    id: number;
-    gameName: string;
-    tagLine: string;
-    region: string;
-    profileImageUrl: string;
-    twitchUsername: string | null;
-    twitterUsername: string | null;
-  };
-  startedAt: string;
-  start: {
-    tier: string;
-    division: number | null;
-    lp: number;
-    score: number;
-  };
-  current: {
-    tier: string;
-    division: number | null;
-    lp: number;
-    score: number;
-  };
-  penalty: {
-    lp: number;
-    reason: string | null;
-  };
-  lpGain: number;
-  record: {
-    wins: number;
-    losses: number;
-    games: number;
-  };
-  rankMovement: {
-    delta: number;
-    changedAt: string | null;
-  };
-  recentMatches: EventMatch[];
-  lastUpdated: string;
-  error: string | null;
-}
-interface LeaderboardHighlight {
-  player: {
-    id: number;
-    gameName: string;
-    tagLine: string;
-    profileImageUrl: string;
-  };
-  value: number;
-}
-interface LeaderboardHighlights {
-  longestWinStreak: LeaderboardHighlight | null;
-  bestKda: LeaderboardHighlight | null;
-  mostWins: LeaderboardHighlight | null;
-}
-interface LeaderboardResponse {
-  ready: boolean;
-  totalPlayers: number;
-  loadedPlayers: number;
-  lastUpdated: string | null;
-  highlights: LeaderboardHighlights;
-  players: LeaderboardPlayer[];
-  event: {
-    id: number | null;
-    name: string | null;
-    startsAt: string | null;
-    endsAt: string | null;
-    status: 'draft' | 'scheduled' | 'active' | 'ended' | null;
-  };
-}
 interface PlayerVisualChange {
   lpChanged: boolean;
   newMatchIds: string[];
