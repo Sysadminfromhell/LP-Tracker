@@ -141,6 +141,28 @@ describe('admin auth routes', () => {
       await app.close();
     }
   });
+  it('returns a sanitized response for unexpected login errors', async () => {
+    mocks.authenticateAdmin.mockRejectedValue(new Error('database exploded'));
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'admin',
+          password: 'correct-password',
+        },
+      });
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toEqual({
+        error: 'Internal Server Error',
+      });
+      expect(response.body).not.toContain('database exploded');
+      expect(mocks.createAdminSession).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('logs in an admin and creates a session cookie', async () => {
     mocks.authenticateAdmin.mockResolvedValue(admin);
     const app = await createTestApp();
