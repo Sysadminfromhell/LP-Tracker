@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getBuildInfo } from '../src/runtime/build-info';
 
 const mocks = vi.hoisted(() => ({
   findEventMatchDetails: vi.fn(),
@@ -437,10 +438,7 @@ describe('public routes', () => {
       expect(mocks.getPlayers).toHaveBeenCalledWith(true);
       expect(response.json()).toEqual({
         status: 'ok',
-        build: {
-          version: '2.0.1',
-          gitHead: 'dev',
-        },
+        build: getBuildInfo(),
         database: {
           connected: true,
         },
