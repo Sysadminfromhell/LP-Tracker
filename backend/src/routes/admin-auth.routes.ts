@@ -1,21 +1,32 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsyncJsonSchemaToTs } from '@fastify/type-provider-json-schema-to-ts';
 import rateLimit from '@fastify/rate-limit';
 import { authenticateAdmin } from '../db/admins';
 import { createAdminSession, deleteAdminSession } from '../db/admin-sessions';
 import { ADMIN_COOKIE_NAME, getAdminCookieOptions, requireAdmin } from '../auth/admin-auth';
 
-export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
+const loginBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    username: {
+      type: 'string',
+    },
+    password: {
+      type: 'string',
+    },
+  },
+} as const;
+
+export const adminAuthRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app) => {
   await app.register(rateLimit, {
     global: false,
   });
-  app.post<{
-    Body: {
-      username?: string;
-      password?: string;
-    };
-  }>(
+  app.post(
     '/api/admin/login',
     {
+      schema: {
+        body: loginBodySchema,
+      },
       config: {
         rateLimit: {
           max: 5,
@@ -75,4 +86,4 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       },
     };
   });
-}
+};

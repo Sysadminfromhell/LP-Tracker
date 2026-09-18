@@ -4,6 +4,14 @@ import helmet from '@fastify/helmet';
 
 export function createApp() {
   const app = Fastify({
+    ajv: {
+      customOptions: {
+        coerceTypes: false,
+        useDefaults: false,
+        removeAdditional: false,
+        allErrors: false,
+      },
+    },
     logger: {
       level: 'info',
       transport: {
@@ -23,6 +31,19 @@ export function createApp() {
   app.register(cookie);
   app.register(helmet, {
     contentSecurityPolicy: false,
+  });
+  app.setErrorHandler((error, _request, reply) => {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'validation' in error &&
+      Array.isArray(error.validation)
+    ) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+      });
+    }
+    return reply.send(error);
   });
   app.addHook('onRequest', async (request, reply) => {
     if (process.env.NODE_ENV !== 'production') {

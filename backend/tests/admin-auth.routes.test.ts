@@ -78,6 +78,47 @@ describe('admin auth routes', () => {
       await app.close();
     }
   });
+  it('rejects login requests with invalid body types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 123,
+          password: 'password',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects login requests with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'admin',
+          password: 'password',
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('rejects invalid credentials', async () => {
     mocks.authenticateAdmin.mockResolvedValue(null);
     const app = await createTestApp();
