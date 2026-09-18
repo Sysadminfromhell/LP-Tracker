@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify from 'fastify';
 import type { AdminEvent } from '../src/db/admin-events';
 import type { Player } from '../src/db/players';
 
@@ -58,6 +57,7 @@ vi.mock('../src/runtime/job-coordinator', () => ({
   },
 }));
 
+import { createApp } from '../src/app';
 import { adminEventRoutes } from '../src/routes/admin-event.routes';
 
 const scheduledEvent: AdminEvent = {
@@ -115,9 +115,7 @@ const participantPenalty = {
 };
 
 async function createTestApp() {
-  const app = Fastify({
-    logger: false,
-  });
+  const app = createApp();
   await app.register(adminEventRoutes);
   await app.ready();
   return app;
@@ -300,6 +298,91 @@ describe('admin event routes', () => {
       await app.close();
     }
   });
+  it('rejects participant penalties with invalid LP penalty types', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: '15',
+          reason: 'Boosting',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects participant penalties with invalid reason types', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 15,
+          reason: 123,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects participant penalties with unknown body properties', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 15,
+          reason: 'Boosting',
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('keeps semantic validation for non-integer LP penalties', async () => {
+    mocks.getAdminEventById.mockResolvedValue(activeEvent);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 15.5,
+          reason: 'Boosting',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'LP penalty must be a non-negative integer',
+      });
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('rejects invalid event IDs', async () => {
     const app = await createTestApp();
     try {
@@ -358,6 +441,64 @@ describe('admin event routes', () => {
       await app.close();
     }
   });
+  it('rejects event renames with invalid body types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1/name',
+        payload: {
+          name: 123,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateAdminEventName).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects event renames with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1/name',
+        payload: {
+          name: 'Renamed Event',
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateAdminEventName).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('keeps semantic validation for empty event names', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1/name',
+        payload: {
+          name: '   ',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Event name is required',
+      });
+      expect(mocks.updateAdminEventName).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('allows editing only scheduled events', async () => {
     mocks.getAdminEventById.mockResolvedValue(activeEvent);
     const app = await createTestApp();
@@ -408,6 +549,71 @@ describe('admin event routes', () => {
         playerIds: [secondPlayer.id],
       });
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects scheduled event updates with invalid body types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1',
+        payload: {
+          name: 'Event',
+          startsAt: 123,
+          endsAt: scheduledEvent.endsAt,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateScheduledEvent).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects scheduled event updates with invalid player ID types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1',
+        payload: {
+          name: 'Event',
+          startsAt: scheduledEvent.startsAt,
+          endsAt: scheduledEvent.endsAt,
+          playerIds: ['10'],
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateScheduledEvent).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects scheduled event updates with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1',
+        payload: {
+          name: 'Event',
+          startsAt: scheduledEvent.startsAt,
+          endsAt: scheduledEvent.endsAt,
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateScheduledEvent).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
@@ -501,6 +707,49 @@ describe('admin event routes', () => {
         ok: true,
         event: scheduledEvent,
       });
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects new events with invalid body types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/events',
+        payload: {
+          name: 'Event',
+          startsAt: 123,
+          endsAt: scheduledEvent.endsAt,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.scheduleAdminEvent).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects new events with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/events',
+        payload: {
+          name: 'Event',
+          startsAt: scheduledEvent.startsAt,
+          endsAt: scheduledEvent.endsAt,
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.scheduleAdminEvent).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

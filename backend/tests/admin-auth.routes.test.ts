@@ -78,6 +78,47 @@ describe('admin auth routes', () => {
       await app.close();
     }
   });
+  it('rejects login requests with invalid body types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 123,
+          password: 'password',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects login requests with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'admin',
+          password: 'password',
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('rejects invalid credentials', async () => {
     mocks.authenticateAdmin.mockResolvedValue(null);
     const app = await createTestApp();
@@ -95,6 +136,28 @@ describe('admin auth routes', () => {
         error: 'Invalid username or password',
       });
       expect(mocks.authenticateAdmin).toHaveBeenCalledWith('admin', 'wrong-password');
+      expect(mocks.createAdminSession).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns a sanitized response for unexpected login errors', async () => {
+    mocks.authenticateAdmin.mockRejectedValue(new Error('database exploded'));
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'admin',
+          password: 'correct-password',
+        },
+      });
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toEqual({
+        error: 'Internal Server Error',
+      });
+      expect(response.body).not.toContain('database exploded');
       expect(mocks.createAdminSession).not.toHaveBeenCalled();
     } finally {
       await app.close();

@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import type {
+  AdminEvent,
+  AdminEventDetailsResponse,
+  AdminEventResponse,
+  AdminEventsResponse,
+  EventParticipantPenaltiesResponse,
+  EventParticipantPenalty,
+  EventParticipantPenaltyResponse,
+} from '@lp-tracker/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import type { AdminToastVariant } from '../components/AdminToastHost';
 
@@ -13,33 +22,10 @@ interface AdminEventPanelProps {
   onUnauthorized: () => void;
   onNotify: (variant: AdminToastVariant, message: string) => void;
 }
-interface AdminEvent {
-  id: number;
-  name: string;
-  startsAt: string;
-  endsAt: string | null;
-  status: 'draft' | 'scheduled' | 'active' | 'ended';
-  participantCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
 interface EventScheduleForm {
   name: string;
   startsAt: string;
   endsAt: string;
-}
-interface EventParticipantPenalty {
-  eventId: number;
-  playerId: number;
-  gameName: string;
-  tagLine: string;
-  startTier: string;
-  startDivision: number | null;
-  startLp: number;
-  startRankScore: number;
-  lpPenalty: number;
-  penaltyReason: string | null;
-  penaltyUpdatedAt: string | null;
 }
 interface PenaltyForm {
   lpPenalty: string;
@@ -172,9 +158,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
         if (!response.ok) {
           throw new Error(await readApiError(response));
         }
-        const data = (await response.json()) as {
-          events: AdminEvent[];
-        };
+        const data = (await response.json()) as AdminEventsResponse;
         const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
         const latestEndedEvent =
           data.events
@@ -217,9 +201,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
         if (!response.ok) {
           throw new Error(await readApiError(response));
         }
-        const data = (await response.json()) as {
-          participants: EventParticipantPenalty[];
-        };
+        const data = (await response.json()) as EventParticipantPenaltiesResponse;
         setPenaltyParticipants(data.participants);
       } catch (err) {
         onNotify('error', err instanceof Error ? err.message : 'Could not load LP penalties.');
@@ -283,9 +265,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        event: AdminEvent;
-      };
+      const data = (await response.json()) as AdminEventResponse;
       setEvent(data.event);
       setEvents((current) =>
         current.map((item) => (item.id === data.event.id ? data.event : item)),
@@ -339,9 +319,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        event: AdminEvent;
-      };
+      const data = (await response.json()) as AdminEventResponse;
       setEvents((current) => [...current.filter((item) => item.id !== data.event.id), data.event]);
       setSchedule(createDefaultSchedule());
       setNewEventPlayerIds(null);
@@ -408,10 +386,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        event: AdminEvent;
-        selectedPlayerIds: number[];
-      };
+      const data = (await response.json()) as AdminEventDetailsResponse;
       setScheduledSchedule(createScheduleFromEvent(data.event));
       setScheduledEventPlayerIds(data.selectedPlayerIds);
     } catch (err) {
@@ -479,9 +454,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        event: AdminEvent;
-      };
+      const data = (await response.json()) as AdminEventResponse;
       setEvents((current) =>
         current.map((item) => (item.id === data.event.id ? data.event : item)),
       );
@@ -581,9 +554,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        participant: EventParticipantPenalty;
-      };
+      const data = (await response.json()) as EventParticipantPenaltyResponse;
       setPenaltyParticipants((current) =>
         current.map((participant) =>
           participant.playerId === data.participant.playerId ? data.participant : participant,

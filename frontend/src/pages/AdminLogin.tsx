@@ -1,16 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import type { LoginResponse } from '@lp-tracker/contracts';
 
 interface AdminLoginProps {
   onLogin: () => void;
-}
-
-interface LoginResponse {
-  ok: boolean;
-
-  admin: {
-    id: number;
-    username: string;
-  };
 }
 
 function AdminLogin({ onLogin }: AdminLoginProps) {

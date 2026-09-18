@@ -1,20 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { AdminMeResponse, AdminSessionUser } from '@lp-tracker/contracts';
 import AdminDashboard from './AdminDashboard';
 import AdminLogin from './AdminLogin';
 
-interface AdminUser {
-  id: number;
-  username: string;
-  lastLoginAt: string | null;
-}
-
-interface AdminMeResponse {
-  authenticated: boolean;
-  admin: AdminUser;
-}
-
 function AdminPage() {
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const [admin, setAdmin] = useState<AdminSessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const checkSession = useCallback(async () => {
     setLoading(true);

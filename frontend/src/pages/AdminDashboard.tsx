@@ -1,29 +1,17 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import type {
+  AdminPlayer,
+  AdminPlayersRefreshResponse,
+  AdminPlayersResponse,
+  HealthResponse,
+  ProviderHealth,
+} from '@lp-tracker/contracts';
 import AdminToastHost, {
   type AdminToastMessage,
   type AdminToastVariant,
 } from '../components/AdminToastHost';
 import AdminEventPanel from './AdminEventPanel';
 
-interface AdminPlayer {
-  id: number;
-  gameName: string;
-  tagLine: string;
-  region: string;
-  twitchUsername: string | null;
-  twitterUsername: string | null;
-  enabled: boolean;
-  profileImageUrl: string | null;
-  tier: string | null;
-  division: number | null;
-  lp: number | null;
-  rankScore: number | null;
-  lastSuccessfulFetchAt: string | null;
-  lastError: string | null;
-}
-interface PlayersResponse {
-  players: AdminPlayer[];
-}
 interface AdminDashboardProps {
   username: string;
   onLogout: () => void;
@@ -38,23 +26,6 @@ interface PlayerForm {
 }
 type PlayerStatusFilter = 'all' | 'enabled' | 'disabled';
 type PlayerSort = 'name' | 'rank' | 'updated';
-interface ProviderRateLimitBucket {
-  limit: number;
-  count: number | null;
-  windowSeconds: number;
-}
-interface ProviderHealth {
-  name: string | null;
-  connected: boolean;
-  rateLimit: {
-    buckets: ProviderRateLimitBucket[];
-    restricted: boolean;
-  } | null;
-  warning: string | null;
-}
-interface HealthResponse {
-  provider: ProviderHealth;
-}
 const EMPTY_PLAYER_FORM: PlayerForm = {
   gameName: '',
   tagLine: '',
@@ -130,7 +101,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as PlayersResponse;
+      const data = (await response.json()) as AdminPlayersResponse;
       setPlayers(data.players);
     } catch (err) {
       notify('error', err instanceof Error ? err.message : 'Could not load players.');
@@ -274,10 +245,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      const data = (await response.json()) as {
-        refreshed: number;
-        players: AdminPlayer[];
-      };
+      const data = (await response.json()) as AdminPlayersRefreshResponse;
       setPlayers(data.players);
       notify(
         'success',

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify from 'fastify';
 import type { Player } from '../src/db/players';
 import type { AdminPlayer } from '../src/db/admin-management';
 
@@ -63,6 +62,7 @@ vi.mock('../src/rank', () => ({
   calculateRankScore: mocks.calculateRankScore,
 }));
 
+import { createApp } from '../src/app';
 import { adminPlayerRoutes } from '../src/routes/admin-player.routes';
 
 const player: Player = {
@@ -110,9 +110,7 @@ const rankedProfile = {
 };
 
 async function createTestApp() {
-  const app = Fastify({
-    logger: false,
-  });
+  const app = createApp();
   await app.register(adminPlayerRoutes);
   await app.ready();
   return app;
@@ -344,6 +342,71 @@ describe('admin player routes', () => {
       await app.close();
     }
   });
+  it('rejects player creation with invalid Riot ID field types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players',
+        payload: {
+          gameName: 123,
+          tagLine: 'EUW',
+          region: 'EUW',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getLeagueDataProvider).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects player creation with invalid social username types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players',
+        payload: {
+          gameName: 'FourK',
+          tagLine: 'EUW',
+          region: 'EUW',
+          twitchUsername: 123,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getLeagueDataProvider).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects player creation with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players',
+        payload: {
+          gameName: 'FourK',
+          tagLine: 'EUW',
+          region: 'EUW',
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getLeagueDataProvider).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('rejects players without Solo Queue data', async () => {
     mocks.getSummonerProfile.mockResolvedValue({
       ...rankedProfile,
@@ -526,6 +589,63 @@ describe('admin player routes', () => {
       await app.close();
     }
   });
+  it('rejects player updates with invalid enabled types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1',
+        payload: {
+          enabled: 'false',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateAdminPlayer).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects player updates with invalid social username types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1',
+        payload: {
+          twitchUsername: 123,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateAdminPlayer).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects player updates with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1',
+        payload: {
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateAdminPlayer).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it('updates socials without league provider validation', async () => {
     const updated = {
       ...adminPlayer,
@@ -533,6 +653,7 @@ describe('admin player routes', () => {
       twitterUsername: 'newtwitter',
     };
     mocks.updatePlayerSocials.mockResolvedValue(updated);
+    mocks.getAdminPlayers.mockResolvedValue([updated]);
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -551,6 +672,45 @@ describe('admin player routes', () => {
         ok: true,
         player: updated,
       });
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects social updates with invalid username types', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1/socials',
+        payload: {
+          twitchUsername: 123,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updatePlayerSocials).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects social updates with unknown body properties', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1/socials',
+        payload: {
+          twitchUsername: 'fourk',
+          admin: true,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updatePlayerSocials).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

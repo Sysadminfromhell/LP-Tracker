@@ -1,21 +1,44 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsyncJsonSchemaToTs } from '@fastify/type-provider-json-schema-to-ts';
 import rateLimit from '@fastify/rate-limit';
 import { authenticateAdmin } from '../db/admins';
 import { createAdminSession, deleteAdminSession } from '../db/admin-sessions';
 import { ADMIN_COOKIE_NAME, getAdminCookieOptions, requireAdmin } from '../auth/admin-auth';
+import {
+  adminMeResponseSchema,
+  errorResponseSchema,
+  loginResponseSchema,
+  okResponseSchema,
+} from './schemas/auth.schemas';
 
-export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
+const loginBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    username: {
+      type: 'string',
+    },
+    password: {
+      type: 'string',
+    },
+  },
+} as const;
+
+export const adminAuthRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app) => {
   await app.register(rateLimit, {
     global: false,
   });
-  app.post<{
-    Body: {
-      username?: string;
-      password?: string;
-    };
-  }>(
+  app.post(
     '/api/admin/login',
     {
+      schema: {
+        body: loginBodySchema,
+        response: {
+          200: loginResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
       config: {
         rateLimit: {
           max: 5,
@@ -51,28 +74,51 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       };
     },
   );
-  app.post('/api/admin/logout', async (request, reply) => {
-    const token = request.cookies[ADMIN_COOKIE_NAME];
-    if (token) {
-      await deleteAdminSession(token).catch(() => {});
-    }
-    reply.clearCookie(ADMIN_COOKIE_NAME, getAdminCookieOptions());
-    return {
-      ok: true,
-    };
-  });
-  app.get('/api/admin/me', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    return {
-      authenticated: true,
-      admin: {
-        id: admin.id,
-        username: admin.username,
-        lastLoginAt: admin.lastLoginAt,
+  app.post(
+    '/api/admin/logout',
+    {
+      schema: {
+        response: {
+          200: okResponseSchema,
+          default: errorResponseSchema,
+        },
       },
-    };
-  });
-}
+    },
+    async (request, reply) => {
+      const token = request.cookies[ADMIN_COOKIE_NAME];
+      if (token) {
+        await deleteAdminSession(token).catch(() => {});
+      }
+      reply.clearCookie(ADMIN_COOKIE_NAME, getAdminCookieOptions());
+      return {
+        ok: true,
+      };
+    },
+  );
+  app.get(
+    '/api/admin/me',
+    {
+      schema: {
+        response: {
+          200: adminMeResponseSchema,
+          401: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      return {
+        authenticated: true,
+        admin: {
+          id: admin.id,
+          username: admin.username,
+          lastLoginAt: admin.lastLoginAt,
+        },
+      };
+    },
+  );
+};

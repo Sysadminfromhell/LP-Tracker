@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify from 'fastify';
+import { getBuildInfo } from '../src/runtime/build-info';
 
 const mocks = vi.hoisted(() => ({
   findEventMatchDetails: vi.fn(),
@@ -31,6 +31,7 @@ vi.mock('../src/jobs/refresh-scheduler', () => ({
   getRefreshSchedulerStatus: mocks.getRefreshSchedulerStatus,
 }));
 
+import { createApp } from '../src/app';
 import { publicRoutes } from '../src/routes/public.routes';
 
 const event = {
@@ -46,6 +47,9 @@ const firstPlayer = {
     gameName: 'Alpha',
     tagLine: 'EUW',
     region: 'EUW',
+    profileImageUrl: 'https://example.com/alpha.png',
+    twitchUsername: 'alpha',
+    twitterUsername: null,
   },
   startedAt: '2026-09-01T18:00:00.000Z',
   start: {
@@ -60,15 +64,34 @@ const firstPlayer = {
     lp: 25,
     score: 1525,
   },
+  penalty: {
+    lp: 0,
+    reason: null,
+  },
   lpGain: 125,
   record: {
     wins: 3,
     losses: 1,
     games: 4,
   },
+  rankMovement: {
+    delta: 1,
+    changedAt: '2026-09-02T20:00:00.000Z',
+  },
   recentMatches: [
     {
       id: 'match-1',
+      createdAt: '2026-09-02T19:00:00.000Z',
+      championId: 103,
+      champion: 'Ahri',
+      position: 'MID',
+      kills: 8,
+      deaths: 2,
+      assists: 11,
+      cs: 210,
+      result: 'WIN',
+      lpDelta: 24,
+      lpDeltaStatus: 'resolved',
     },
   ],
   lastUpdated: '2026-09-02T20:00:00.000Z',
@@ -88,6 +111,8 @@ const highlights = {
     player: {
       id: 1,
       gameName: 'Alpha',
+      tagLine: 'EUW',
+      profileImageUrl: 'https://example.com/alpha.png',
     },
     value: 3,
   },
@@ -96,9 +121,7 @@ const highlights = {
 };
 
 async function createTestApp() {
-  const app = Fastify({
-    logger: false,
-  });
+  const app = createApp();
   await app.register(publicRoutes);
   await app.ready();
   return app;
@@ -379,8 +402,9 @@ describe('public routes', () => {
       connected: true,
     });
     mocks.getRefreshSchedulerStatus.mockReturnValue({
-      running: true,
-      intervalMs: 30_000,
+      targetRefreshMs: 10_000,
+      spacingMs: 5_000,
+      spacingSeconds: 5,
     });
     mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
       rateLimit: {
@@ -414,10 +438,7 @@ describe('public routes', () => {
       expect(mocks.getPlayers).toHaveBeenCalledWith(true);
       expect(response.json()).toEqual({
         status: 'ok',
-        build: {
-          version: '2.0.1',
-          gitHead: 'dev',
-        },
+        build: getBuildInfo(),
         database: {
           connected: true,
         },
@@ -455,8 +476,9 @@ describe('public routes', () => {
           cached: 5,
         },
         scheduler: {
-          running: true,
-          intervalMs: 30_000,
+          targetRefreshMs: 10_000,
+          spacingMs: 5_000,
+          spacingSeconds: 5,
         },
       });
       mocks.getLeagueDataProviderDiagnostics.mockReturnValue({

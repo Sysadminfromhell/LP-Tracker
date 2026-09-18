@@ -1,42 +1,7 @@
 import { useEffect, useState } from 'react';
+import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
 import { loadChampionIcons } from '../championIcons';
 
-interface EventMatch {
-  id: string;
-  championId: number;
-  champion: string;
-  position: string;
-  kills: number;
-  deaths: number;
-  assists: number;
-  result: 'WIN' | 'LOSE';
-  lpDelta: number | null;
-}
-interface LeaderboardPlayer {
-  player: {
-    id: number;
-    gameName: string;
-    tagLine: string;
-    region: string;
-    profileImageUrl: string;
-  };
-  current: {
-    tier: string;
-    division: number | null;
-    lp: number;
-  };
-  lpGain: number;
-  record: {
-    wins: number;
-    losses: number;
-    games: number;
-  };
-  recentMatches: EventMatch[];
-  lastUpdated: string;
-}
-interface LeaderboardResponse {
-  players: LeaderboardPlayer[];
-}
 interface PlayerRefreshedLiveUpdate {
   playerId: number;
   lastUpdated: string;
