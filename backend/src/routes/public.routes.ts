@@ -3,6 +3,10 @@ import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-
 import { eventPlayerMatchParamsSchema } from './schemas/id.schemas';
 import { healthResponseSchema } from './schemas/health.schemas';
 import { leaderboardResponseSchema } from './schemas/leaderboard.schemas';
+import {
+  matchDetailsErrorResponseSchema,
+  matchDetailsResponseSchema,
+} from './schemas/match-details.schemas';
 import { findEventMatchDetails } from '../db/event-match-details-reader';
 import { getPlayers } from '../db/players';
 import {
@@ -81,6 +85,11 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: {
         params: eventPlayerMatchParamsSchema,
+        response: {
+          200: matchDetailsResponseSchema,
+          400: matchDetailsErrorResponseSchema,
+          404: matchDetailsErrorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
