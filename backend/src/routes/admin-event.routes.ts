@@ -348,52 +348,56 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
-  app.delete<{
-    Params: {
-      eventId: string;
-    };
-  }>('/api/admin/events/:eventId', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const eventId = parseEventId(request.params.eventId);
-    if (eventId === null) {
-      return reply.code(400).send({
-        error: 'Invalid event ID',
-      });
-    }
-    const currentEvent = await getAdminEventById(eventId);
-    if (!currentEvent) {
-      return reply.code(404).send({
-        error: 'Event not found',
-      });
-    }
-    if (currentEvent.status !== 'scheduled') {
-      return reply.code(409).send({
-        error: 'Only scheduled events can be canceled',
-      });
-    }
-    try {
-      await cancelScheduledEvent(eventId);
-      await loadLeaderboardFromDatabase();
-      console.log(`[ADMIN] Scheduled event "${currentEvent.name}" canceled`);
-      return {
-        ok: true,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
-        return reply.code(409).send({
-          error: 'The event is no longer scheduled',
+  typedApp.delete(
+    '/api/admin/events/:eventId',
+    {
+      schema: {
+        params: eventIdParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      const eventId = parseEventId(request.params.eventId);
+      if (eventId === null) {
+        return reply.code(400).send({
+          error: 'Invalid event ID',
         });
       }
-      console.error(`[ADMIN] Could not cancel scheduled event ${eventId}: ${message}`);
-      return reply.code(500).send({
-        error: 'Could not cancel scheduled event',
-      });
-    }
-  });
+      const currentEvent = await getAdminEventById(eventId);
+      if (!currentEvent) {
+        return reply.code(404).send({
+          error: 'Event not found',
+        });
+      }
+      if (currentEvent.status !== 'scheduled') {
+        return reply.code(409).send({
+          error: 'Only scheduled events can be canceled',
+        });
+      }
+      try {
+        await cancelScheduledEvent(eventId);
+        await loadLeaderboardFromDatabase();
+        console.log(`[ADMIN] Scheduled event "${currentEvent.name}" canceled`);
+        return {
+          ok: true,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message === 'SCHEDULED_EVENT_NOT_FOUND') {
+          return reply.code(409).send({
+            error: 'The event is no longer scheduled',
+          });
+        }
+        console.error(`[ADMIN] Could not cancel scheduled event ${eventId}: ${message}`);
+        return reply.code(500).send({
+          error: 'Could not cancel scheduled event',
+        });
+      }
+    },
+  );
   typedApp.post(
     '/api/admin/events',
     {
@@ -473,96 +477,100 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
-  app.post<{
-    Params: {
-      eventId: string;
-    };
-  }>('/api/admin/events/:eventId/end', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const eventId = parseEventId(request.params.eventId);
-    if (eventId === null) {
-      return reply.code(400).send({
-        error: 'Invalid event ID',
-      });
-    }
-    const event = await getAdminEventById(eventId);
-    if (!event) {
-      return reply.code(404).send({
-        error: 'Event not found',
-      });
-    }
-    if (event.status !== 'active') {
-      return reply.code(409).send({
-        error: 'Only active events can be ended',
-      });
-    }
-    const releaseTransitionLock = jobCoordinator.tryAcquireLock('event-transition');
-    if (!releaseTransitionLock) {
-      return reply.code(409).send({
-        error: 'An event transition is currently in progress',
-      });
-    }
-    try {
-      return await jobCoordinator.enqueue(
-        {
-          type: 'event-end',
-        },
-        async () => {
-          const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
-          const allPlayers = await getPlayers(false);
-          const eventPlayers = allPlayers.filter((player) => participantIds.has(player.id));
-          if (eventPlayers.length !== participantIds.size) {
-            return reply.code(409).send({
-              error: 'Not every event participant could be loaded',
-            });
-          }
-          console.log(
-            `[ADMIN] Refreshing ${eventPlayers.length} participant(s) ` +
-              `before ending "${event.name}"...`,
-          );
-          const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
-          if (failedPlayers.length > 0) {
-            console.error(
-              `[ADMIN] Could not end "${event.name}": ` +
-                `${failedPlayers.length} player refresh(es) failed`,
-            );
-            return reply.code(502).send({
-              error: 'Could not refresh every participant before ending the event',
-            });
-          }
-          const endedEvent = await endAdminEvent(event.id);
-          await loadLeaderboardFromDatabase();
-          console.log(
-            `[ADMIN] Event "${endedEvent.name}" ended with ` +
-              `${endedEvent.participantCount} participant(s)`,
-          );
-          return {
-            ok: true,
-            event: endedEvent,
-          };
-        },
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message === 'ACTIVE_EVENT_NOT_FOUND') {
+  typedApp.post(
+    '/api/admin/events/:eventId/end',
+    {
+      schema: {
+        params: eventIdParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      const eventId = parseEventId(request.params.eventId);
+      if (eventId === null) {
+        return reply.code(400).send({
+          error: 'Invalid event ID',
+        });
+      }
+      const event = await getAdminEventById(eventId);
+      if (!event) {
         return reply.code(404).send({
-          error: 'No active event found',
+          error: 'Event not found',
         });
       }
-      if (message === 'EVENT_END_SNAPSHOT_INCOMPLETE') {
+      if (event.status !== 'active') {
         return reply.code(409).send({
-          error: 'Could not create a final snapshot for every participant',
+          error: 'Only active events can be ended',
         });
       }
-      console.error(`[ADMIN] Could not end event: ${message}`);
-      return reply.code(500).send({
-        error: 'Could not end event',
-      });
-    } finally {
-      releaseTransitionLock();
-    }
-  });
+      const releaseTransitionLock = jobCoordinator.tryAcquireLock('event-transition');
+      if (!releaseTransitionLock) {
+        return reply.code(409).send({
+          error: 'An event transition is currently in progress',
+        });
+      }
+      try {
+        return await jobCoordinator.enqueue(
+          {
+            type: 'event-end',
+          },
+          async () => {
+            const participantIds = new Set(await getEventParticipantPlayerIds(event.id));
+            const allPlayers = await getPlayers(false);
+            const eventPlayers = allPlayers.filter((player) => participantIds.has(player.id));
+            if (eventPlayers.length !== participantIds.size) {
+              return reply.code(409).send({
+                error: 'Not every event participant could be loaded',
+              });
+            }
+            console.log(
+              `[ADMIN] Refreshing ${eventPlayers.length} participant(s) ` +
+                `before ending "${event.name}"...`,
+            );
+            const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
+            if (failedPlayers.length > 0) {
+              console.error(
+                `[ADMIN] Could not end "${event.name}": ` +
+                  `${failedPlayers.length} player refresh(es) failed`,
+              );
+              return reply.code(502).send({
+                error: 'Could not refresh every participant before ending the event',
+              });
+            }
+            const endedEvent = await endAdminEvent(event.id);
+            await loadLeaderboardFromDatabase();
+            console.log(
+              `[ADMIN] Event "${endedEvent.name}" ended with ` +
+                `${endedEvent.participantCount} participant(s)`,
+            );
+            return {
+              ok: true,
+              event: endedEvent,
+            };
+          },
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message === 'ACTIVE_EVENT_NOT_FOUND') {
+          return reply.code(404).send({
+            error: 'No active event found',
+          });
+        }
+        if (message === 'EVENT_END_SNAPSHOT_INCOMPLETE') {
+          return reply.code(409).send({
+            error: 'Could not create a final snapshot for every participant',
+          });
+        }
+        console.error(`[ADMIN] Could not end event: ${message}`);
+        return reply.code(500).send({
+          error: 'Could not end event',
+        });
+      } finally {
+        releaseTransitionLock();
+      }
+    },
+  );
 }

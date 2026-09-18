@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
+import { eventPlayerMatchParamsSchema } from './schemas/id.schemas';
 import { findEventMatchDetails } from '../db/event-match-details-reader';
 import { getPlayers } from '../db/players';
 import {
@@ -14,6 +16,7 @@ import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
 import { getBuildInfo } from '../runtime/build-info';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
+  const typedApp = app.withTypeProvider<JsonSchemaToTsProvider>();
   app.get('/api/leaderboard', async () => {
     const leaderboard = getLeaderboard();
     const highlights = getLeaderboardHighlights();
@@ -61,43 +64,45 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       error: first.error,
     };
   });
-  app.get<{
-    Params: {
-      eventId: string;
-      playerId: string;
-      matchId: string;
-    };
-  }>('/api/events/:eventId/players/:playerId/matches/:matchId', async (request, reply) => {
-    const eventId = Number(request.params.eventId);
-    const playerId = Number(request.params.playerId);
-    const matchId = request.params.matchId.trim();
-    if (!Number.isInteger(eventId) || eventId <= 0) {
-      return reply.code(400).send({
-        error: 'Invalid event id',
-      });
-    }
-    if (!Number.isInteger(playerId) || playerId <= 0) {
-      return reply.code(400).send({
-        error: 'Invalid player id',
-      });
-    }
-    if (matchId.length === 0) {
-      return reply.code(400).send({
-        error: 'Invalid match id',
-      });
-    }
-    const details = await findEventMatchDetails(eventId, playerId, matchId);
-    if (!details) {
-      return reply.code(404).send({
-        error: 'Match details not found',
-      });
-    }
-    return {
-      matchId,
-      durationSeconds: details.durationSeconds,
-      participants: details.participants,
-    };
-  });
+  typedApp.get(
+    '/api/events/:eventId/players/:playerId/matches/:matchId',
+    {
+      schema: {
+        params: eventPlayerMatchParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const eventId = Number(request.params.eventId);
+      const playerId = Number(request.params.playerId);
+      const matchId = request.params.matchId.trim();
+      if (!Number.isInteger(eventId) || eventId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid event id',
+        });
+      }
+      if (!Number.isInteger(playerId) || playerId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid player id',
+        });
+      }
+      if (matchId.length === 0) {
+        return reply.code(400).send({
+          error: 'Invalid match id',
+        });
+      }
+      const details = await findEventMatchDetails(eventId, playerId, matchId);
+      if (!details) {
+        return reply.code(404).send({
+          error: 'Match details not found',
+        });
+      }
+      return {
+        matchId,
+        durationSeconds: details.durationSeconds,
+        participants: details.participants,
+      };
+    },
+  );
   app.get('/api/health', async () => {
     const enabledPlayers = await getPlayers(true);
     const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();

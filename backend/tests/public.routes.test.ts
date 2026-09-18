@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify from 'fastify';
 
 const mocks = vi.hoisted(() => ({
   findEventMatchDetails: vi.fn(),
@@ -31,6 +30,7 @@ vi.mock('../src/jobs/refresh-scheduler', () => ({
   getRefreshSchedulerStatus: mocks.getRefreshSchedulerStatus,
 }));
 
+import { createApp } from '../src/app';
 import { publicRoutes } from '../src/routes/public.routes';
 
 const event = {
@@ -96,9 +96,7 @@ const highlights = {
 };
 
 async function createTestApp() {
-  const app = Fastify({
-    logger: false,
-  });
+  const app = createApp();
   await app.register(publicRoutes);
   await app.ready();
   return app;
