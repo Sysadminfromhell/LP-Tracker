@@ -1,3 +1,4 @@
+export { errorResponseSchema as adminPlayerErrorResponseSchema } from './common.schemas';
 export const createPlayerBodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -99,14 +100,6 @@ const adminPlayerRefreshFailureSchema = {
     id: { type: 'number' },
     gameName: { type: 'string' },
     tagLine: { type: 'string' },
-  },
-} as const;
-export const adminPlayerErrorResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['error'],
-  properties: {
-    error: { type: 'string' },
   },
 } as const;
 export const adminPlayersResponseSchema = {

@@ -1,3 +1,4 @@
+export { errorResponseSchema, okResponseSchema } from './common.schemas';
 export const adminSummarySchema = {
   type: 'object',
   additionalProperties: false,
@@ -20,26 +21,6 @@ export const loginResponseSchema = {
       type: 'boolean',
     },
     admin: adminSummarySchema,
-  },
-} as const;
-export const errorResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['error'],
-  properties: {
-    error: {
-      type: 'string',
-    },
-  },
-} as const;
-export const okResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['ok'],
-  properties: {
-    ok: {
-      type: 'boolean',
-    },
   },
 } as const;
 export const adminMeResponseSchema = {

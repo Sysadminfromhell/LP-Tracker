@@ -1,3 +1,4 @@
+export { errorResponseSchema as matchDetailsErrorResponseSchema } from './common.schemas';
 export const matchDetailsResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -76,16 +77,6 @@ export const matchDetailsResponseSchema = {
           },
         },
       },
-    },
-  },
-} as const;
-export const matchDetailsErrorResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['error'],
-  properties: {
-    error: {
-      type: 'string',
     },
   },
 } as const;

@@ -1,7 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
+import { errorResponseSchema, okResponseSchema } from './schemas/common.schemas';
 import {
+  adminEventDetailsResponseSchema,
+  adminEventResponseSchema,
+  adminEventsResponseSchema,
   eventNameBodySchema,
+  eventParticipantPenaltiesResponseSchema,
+  eventParticipantPenaltyResponseSchema,
   eventPenaltyBodySchema,
   eventScheduleBodySchema,
 } from './schemas/event.schemas';
@@ -41,21 +47,36 @@ function parsePlayerId(value: string): number | null {
 
 export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
   const typedApp = app.withTypeProvider<JsonSchemaToTsProvider>();
-  app.get('/api/admin/events', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const events = await getAdminEvents();
-    return {
-      events,
-    };
-  });
+  typedApp.get(
+    '/api/admin/events',
+    {
+      schema: {
+        response: {
+          200: adminEventsResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      const events = await getAdminEvents();
+      return {
+        events,
+      };
+    },
+  );
   typedApp.get(
     '/api/admin/events/:eventId/penalties',
     {
       schema: {
         params: eventIdParamsSchema,
+        response: {
+          200: eventParticipantPenaltiesResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -86,6 +107,11 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: {
         params: eventIdParamsSchema,
+        response: {
+          200: adminEventDetailsResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -119,6 +145,13 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         params: eventPlayerIdParamsSchema,
         body: eventPenaltyBodySchema,
+        response: {
+          200: eventParticipantPenaltyResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          500: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -204,6 +237,12 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         params: eventIdParamsSchema,
         body: eventNameBodySchema,
+        response: {
+          200: adminEventResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          500: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -251,6 +290,13 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         params: eventIdParamsSchema,
         body: eventScheduleBodySchema,
+        response: {
+          200: adminEventResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          500: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -353,6 +399,13 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: {
         params: eventIdParamsSchema,
+        response: {
+          200: okResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          500: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -403,6 +456,12 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: {
         body: eventScheduleBodySchema,
+        response: {
+          201: adminEventResponseSchema,
+          400: errorResponseSchema,
+          409: errorResponseSchema,
+          500: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -482,6 +541,14 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: {
         params: eventIdParamsSchema,
+        response: {
+          200: adminEventResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          500: errorResponseSchema,
+          502: errorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
