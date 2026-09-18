@@ -2,6 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import { playerIdParamsSchema } from './schemas/id.schemas';
 import {
+  adminPlayerErrorResponseSchema,
+  adminPlayerRefreshResponseSchema,
+  adminPlayerResponseSchema,
+  adminPlayersRefreshErrorResponseSchema,
+  adminPlayersRefreshResponseSchema,
+  adminPlayersResponseSchema,
   createPlayerBodySchema,
   playerSocialsBodySchema,
   updatePlayerBodySchema,
@@ -24,21 +30,39 @@ import { calculateRankScore } from '../rank';
 
 export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
   const typedApp = app.withTypeProvider<JsonSchemaToTsProvider>();
-  app.get('/api/admin/players', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    const players = await getAdminPlayers();
-    return {
-      players,
-    };
-  });
+  typedApp.get(
+    '/api/admin/players',
+    {
+      schema: {
+        response: {
+          200: adminPlayersResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      const players = await getAdminPlayers();
+      return {
+        players,
+      };
+    },
+  );
   typedApp.post(
     '/api/admin/players/:id/refresh',
     {
       schema: {
         params: playerIdParamsSchema,
+        response: {
+          200: adminPlayerRefreshResponseSchema,
+          400: adminPlayerErrorResponseSchema,
+          404: adminPlayerErrorResponseSchema,
+          409: adminPlayerErrorResponseSchema,
+          500: adminPlayerErrorResponseSchema,
+          502: adminPlayerErrorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -96,80 +120,99 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
-  app.post('/api/admin/players/refresh-all', async (request, reply) => {
-    const admin = await requireAdmin(request, reply);
-    if (!admin) {
-      return;
-    }
-    if (jobCoordinator.isLockHeld('event-transition')) {
-      return reply.code(409).send({
-        error: 'An event transition is currently in progress',
-      });
-    }
-    try {
-      const players = await getPlayers(true);
-      if (players.length === 0) {
-        return reply.code(400).send({
-          error: 'No enabled players found',
+  typedApp.post(
+    '/api/admin/players/refresh-all',
+    {
+      schema: {
+        response: {
+          200: adminPlayersRefreshResponseSchema,
+          400: adminPlayerErrorResponseSchema,
+          409: adminPlayerErrorResponseSchema,
+          500: adminPlayerErrorResponseSchema,
+          502: adminPlayersRefreshErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      if (jobCoordinator.isLockHeld('event-transition')) {
+        return reply.code(409).send({
+          error: 'An event transition is currently in progress',
         });
       }
-      console.log(
-        `[ADMIN] ${admin.username} requested manual refresh for all ` +
-          `${players.length} enabled player(s)`,
-      );
-      const failedPlayers = await jobCoordinator.enqueue(
-        {
-          type: 'manual-refresh-all',
-          key: 'enabled-players',
-        },
-        async () => {
-          const failed: Player[] = [];
-          for (const [index, player] of players.entries()) {
-            console.log(
-              `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
-                `${player.gameName}#${player.tagLine}`,
-            );
-            const refreshed = await refreshPlayer(player);
-            if (!refreshed) {
-              failed.push(player);
+      try {
+        const players = await getPlayers(true);
+        if (players.length === 0) {
+          return reply.code(400).send({
+            error: 'No enabled players found',
+          });
+        }
+        console.log(
+          `[ADMIN] ${admin.username} requested manual refresh for all ` +
+            `${players.length} enabled player(s)`,
+        );
+        const failedPlayers = await jobCoordinator.enqueue(
+          {
+            type: 'manual-refresh-all',
+            key: 'enabled-players',
+          },
+          async () => {
+            const failed: Player[] = [];
+            for (const [index, player] of players.entries()) {
+              console.log(
+                `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
+                  `${player.gameName}#${player.tagLine}`,
+              );
+              const refreshed = await refreshPlayer(player);
+              if (!refreshed) {
+                failed.push(player);
+              }
             }
-          }
-          return failed;
-        },
-      );
-      const adminPlayers = await getAdminPlayers();
-      if (failedPlayers.length > 0) {
-        return reply.code(502).send({
-          error: `${failedPlayers.length} of ${players.length} ` + `player refreshes failed`,
-          refreshed: players.length - failedPlayers.length,
-          failed: failedPlayers.map((player) => ({
-            id: player.id,
-            gameName: player.gameName,
-            tagLine: player.tagLine,
-          })),
+            return failed;
+          },
+        );
+        const adminPlayers = await getAdminPlayers();
+        if (failedPlayers.length > 0) {
+          return reply.code(502).send({
+            error: `${failedPlayers.length} of ${players.length} ` + `player refreshes failed`,
+            refreshed: players.length - failedPlayers.length,
+            failed: failedPlayers.map((player) => ({
+              id: player.id,
+              gameName: player.gameName,
+              tagLine: player.tagLine,
+            })),
+            players: adminPlayers,
+          });
+        }
+        console.log(`[ADMIN] Refreshed all ${players.length} enabled player(s) ✓`);
+        return {
+          ok: true,
+          refreshed: players.length,
+          failed: [],
           players: adminPlayers,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[ADMIN] Manual refresh all failed: ${message}`);
+        return reply.code(500).send({
+          error: 'Could not refresh players',
         });
       }
-      console.log(`[ADMIN] Refreshed all ${players.length} enabled player(s) ✓`);
-      return {
-        ok: true,
-        refreshed: players.length,
-        failed: [],
-        players: adminPlayers,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[ADMIN] Manual refresh all failed: ${message}`);
-      return reply.code(500).send({
-        error: 'Could not refresh players',
-      });
-    }
-  });
+    },
+  );
   typedApp.post(
     '/api/admin/players',
     {
       schema: {
         body: createPlayerBodySchema,
+        response: {
+          201: adminPlayerResponseSchema,
+          400: adminPlayerErrorResponseSchema,
+          409: adminPlayerErrorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -310,6 +353,13 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         params: playerIdParamsSchema,
         body: updatePlayerBodySchema,
+        response: {
+          200: adminPlayerResponseSchema,
+          400: adminPlayerErrorResponseSchema,
+          404: adminPlayerErrorResponseSchema,
+          409: adminPlayerErrorResponseSchema,
+          500: adminPlayerErrorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -497,6 +547,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         params: playerIdParamsSchema,
         body: playerSocialsBodySchema,
+        response: {
+          200: adminPlayerResponseSchema,
+          400: adminPlayerErrorResponseSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -522,9 +576,14 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           `twitter=${updatedPlayer.twitterUsername ?? 'none'}`,
       );
       await loadLeaderboardFromDatabase();
+      const players = await getAdminPlayers();
+      const adminPlayer = players.find((player) => player.id === playerId);
+      if (!adminPlayer) {
+        throw new Error(`Updated player ${playerId} could not be loaded`);
+      }
       return {
         ok: true,
-        player: updatedPlayer,
+        player: adminPlayer,
       };
     },
   );

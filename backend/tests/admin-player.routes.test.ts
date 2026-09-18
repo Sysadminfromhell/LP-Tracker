@@ -653,6 +653,7 @@ describe('admin player routes', () => {
       twitterUsername: 'newtwitter',
     };
     mocks.updatePlayerSocials.mockResolvedValue(updated);
+    mocks.getAdminPlayers.mockResolvedValue([updated]);
     const app = await createTestApp();
     try {
       const response = await app.inject({
