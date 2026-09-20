@@ -133,9 +133,6 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
     .filter((item) => item.status === 'scheduled')
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   const selectedScheduled = scheduledEvents.find((item) => item.id === selectedScheduledId) ?? null;
-  const hasOpenEvents = events.some(
-    (item) => item.status === 'scheduled' || item.status === 'active',
-  );
   const activeEventId = event?.status === 'active' ? event.id : null;
   const selectedPenaltyParticipant =
     penaltyParticipants.find((participant) => participant.playerId === editingPenaltyPlayerId) ??
@@ -167,7 +164,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
           null;
         const primaryEvent = activeEvent ?? latestEndedEvent ?? null;
         console.log(
-          `[ADMIN EVENT] Poll: ${data.events.length} event(s) | ` +
+          `[ADMIN EVENT] Reload: ${data.events.length} event(s) | ` +
             `primary=${primaryEvent?.id ?? 'none'} | ` +
             `${primaryEvent?.status ?? 'none'}`,
         );
@@ -212,14 +209,6 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
     [onNotify, onUnauthorized],
   );
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadEvents();
-    }, 0);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [loadEvents]);
-  useEffect(() => {
     if (activeEventId === null) {
       return;
     }
@@ -231,16 +220,47 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
     };
   }, [activeEventId, loadPenalties]);
   useEffect(() => {
-    if (!hasOpenEvents) {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      void loadEvents(false);
-    }, 5_000);
-    return () => {
-      window.clearInterval(interval);
+    let reloadTimer: number | null = null;
+    let initialConnection = true;
+    let disposed = false;
+    const scheduleReload = () => {
+      if (disposed || reloadTimer !== null) {
+        return;
+      }
+      reloadTimer = window.setTimeout(() => {
+        reloadTimer = null;
+        void loadEvents(false);
+      }, 150);
     };
-  }, [hasOpenEvents, loadEvents]);
+    const handleEventUpdate = () => {
+      scheduleReload();
+    };
+    const initialTimer = window.setTimeout(() => {
+      void loadEvents();
+    }, 0);
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('events-changed', handleEventUpdate);
+    eventSource.onopen = () => {
+      if (initialConnection) {
+        initialConnection = false;
+        return;
+      }
+      scheduleReload();
+    };
+    eventSource.onerror = () => {
+      console.warn('Admin event live update connection lost; reconnecting...');
+    };
+    return () => {
+      disposed = true;
+      window.clearTimeout(initialTimer);
+      if (reloadTimer !== null) {
+        window.clearTimeout(reloadTimer);
+      }
+      eventSource.removeEventListener('events-changed', handleEventUpdate);
+      eventSource.removeEventListener('leaderboard', handleEventUpdate);
+      eventSource.close();
+    };
+  }, [loadEvents]);
   async function handleRename(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault();
     if (!event) {

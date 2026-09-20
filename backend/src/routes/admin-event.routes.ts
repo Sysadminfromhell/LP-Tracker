@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { broadcastLiveUpdate } from '../services/live-update.service';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import { errorResponseSchema, okResponseSchema } from './schemas/common.schemas';
 import {
@@ -270,6 +271,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
           });
         }
         await loadLeaderboardFromDatabase();
+        broadcastLiveUpdate('events-changed');
         console.log(`[ADMIN] Event ${eventId} renamed to "${event.name}"`);
         return {
           ok: true,
@@ -337,6 +339,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
           playerIds: request.body.playerIds,
         });
         await loadLeaderboardFromDatabase();
+        broadcastLiveUpdate('events-changed');
         console.log(
           `[ADMIN] Scheduled event "${event.name}" updated: ` +
             `${event.startsAt} -> ${event.endsAt}`,
@@ -433,6 +436,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
       try {
         await cancelScheduledEvent(eventId);
         await loadLeaderboardFromDatabase();
+        broadcastLiveUpdate('events-changed');
         console.log(`[ADMIN] Scheduled event "${currentEvent.name}" canceled`);
         return {
           ok: true,
@@ -485,6 +489,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
           playerIds: request.body.playerIds,
         });
         await loadLeaderboardFromDatabase();
+        broadcastLiveUpdate('events-changed');
         console.log(
           `[ADMIN] Event "${event.name}" scheduled from ${event.startsAt} to ${event.endsAt}`,
         );
@@ -609,6 +614,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             }
             const endedEvent = await endAdminEvent(event.id);
             await loadLeaderboardFromDatabase();
+            broadcastLiveUpdate('events-changed');
             console.log(
               `[ADMIN] Event "${endedEvent.name}" ended with ` +
                 `${endedEvent.participantCount} participant(s)`,

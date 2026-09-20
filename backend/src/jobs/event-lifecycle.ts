@@ -1,5 +1,6 @@
 import { getPlayers } from '../db/players';
 import { getActiveEvent } from '../db/events';
+import { broadcastLiveUpdate } from '../services/live-update.service';
 import {
   activateScheduledEvent,
   endAdminEvent,
@@ -58,6 +59,7 @@ async function eventLifecycleTick(): Promise<void> {
           }
           const endedEvent = await endAdminEvent(activeEvent.id, activeEvent.endsAt);
           await loadLeaderboardFromDatabase();
+          broadcastLiveUpdate('events-changed');
           console.log(
             `[EVENT] "${endedEvent.name}" is now ENDED with ` +
               `${endedEvent.participantCount} participant(s)`,
@@ -100,6 +102,7 @@ async function eventLifecycleTick(): Promise<void> {
           }
           const activatedEvent = await activateScheduledEvent(scheduledEvent.id);
           await loadLeaderboardFromDatabase();
+          broadcastLiveUpdate('events-changed');
           console.log(
             `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
               `${activatedEvent.participantCount} participant(s)`,

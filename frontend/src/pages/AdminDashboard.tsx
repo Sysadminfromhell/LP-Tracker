@@ -5,6 +5,7 @@ import type {
   AdminPlayersResponse,
   HealthResponse,
   ProviderHealth,
+  ProviderHealthLiveUpdate,
 } from '@lp-tracker/contracts';
 import AdminToastHost, {
   type AdminToastMessage,
@@ -110,15 +111,40 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     }
   }, [notify, onLogout]);
   useEffect(() => {
+    let initialConnection = true;
+    const handleProviderUpdate = (event: MessageEvent<string>) => {
+      let update: ProviderHealthLiveUpdate;
+      try {
+        update = JSON.parse(event.data) as ProviderHealthLiveUpdate;
+      } catch {
+        console.warn('Invalid provider health live update payload');
+        return;
+      }
+      if (!update.provider || typeof update.provider.connected !== 'boolean') {
+        console.warn('Invalid provider health live update payload');
+        return;
+      }
+      setProviderHealth(update.provider);
+    };
     const initialTimer = window.setTimeout(() => {
       void loadProviderHealth();
     }, 0);
-    const interval = window.setInterval(() => {
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('provider-health', handleProviderUpdate);
+    eventSource.onopen = () => {
+      if (initialConnection) {
+        initialConnection = false;
+        return;
+      }
       void loadProviderHealth();
-    }, 30_000);
+    };
+    eventSource.onerror = () => {
+      console.warn('Admin provider live update connection lost; reconnecting...');
+    };
     return () => {
       window.clearTimeout(initialTimer);
-      window.clearInterval(interval);
+      eventSource.removeEventListener('provider-health', handleProviderUpdate);
+      eventSource.close();
     };
   }, [loadProviderHealth]);
   useEffect(() => {

@@ -112,4 +112,26 @@ describe('live update service', () => {
     closeLiveUpdateClients();
     expect(state.endCalls).toBe(0);
   });
+  it('broadcasts event state invalidations', () => {
+    const { response, state } = createFakeResponse();
+    addLiveUpdateClient(response);
+    broadcastLiveUpdate('events-changed');
+    expect(state.writes).toEqual(['event: events-changed\ndata: {}\n\n']);
+  });
+  it('broadcasts provider health data to connected clients', () => {
+    const { response, state } = createFakeResponse();
+    addLiveUpdateClient(response);
+    broadcastLiveUpdate('provider-health', {
+      provider: {
+        name: 'riot',
+        connected: true,
+        rateLimit: null,
+        warning: null,
+      },
+    });
+    expect(state.writes).toEqual([
+      'event: provider-health\n' +
+        'data: {"provider":{"name":"riot","connected":true,"rateLimit":null,"warning":null}}\n\n',
+    ]);
+  });
 });

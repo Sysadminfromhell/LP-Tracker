@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   tryAcquireLock: vi.fn(),
   releaseTransitionLock: vi.fn(),
   enqueueJob: vi.fn(),
+  broadcastLiveUpdate: vi.fn(),
 }));
 
 vi.mock('../src/db/players', () => ({
@@ -42,6 +43,9 @@ vi.mock('../src/runtime/job-coordinator', () => ({
     enqueue: mocks.enqueueJob,
     tryAcquireLock: mocks.tryAcquireLock,
   },
+}));
+vi.mock('../src/services/live-update.service', () => ({
+  broadcastLiveUpdate: mocks.broadcastLiveUpdate,
 }));
 
 import { startEventLifecycle, stopEventLifecycle } from '../src/jobs/event-lifecycle';
@@ -157,6 +161,9 @@ describe('event lifecycle reliability', () => {
     expect(mocks.refreshPlayersForSnapshot).toHaveBeenNthCalledWith(1, players);
     expect(mocks.refreshPlayersForSnapshot).toHaveBeenNthCalledWith(2, players);
     expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(2);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(2);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenNthCalledWith(1, 'events-changed');
+    expect(mocks.broadcastLiveUpdate).toHaveBeenNthCalledWith(2, 'events-changed');
     expect(mocks.tryAcquireLock).toHaveBeenCalledWith('event-transition');
     expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
     expect(mocks.enqueueJob).toHaveBeenNthCalledWith(

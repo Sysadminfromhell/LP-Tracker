@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   loadLeaderboardFromDatabase: vi.fn(),
   refreshLeaderboardPlayer: vi.fn(),
   setLeaderboardPlayerError: vi.fn(),
+  broadcastLiveUpdate: vi.fn(),
+  broadcastLeagueDataProviderHealth: vi.fn(),
 }));
 vi.mock('../src/db/player-cache', () => ({
   markPlayerFetchAttempt: mocks.markPlayerFetchAttempt,
@@ -44,6 +46,13 @@ vi.mock('../src/services/leaderboard.service', () => ({
   loadLeaderboardFromDatabase: mocks.loadLeaderboardFromDatabase,
   refreshLeaderboardPlayer: mocks.refreshLeaderboardPlayer,
   setLeaderboardPlayerError: mocks.setLeaderboardPlayerError,
+}));
+vi.mock('../src/services/live-update.service', () => ({
+  broadcastLiveUpdate: mocks.broadcastLiveUpdate,
+}));
+vi.mock('../src/services/league-data.service', () => ({
+  getLeagueDataProvider: mocks.getLeagueDataProvider,
+  broadcastLeagueDataProviderHealth: mocks.broadcastLeagueDataProviderHealth,
 }));
 
 import { refreshPlayer, refreshPlayersForSnapshot } from '../src/services/player-refresh.service';
@@ -187,6 +196,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.recordLpRankObservation).toHaveBeenCalledWith(100, 1450, expect.any(Date), true);
     expect(result).toBe(true);
     expect(getRecentMatches).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLeagueDataProviderHealth).toHaveBeenCalledTimes(1);
     expect(getRecentMatches).toHaveBeenCalledWith(
       player.gameName,
       player.tagLine,
@@ -348,6 +358,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.recordLpProviderHistoryObservations).not.toHaveBeenCalled();
     expect(mocks.savePlayerCacheSuccess).toHaveBeenCalledTimes(1);
     expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLeagueDataProviderHealth).toHaveBeenCalledTimes(1);
   });
   it('expands the match backfill until the stored cursor is reached', async () => {
     const firstBatch = [
@@ -487,6 +498,7 @@ describe('refreshPlayer provider reliability', () => {
     expect(mocks.setLeaderboardPlayerError).not.toHaveBeenCalled();
     expect(mocks.refreshLeaderboardPlayer).toHaveBeenCalledWith(10, player.id);
     expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    expect(mocks.broadcastLeagueDataProviderHealth).toHaveBeenCalledTimes(1);
   });
   it('fails a snapshot refresh when the backfill anchor cannot be reached', async () => {
     const getRecentMatches = vi.fn(
@@ -528,5 +540,6 @@ describe('refreshPlayer provider reliability', () => {
       'Match backfill limit reached before sync anchor (20 matches)',
     );
     expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    expect(mocks.broadcastLeagueDataProviderHealth).toHaveBeenCalledTimes(1);
   });
 });

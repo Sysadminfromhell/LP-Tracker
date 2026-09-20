@@ -5,6 +5,7 @@ import type {
   LeaderboardHighlight,
   LeaderboardPlayer,
   LeaderboardResponse,
+  PlayerRefreshedLiveUpdate,
 } from '@lp-tracker/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import { loadChampionIcons } from '../championIcons';
@@ -22,10 +23,6 @@ interface PlayerVisualChange {
 interface PlayerLayoutPosition {
   left: number;
   top: number;
-}
-interface PlayerRefreshedLiveUpdate {
-  playerId: number;
-  lastUpdated: string;
 }
 interface MatchHoverState {
   eventId: number;

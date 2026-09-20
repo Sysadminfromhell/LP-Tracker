@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
+import type {
+  LeaderboardPlayer,
+  LeaderboardResponse,
+  PlayerRefreshedLiveUpdate,
+} from '@lp-tracker/contracts';
 import { loadChampionIcons } from '../championIcons';
-
-interface PlayerRefreshedLiveUpdate {
-  playerId: number;
-  lastUpdated: string;
-}
 
 const divisions: Record<number, string> = {
   1: 'I',

@@ -5,3 +5,4 @@ export * from './match-details';
 export * from './admin-player';
 export * from './admin-event';
 export * from './event-player';
+export * from './live-update';
