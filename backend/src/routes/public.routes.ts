@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import {
+  eventIdParamsSchema,
   eventPlayerIdParamsSchema,
   eventPlayerMatchParamsSchema,
   playerEventIdParamsSchema,
@@ -8,6 +9,10 @@ import {
 } from './schemas/id.schemas';
 import { errorResponseSchema } from './schemas/common.schemas';
 import { healthResponseSchema } from './schemas/health.schemas';
+import {
+  eventHistoryDetailsResponseSchema,
+  eventHistoryResponseSchema,
+} from './schemas/event-history.schemas';
 import {
   eventPlayerReadyResponseSchema,
   eventPlayerResponseSchema,
@@ -37,6 +42,10 @@ import {
   getLeagueDataProviderDiagnostics,
   getLeagueDataProviderStatus,
 } from '../services/league-data.service';
+import {
+  getPublicEventHistory,
+  getPublicEventHistoryDetails,
+} from '../services/event-history.service';
 import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
 import { getBuildInfo } from '../runtime/build-info';
 
@@ -107,6 +116,49 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         lastUpdated: first.lastUpdated,
         error: first.error,
       };
+    },
+  );
+  typedApp.get(
+    '/api/events/history',
+    {
+      schema: {
+        response: {
+          200: eventHistoryResponseSchema,
+        },
+      },
+    },
+    async () => {
+      return getPublicEventHistory();
+    },
+  );
+  typedApp.get(
+    '/api/events/history/:eventId',
+    {
+      schema: {
+        params: eventIdParamsSchema,
+        response: {
+          200: eventHistoryDetailsResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const eventId = Number(request.params.eventId);
+
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid event id',
+        });
+      }
+      const details = await getPublicEventHistoryDetails(eventId);
+      if (!details) {
+        return reply.code(404).send({
+          error: 'Event history not found',
+        });
+      }
+
+      return details;
     },
   );
   typedApp.get(

@@ -6,4 +6,5 @@ export * from './admin-player';
 export * from './admin-event';
 export * from './event-player';
 export * from './player-profile';
+export * from './event-history';
 export * from './live-update';

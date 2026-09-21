@@ -14,6 +14,10 @@ import type {
 } from '@lp-tracker/contracts';
 import { loadChampionIcons } from '../championIcons';
 import { loadItemIconUrls } from '../itemIcons';
+import {
+  shouldReloadPlayerProfileForLeaderboard,
+  shouldReloadPlayerProfileForRefresh,
+} from '../player-profile-live';
 
 const divisions: Record<number, string> = {
   1: 'I',
@@ -248,6 +252,7 @@ function PlayerDetailsPage() {
     {},
   );
   const [loadingEventId, setLoadingEventId] = useState<number | null>(null);
+  const [eventErrors, setEventErrors] = useState<Record<number, string>>({});
   const [championIcons, setChampionIcons] = useState<Map<number, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [matchHover, setMatchHover] = useState<MatchHoverState | null>(null);
@@ -340,53 +345,133 @@ function PlayerDetailsPage() {
     if (!validPlayerId) {
       return;
     }
+    setProfile(null);
+    setLatestDetails(null);
+    setExpandedEvents({});
+    setEventErrors({});
+    setLoadingEventId(null);
+    setMatchHover(null);
+    hoverRequestRef.current++;
     let disposed = false;
+    let reloadTimer: number | null = null;
+    let reloadInProgress = false;
+    let reloadPending = false;
+    let initialConnection = true;
+    let loadedSuccessfully = false;
     async function load() {
-      try {
-        setError(null);
-        const profileResponse = await fetch(`/api/players/${playerId}`, {
-          cache: 'no-store',
-        });
-        if (profileResponse.status === 404) {
-          throw new Error('Player not found');
-        }
-        if (!profileResponse.ok) {
-          throw new Error(`API returned HTTP ${profileResponse.status}`);
-        }
-        const nextProfile = (await profileResponse.json()) as PlayerProfileResponse;
-        if (disposed) {
-          return;
-        }
-        setProfile(nextProfile);
+      const profileResponse = await fetch(`/api/players/${playerId}`, {
+        cache: 'no-store',
+      });
+      if (profileResponse.status === 404) {
+        throw new Error('Player not found');
+      }
+      if (!profileResponse.ok) {
+        throw new Error(`API returned HTTP ${profileResponse.status}`);
+      }
+      const nextProfile = (await profileResponse.json()) as PlayerProfileResponse;
+      if (disposed) {
+        return;
+      }
+      setProfile(nextProfile);
+      if (!nextProfile.latestEvent) {
         setLatestDetails(null);
-        setExpandedEvents({});
-        if (!nextProfile.latestEvent) {
-          return;
-        }
-        const eventResponse = await fetch(
-          `/api/players/${playerId}/events/${nextProfile.latestEvent.id}`,
-          {
-            cache: 'no-store',
-          },
-        );
-        if (!eventResponse.ok) {
-          throw new Error(`API returned HTTP ${eventResponse.status}`);
-        }
-        const details = (await eventResponse.json()) as PlayerEventDetailsResponse;
-        if (!disposed) {
-          setLatestDetails(details);
-        }
+        loadedSuccessfully = true;
+        setError(null);
+        return;
+      }
+      const eventResponse = await fetch(
+        `/api/players/${playerId}/events/${nextProfile.latestEvent.id}`,
+        {
+          cache: 'no-store',
+        },
+      );
+      if (!eventResponse.ok) {
+        throw new Error(`API returned HTTP ${eventResponse.status}`);
+      }
+      const details = (await eventResponse.json()) as PlayerEventDetailsResponse;
+      if (disposed) {
+        return;
+      }
+      setLatestDetails(details);
+      loadedSuccessfully = true;
+      setError(null);
+    }
+    function scheduleReload() {
+      if (disposed || reloadTimer !== null) {
+        return;
+      }
+      reloadTimer = window.setTimeout(() => {
+        reloadTimer = null;
+        void reloadPlayerOnce();
+      }, 150);
+    }
+    async function reloadPlayerOnce() {
+      if (disposed) {
+        return;
+      }
+      if (reloadInProgress) {
+        reloadPending = true;
+        return;
+      }
+      reloadInProgress = true;
+      try {
+        await load();
       } catch (loadError) {
         if (!disposed) {
-          setError(loadError instanceof Error ? loadError.message : 'Failed to load player');
+          const message = loadError instanceof Error ? loadError.message : 'Failed to load player';
+          if (loadedSuccessfully) {
+            console.warn('Failed to refresh player profile:', loadError);
+          } else {
+            setError(message);
+          }
+        }
+      } finally {
+        reloadInProgress = false;
+        if (reloadPending && !disposed) {
+          reloadPending = false;
+          scheduleReload();
         }
       }
     }
-    void load();
+    const handleLeaderboardUpdate = (event: MessageEvent<string>) => {
+      if (shouldReloadPlayerProfileForLeaderboard(playerIdParam, event.data)) {
+        scheduleReload();
+      }
+    };
+    const handlePlayerRefreshed = (event: MessageEvent<string>) => {
+      if (shouldReloadPlayerProfileForRefresh(playerIdParam, event.data)) {
+        scheduleReload();
+      }
+    };
+    const handleEventsChanged = () => {
+      scheduleReload();
+    };
+    void reloadPlayerOnce();
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('leaderboard', handleLeaderboardUpdate);
+    eventSource.addEventListener('player-refreshed', handlePlayerRefreshed);
+    eventSource.addEventListener('events-changed', handleEventsChanged);
+    eventSource.onopen = () => {
+      if (initialConnection) {
+        initialConnection = false;
+        return;
+      }
+      scheduleReload();
+    };
+    eventSource.onerror = () => {
+      console.warn('Player profile live update connection lost; reconnecting...');
+    };
     return () => {
       disposed = true;
+      if (reloadTimer !== null) {
+        window.clearTimeout(reloadTimer);
+      }
+      eventSource.removeEventListener('leaderboard', handleLeaderboardUpdate);
+      eventSource.removeEventListener('player-refreshed', handlePlayerRefreshed);
+      eventSource.removeEventListener('events-changed', handleEventsChanged);
+      eventSource.close();
     };
-  }, [playerId, validPlayerId]);
+  }, [playerId, playerIdParam, validPlayerId]);
   async function togglePreviousEvent(eventId: number) {
     if (expandedEvents[eventId]) {
       setExpandedEvents((current) => {
@@ -400,11 +485,15 @@ function PlayerDetailsPage() {
       return;
     }
     setLoadingEventId(eventId);
+    setEventErrors((current) => {
+      const next = { ...current };
+      delete next[eventId];
+      return next;
+    });
     try {
       const response = await fetch(`/api/players/${playerId}/events/${eventId}`, {
         cache: 'no-store',
       });
-
       if (!response.ok) {
         throw new Error(`API returned HTTP ${response.status}`);
       }
@@ -414,7 +503,10 @@ function PlayerDetailsPage() {
         [eventId]: details,
       }));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load event');
+      setEventErrors((current) => ({
+        ...current,
+        [eventId]: loadError instanceof Error ? loadError.message : 'Failed to load event',
+      }));
     } finally {
       setLoadingEventId(null);
     }
@@ -461,9 +553,6 @@ function PlayerDetailsPage() {
       )}
       <section className="tracker player-details">
         <header className="player-details-header">
-          <Link to="/" className="overlay-link">
-            ← Leaderboard
-          </Link>
           <div className="player-details-identity">
             <img src={profile.player.profileImageUrl} alt="" />
             <div>
@@ -475,6 +564,9 @@ function PlayerDetailsPage() {
               <div>{profile.player.region}</div>
             </div>
           </div>
+          <Link to="/" className="overlay-link">
+            ← Back to leaderboard
+          </Link>
         </header>
         {!profile.latestEvent ? (
           <div className="player-details-empty">This player has not attended an event yet.</div>
@@ -534,6 +626,9 @@ function PlayerDetailsPage() {
                       </button>
                       {loadingEventId === event.id && (
                         <div className="player-details-empty">Loading event...</div>
+                      )}
+                      {eventErrors[event.id] && (
+                        <div className="player-details-empty error">{eventErrors[event.id]}</div>
                       )}
                       {details && (
                         <div className="player-details-history-content">

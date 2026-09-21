@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { createPlayerOverlayPath } from '../routing';
 import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
 
@@ -123,9 +124,9 @@ function OverlayGenerator() {
             <h1>OBS Overlay</h1>
             <p>Select a player and add the generated URL as an OBS Browser Source.</p>
           </div>
-          <a href="#" className="back-link">
-            Back to leaderboard
-          </a>
+            <Link className="back-link" to="/">
+            ← Back to leaderboard
+          </Link>
         </div>
         <div className="generator-controls">
           <label>

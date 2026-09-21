@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import type {
   AdminPlayer,
   AdminPlayersRefreshResponse,
@@ -335,13 +336,19 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             <span className="eyebrow">LP GAIN EVENT</span>
             <h1>Admin</h1>
           </div>
-          <div className="admin-user">
-            <span>
-              Logged in as <strong>{username}</strong>
-            </span>
-            <button className="admin-secondary-button" type="button" onClick={onLogout}>
-              Logout
-            </button>
+
+          <div className="admin-topbar-actions">
+            <Link className="admin-back-link admin-back-link-top" to="/">
+              ← Back to leaderboard
+            </Link>
+            <div className="admin-user">
+              <span>
+                Logged in as <strong>{username}</strong>
+              </span>
+              <button className="admin-secondary-button" type="button" onClick={onLogout}>
+                Logout
+              </button>
+            </div>
           </div>
         </header>
         <AdminEventPanel players={players} onUnauthorized={onLogout} onNotify={notify} />
@@ -682,9 +689,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             </div>
           )}
         </div>
-        <a className="admin-back-link" href="#">
-          ← Back to leaderboard
-        </a>
       </section>
     </main>
   );

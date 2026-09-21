@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import type { LoginResponse } from '@lp-tracker/contracts';
 
 interface AdminLoginProps {
@@ -52,12 +53,16 @@ function AdminLogin({ onLogin }: AdminLoginProps) {
   return (
     <main className="admin-page">
       <section className="admin-login-card">
-        <div className="admin-login-heading">
-          <span className="eyebrow">LP GAIN EVENT</span>
-          <h1>Admin</h1>
-          <p>Sign in to manage the event.</p>
+        <div className="admin-login-topbar">
+          <div className="admin-login-heading">
+            <span className="eyebrow">LP GAIN EVENT</span>
+            <h1>Admin</h1>
+            <p>Sign in to manage the event.</p>
+          </div>
+          <Link className="admin-back-link admin-back-link-top" to="/">
+            ← Back to leaderboard
+          </Link>
         </div>
-
         <form className="admin-login-form" onSubmit={handleSubmit}>
           <label>
             Username
@@ -72,7 +77,6 @@ function AdminLogin({ onLogin }: AdminLoginProps) {
               }}
             />
           </label>
-
           <label>
             Password
             <input
@@ -85,20 +89,13 @@ function AdminLogin({ onLogin }: AdminLoginProps) {
               }}
             />
           </label>
-
           {error && <div className="admin-login-error">{error}</div>}
-
           <button className="admin-primary-button" type="submit" disabled={submitting}>
             {submitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
-
-        <a className="admin-back-link" href="#">
-          ← Back to leaderboard
-        </a>
       </section>
     </main>
   );
 }
-
 export default AdminLogin;

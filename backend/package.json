@@ -2,7 +2,7 @@
   "name": "lp-tracker",
   "private": true,
   "license": "AGPL-3.0-only",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "",
   "main": "dist/server.js",
   "scripts": {
