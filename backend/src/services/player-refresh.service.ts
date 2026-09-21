@@ -7,7 +7,7 @@ import {
 import { getActiveEvent, getEventParticipant, getLatestEventMatchCursor } from '../db/events';
 import { updateEventAfterPlayerRefresh } from '../db/event-refresh';
 import { calculateRankScore } from '../rank';
-import { getLeagueDataProvider } from './league-data.service';
+import { broadcastLeagueDataProviderHealth, getLeagueDataProvider } from './league-data.service';
 import { fetchIncrementalMatches } from './match-sync.service';
 import {
   getLeaderboardPlayer,
@@ -215,6 +215,8 @@ export async function refreshPlayer(
     });
     setLeaderboardPlayerError(player.id, message);
     return false;
+  } finally {
+    broadcastLeagueDataProviderHealth();
   }
 }
 export async function refreshPlayersForSnapshot(players: Player[]): Promise<Player[]> {

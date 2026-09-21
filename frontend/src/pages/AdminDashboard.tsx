@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type {
   AdminPlayer,
   AdminPlayersRefreshResponse,
   AdminPlayersResponse,
   HealthResponse,
   ProviderHealth,
+  ProviderHealthLiveUpdate,
 } from '@lp-tracker/contracts';
 import AdminToastHost, {
   type AdminToastMessage,
@@ -52,6 +53,7 @@ async function readApiError(response: Response): Promise<string> {
   }
 }
 function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
+  const providerHealthLoadGeneration = useRef(0);
   const [toasts, setToasts] = useState<AdminToastMessage[]>([]);
   const [providerHealth, setProviderHealth] = useState<ProviderHealth | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
@@ -78,6 +80,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
   const loadProviderHealth = useCallback(async () => {
+    const generation = ++providerHealthLoadGeneration.current;
     try {
       const response = await fetch('/api/health', {
         cache: 'no-store',
@@ -86,9 +89,14 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         throw new Error(`API returned HTTP ${response.status}`);
       }
       const data = (await response.json()) as HealthResponse;
+      if (generation !== providerHealthLoadGeneration.current) {
+        return;
+      }
       setProviderHealth(data.provider);
     } catch (err) {
-      console.warn('Could not load provider health:', err);
+      if (generation === providerHealthLoadGeneration.current) {
+        console.warn('Could not load provider health:', err);
+      }
     }
   }, []);
   const loadPlayers = useCallback(async () => {
@@ -110,15 +118,36 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     }
   }, [notify, onLogout]);
   useEffect(() => {
+    const handleProviderUpdate = (event: MessageEvent<string>) => {
+      let update: ProviderHealthLiveUpdate;
+      try {
+        update = JSON.parse(event.data) as ProviderHealthLiveUpdate;
+      } catch {
+        console.warn('Invalid provider health live update payload');
+        return;
+      }
+      if (!update.provider || typeof update.provider.connected !== 'boolean') {
+        console.warn('Invalid provider health live update payload');
+        return;
+      }
+      providerHealthLoadGeneration.current += 1;
+      setProviderHealth(update.provider);
+    };
     const initialTimer = window.setTimeout(() => {
       void loadProviderHealth();
     }, 0);
-    const interval = window.setInterval(() => {
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('provider-health', handleProviderUpdate);
+    eventSource.onopen = () => {
       void loadProviderHealth();
-    }, 30_000);
+    };
+    eventSource.onerror = () => {
+      console.warn('Admin provider live update connection lost; reconnecting...');
+    };
     return () => {
       window.clearTimeout(initialTimer);
-      window.clearInterval(interval);
+      eventSource.removeEventListener('provider-health', handleProviderUpdate);
+      eventSource.close();
     };
   }, [loadProviderHealth]);
   useEffect(() => {
