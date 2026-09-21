@@ -681,6 +681,7 @@ describe('admin event routes', () => {
       expect(response.statusCode).toBe(200);
       expect(mocks.cancelScheduledEvent).toHaveBeenCalledWith(1);
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+      expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
       expect(response.json()).toEqual({
         ok: true,
       });
