@@ -392,6 +392,99 @@ Before an event is ended, participant data is refreshed so the final event state
 
 ---
 
+## Diagnostics CLI
+
+LP-Tracker includes a read-only diagnostics CLI for inspecting application state without modifying the database.
+
+Run diagnostics from the repository root:
+
+```bash
+npm --prefix backend run diagnose -- <command>
+```
+
+### Available commands
+```text
+summary             Run top-level diagnostics
+db                  Check database and migrations
+event               Check event integrity
+player <id>         Inspect one player
+player --id <id>    Inspect one player
+queue               Inspect LP reconciliation queue
+provider             Check league data provider
+```
+
+#### Examples standalone Install
+
+```bash
+npm --prefix backend run diagnose -- summary
+npm --prefix backend run diagnose -- db
+npm --prefix backend run diagnose -- event
+npm --prefix backend run diagnose -- player 7
+npm --prefix backend run diagnose -- queue
+npm --prefix backend run diagnose -- provider
+```
+
+Machine-readable JSON output is available with --json
+
+```bash
+npm --silent --prefix backend run diagnose -- summary --json
+```
+
+#### Examples docker Install
+
+```bash
+docker exec <backend-container> node dist/cli/diagnostics-cli.js summary
+docker exec <backend-container> node dist/cli/diagnostics-cli.js db
+docker exec <backend-container> node dist/cli/diagnostics-cli.js event
+docker exec <backend-container> node dist/cli/diagnostics-cli.js player 7
+docker exec <backend-container> node dist/cli/diagnostics-cli.js queue
+docker exec <backend-container> node dist/cli/diagnostics-cli.js provider
+```
+
+Machine-readable JSON output is available with --json
+
+```bash
+docker exec <backend-container> node dist/cli/diagnostics-cli.js summary --json
+```
+
+#### Examples docker swarm Install
+
+For Docker Swarm, identify the container of the backend service first:
+```bash
+docker ps --filter label=com.docker.swarm.service.name=<backend-service>
+```
+
+```bash
+docker exec <container-id> node dist/cli/diagnostics-cli.js summary
+docker exec <container-id> node dist/cli/diagnostics-cli.js db
+docker exec <container-id> node dist/cli/diagnostics-cli.js event
+docker exec <container-id> node dist/cli/diagnostics-cli.js player 7
+docker exec <container-id> node dist/cli/diagnostics-cli.js queue
+docker exec <container-id> node dist/cli/diagnostics-cli.js provider
+```
+
+Machine-readable JSON output is available with --json
+
+```bash
+docker exec <container-id> node dist/cli/diagnostics-cli.js summary --json
+```
+
+### The diagnosics CLI uses the folliwng exit codes
+
+```text
+0  Diagnostics completed successfully or with warnings
+1  Diagnostic integrity errors were detected
+2  CLI usage error or diagnostic tool failure
+```
+
+Warnings intentionally return exit code 0. They represent conditions worth inspecting but do not necessarily indicate broken application state.
+The existing event integrity command remains available as a compatibility alias:
+
+```bash
+npm --prefix backend run check:event
+```
+Diagnostics are read-only. Database manipulation and destructive maintenance operations are intentionally not part of this CLI.
+
 ## OBS overlays
 
 The leaderboard provides access to the OBS overlay generator:
