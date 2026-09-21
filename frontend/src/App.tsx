@@ -6,6 +6,7 @@ import './App.css';
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const OverlayGenerator = lazy(() => import('./pages/OverlayGenerator'));
 const PlayerOverlay = lazy(() => import('./pages/PlayerOverlay'));
+const PlayerDetailsPage = lazy(() => import('./pages/PlayerDetailsPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 function App() {
@@ -24,6 +25,10 @@ function App() {
       document.title = 'LP Gain Event - Player Overlay';
       return;
     }
+    if (location.pathname.startsWith('/players/')) {
+      document.title = 'LP Gain Event - Player Details';
+      return;
+    }
     document.title = 'LP Gain Event - Leaderboard';
   }, [location.pathname]);
 
@@ -40,6 +45,7 @@ function App() {
     >
       <Routes>
         <Route path="/" element={<LeaderboardPage />} />
+        <Route path="/players/:playerId" element={<PlayerDetailsPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/overlay-generator" element={<OverlayGenerator />} />
         <Route

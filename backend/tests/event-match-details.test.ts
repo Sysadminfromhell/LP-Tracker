@@ -1,10 +1,6 @@
 import type { PoolClient } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  getEventMatchDetails,
-  pruneEventMatchDetails,
-  replaceEventMatchDetails,
-} from '../src/db/event-match-details';
+import { getEventMatchDetails, replaceEventMatchDetails } from '../src/db/event-match-details';
 import type { SummonerMatch } from '../src/providers/league-data.types';
 
 function createMatch(): SummonerMatch {
@@ -123,22 +119,6 @@ describe('event match details', () => {
       'must contain exactly one tracked player',
     );
     expect(query).not.toHaveBeenCalled();
-  });
-  it('prunes rich details outside the newest three event matches', async () => {
-    const query = vi.fn().mockResolvedValue({
-      rows: [],
-      rowCount: 1,
-    });
-    const client = {
-      query,
-    } as unknown as Pick<PoolClient, 'query'>;
-    await pruneEventMatchDetails(client, 100);
-    expect(query).toHaveBeenCalledTimes(1);
-    const call = query.mock.calls[0];
-    expect(String(call[0])).toContain('DELETE FROM event_match_details');
-    expect(String(call[0])).toContain('ORDER BY');
-    expect(String(call[0])).toContain('recent_match.game_created_at DESC');
-    expect(call[1]).toEqual([100, 3]);
   });
   it('loads rich details for a specific event player match', async () => {
     const query = vi

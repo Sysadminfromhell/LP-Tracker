@@ -1,12 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
-import { eventPlayerIdParamsSchema, eventPlayerMatchParamsSchema } from './schemas/id.schemas';
+import {
+  eventPlayerIdParamsSchema,
+  eventPlayerMatchParamsSchema,
+  playerEventIdParamsSchema,
+  playerIdParamsSchema,
+} from './schemas/id.schemas';
 import { errorResponseSchema } from './schemas/common.schemas';
 import { healthResponseSchema } from './schemas/health.schemas';
 import {
   eventPlayerReadyResponseSchema,
   eventPlayerResponseSchema,
 } from './schemas/event-player.schemas';
+import {
+  playerEventDetailsResponseSchema,
+  playerProfileResponseSchema,
+} from './schemas/player-profile.schemas';
 import { leaderboardResponseSchema } from './schemas/leaderboard.schemas';
 import {
   matchDetailsErrorResponseSchema,
@@ -20,6 +29,10 @@ import {
   getLeaderboardHighlights,
   getLeaderboardMeta,
 } from '../services/leaderboard.service';
+import {
+  getPublicPlayerEventDetails,
+  getPublicPlayerProfile,
+} from '../services/player-profile.service';
 import {
   getLeagueDataProviderDiagnostics,
   getLeagueDataProviderStatus,
@@ -94,6 +107,68 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         lastUpdated: first.lastUpdated,
         error: first.error,
       };
+    },
+  );
+  typedApp.get(
+    '/api/players/:id',
+    {
+      schema: {
+        params: playerIdParamsSchema,
+        response: {
+          200: playerProfileResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const playerId = Number(request.params.id);
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid player id',
+        });
+      }
+      const profile = await getPublicPlayerProfile(playerId);
+      if (!profile) {
+        return reply.code(404).send({
+          error: 'Player not found',
+        });
+      }
+      return profile;
+    },
+  );
+  typedApp.get(
+    '/api/players/:id/events/:eventId',
+    {
+      schema: {
+        params: playerEventIdParamsSchema,
+        response: {
+          200: playerEventDetailsResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const playerId = Number(request.params.id);
+      const eventId = Number(request.params.eventId);
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid player id',
+        });
+      }
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid event id',
+        });
+      }
+      const details = await getPublicPlayerEventDetails(playerId, eventId);
+      if (!details) {
+        return reply.code(404).send({
+          error: 'Player event not found',
+        });
+      }
+      return details;
     },
   );
   typedApp.get(

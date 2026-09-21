@@ -152,13 +152,6 @@ function formatUpdatedAgo(lastUpdated: string, now: number): string {
   const days = Math.floor(hours / 24);
   return `Updated ${days}d ago`;
 }
-function getOpggUrl(gameName: string, tagLine: string, region: string): string {
-  return (
-    `https://op.gg/lol/summoners/` +
-    `${encodeURIComponent(region.toLowerCase())}/` +
-    `${encodeURIComponent(gameName)}-${encodeURIComponent(tagLine)}`
-  );
-}
 function TwitchIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -242,10 +235,10 @@ function PodiumCard({
           {place === 1 ? 'EVENT LEADER' : place === 2 ? 'SECOND PLACE' : 'THIRD PLACE'}
         </span>
         <img className="podium-profile" src={player.player.profileImageUrl} alt="" />
-        <div className="podium-player">
+        <Link className="podium-player player-profile-link" to={`/players/${player.player.id}`}>
           <strong>{player.player.gameName}</strong>
           <span>#{player.player.tagLine}</span>
-        </div>
+        </Link>
         <div className="podium-movement">
           <RankMovementIndicator movement={player.rankMovement} now={now} />
         </div>
@@ -1031,20 +1024,14 @@ function LeaderboardPage() {
                       <img className="profile-icon" src={player.player.profileImageUrl} alt="" />
                       <div className="player-info">
                         <div className="player-name-row">
-                          <a
-                            className="player-opgg-link"
-                            href={getOpggUrl(
-                              player.player.gameName,
-                              player.player.tagLine,
-                              player.player.region,
-                            )}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open on OP.GG"
+                          <Link
+                            className="player-opgg-link player-profile-link"
+                            to={`/players/${player.player.id}`}
+                            title="Open player details"
                           >
                             <strong>{player.player.gameName}</strong>
                             <span>#{player.player.tagLine}</span>
-                          </a>
+                          </Link>
                           <div className="player-socials">
                             {player.player.twitchUsername ? (
                               <a

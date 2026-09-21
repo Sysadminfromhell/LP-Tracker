@@ -31,6 +31,19 @@ export const playerIdParamsSchema = {
     },
   },
 } as const;
+export const playerEventIdParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'eventId'],
+  properties: {
+    id: {
+      type: 'string',
+    },
+    eventId: {
+      type: 'string',
+    },
+  },
+} as const;
 export const eventPlayerMatchParamsSchema = {
   type: 'object',
   additionalProperties: false,
