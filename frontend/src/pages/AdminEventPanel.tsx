@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type {
   AdminEvent,
   AdminEventDetailsResponse,
@@ -142,8 +142,10 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
   const [confirmation, setConfirmation] = useState<'end-event' | 'cancel-scheduled-event' | null>(
     null,
   );
+  const eventLoadGeneration = useRef(0);
   const loadEvents = useCallback(
     async (notifyOnError = true) => {
+      const generation = ++eventLoadGeneration.current;
       try {
         const response = await fetch('/api/admin/events', {
           cache: 'no-store',
@@ -156,6 +158,9 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
           throw new Error(await readApiError(response));
         }
         const data = (await response.json()) as AdminEventsResponse;
+        if (generation !== eventLoadGeneration.current) {
+          return;
+        }
         const activeEvent = data.events.find((item) => item.status === 'active') ?? null;
         const latestEndedEvent =
           data.events
@@ -172,6 +177,9 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
         setEvent(primaryEvent);
         setEventName(primaryEvent?.name ?? '');
       } catch (err) {
+        if (generation !== eventLoadGeneration.current) {
+          return;
+        }
         const errorMessage = err instanceof Error ? err.message : 'Could not load event.';
         if (notifyOnError) {
           onNotify('error', errorMessage);
@@ -179,7 +187,9 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
           console.warn('Could not refresh admin events:', errorMessage);
         }
       } finally {
-        setLoading(false);
+        if (generation === eventLoadGeneration.current) {
+          setLoading(false);
+        }
       }
     },
     [onNotify, onUnauthorized],
@@ -221,7 +231,6 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
   }, [activeEventId, loadPenalties]);
   useEffect(() => {
     let reloadTimer: number | null = null;
-    let initialConnection = true;
     let disposed = false;
     const scheduleReload = () => {
       if (disposed || reloadTimer !== null) {
@@ -241,10 +250,6 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
     const eventSource = new EventSource('/api/live');
     eventSource.addEventListener('events-changed', handleEventUpdate);
     eventSource.onopen = () => {
-      if (initialConnection) {
-        initialConnection = false;
-        return;
-      }
       scheduleReload();
     };
     eventSource.onerror = () => {
@@ -257,7 +262,6 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
         window.clearTimeout(reloadTimer);
       }
       eventSource.removeEventListener('events-changed', handleEventUpdate);
-      eventSource.removeEventListener('leaderboard', handleEventUpdate);
       eventSource.close();
     };
   }, [loadEvents]);

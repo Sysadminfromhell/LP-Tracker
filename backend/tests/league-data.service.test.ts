@@ -3,10 +3,14 @@ import type { LeagueDataProvider } from '../src/providers/league-data.provider';
 
 const mocks = vi.hoisted(() => ({
   createLeagueDataProvider: vi.fn(),
+  broadcastLiveUpdate: vi.fn(),
 }));
 
 vi.mock('../src/providers/league-data.factory', () => ({
   createLeagueDataProvider: mocks.createLeagueDataProvider,
+}));
+vi.mock('../src/services/live-update.service', () => ({
+  broadcastLiveUpdate: mocks.broadcastLiveUpdate,
 }));
 
 function createProvider(name = 'test'): LeagueDataProvider {
@@ -58,6 +62,14 @@ describe('league data service', () => {
       name: 'opgg',
       connected: true,
     });
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('provider-health', {
+      provider: {
+        name: 'opgg',
+        connected: true,
+        rateLimit: null,
+        warning: null,
+      },
+    });
   });
   it('shares one connection attempt between concurrent callers', async () => {
     let resolveConnect: (() => void) | undefined;
@@ -95,6 +107,14 @@ describe('league data service', () => {
       .mockReturnValueOnce(workingProvider);
     const service = await loadService();
     await expect(service.getLeagueDataProvider()).rejects.toThrow('Provider exploded');
+    expect(mocks.broadcastLiveUpdate).toHaveBeenLastCalledWith('provider-health', {
+      provider: {
+        name: null,
+        connected: false,
+        rateLimit: null,
+        warning: null,
+      },
+    });
     expect(failedProvider.disconnect).toHaveBeenCalledTimes(1);
     expect(service.isLeagueDataProviderConnected()).toBe(false);
     expect(service.getLeagueDataProviderStatus()).toEqual({
@@ -127,6 +147,14 @@ describe('league data service', () => {
     expect(service.getLeagueDataProviderStatus()).toEqual({
       name: null,
       connected: false,
+    });
+    expect(mocks.broadcastLiveUpdate).toHaveBeenLastCalledWith('provider-health', {
+      provider: {
+        name: null,
+        connected: false,
+        rateLimit: null,
+        warning: null,
+      },
     });
   });
   it('creates a new provider after disconnecting', async () => {

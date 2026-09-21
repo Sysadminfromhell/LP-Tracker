@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   tryAcquireLock: vi.fn(),
   releaseTransitionLock: vi.fn(),
   enqueueJob: vi.fn(),
+  broadcastLiveUpdate: vi.fn(),
 }));
 
 vi.mock('../src/auth/admin-auth', () => ({
@@ -55,6 +56,9 @@ vi.mock('../src/runtime/job-coordinator', () => ({
     enqueue: mocks.enqueueJob,
     tryAcquireLock: mocks.tryAcquireLock,
   },
+}));
+vi.mock('../src/services/live-update.service', () => ({
+  broadcastLiveUpdate: mocks.broadcastLiveUpdate,
 }));
 
 import { createApp } from '../src/app';
@@ -433,6 +437,7 @@ describe('admin event routes', () => {
       expect(response.statusCode).toBe(200);
       expect(mocks.updateAdminEventName).toHaveBeenCalledWith(1, 'Renamed Event');
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+      expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
       expect(response.json()).toEqual({
         ok: true,
         event: renamedEvent,
@@ -549,6 +554,7 @@ describe('admin event routes', () => {
         playerIds: [secondPlayer.id],
       });
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+      expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
     } finally {
       await app.close();
     }
@@ -703,6 +709,7 @@ describe('admin event routes', () => {
         playerIds: [firstPlayer.id, secondPlayer.id],
       });
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+      expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
       expect(response.json()).toEqual({
         ok: true,
         event: scheduledEvent,
@@ -879,6 +886,7 @@ describe('admin event routes', () => {
       });
       expect(mocks.endAdminEvent).not.toHaveBeenCalled();
       expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
+      expect(mocks.broadcastLiveUpdate).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
@@ -903,6 +911,7 @@ describe('admin event routes', () => {
       expect(mocks.refreshPlayersForSnapshot).toHaveBeenCalledWith([firstPlayer, secondPlayer]);
       expect(mocks.endAdminEvent).toHaveBeenCalledWith(2);
       expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+      expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
       expect(mocks.releaseTransitionLock).toHaveBeenCalledTimes(1);
       expect(response.json()).toEqual({
         ok: true,
