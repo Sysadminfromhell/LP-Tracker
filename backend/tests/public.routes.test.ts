@@ -4,6 +4,7 @@ import { getBuildInfo } from '../src/runtime/build-info';
 const mocks = vi.hoisted(() => ({
   findEventMatchDetails: vi.fn(),
   getPlayers: vi.fn(),
+  getEventPlayerSnapshot: vi.fn(),
   getLeaderboard: vi.fn(),
   getLeaderboardHighlights: vi.fn(),
   getLeaderboardMeta: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../src/db/event-match-details-reader', () => ({
   findEventMatchDetails: mocks.findEventMatchDetails,
 }));
 vi.mock('../src/services/leaderboard.service', () => ({
+  getEventPlayerSnapshot: mocks.getEventPlayerSnapshot,
   getLeaderboard: mocks.getLeaderboard,
   getLeaderboardHighlights: mocks.getLeaderboardHighlights,
   getLeaderboardMeta: mocks.getLeaderboardMeta,
@@ -150,6 +152,7 @@ beforeEach(() => {
     name: 'opgg',
     connected: false,
   });
+  mocks.getEventPlayerSnapshot.mockResolvedValue(null);
   mocks.getRefreshSchedulerStatus.mockReturnValue({
     running: true,
     intervalMs: 60_000,
@@ -504,6 +507,71 @@ describe('public routes', () => {
           'Large events may refresh slowly or receive HTTP 429 responses. ' +
           'A Production API key is recommended.',
       });
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns a stable event player by event and player id', async () => {
+    mocks.getEventPlayerSnapshot.mockResolvedValue(firstPlayer);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/42/players/1',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getEventPlayerSnapshot).toHaveBeenCalledWith(42, 1);
+      expect(response.json()).toEqual({
+        ready: true,
+        player: firstPlayer.player,
+        startedAt: firstPlayer.startedAt,
+        start: firstPlayer.start,
+        current: firstPlayer.current,
+        lpGain: firstPlayer.lpGain,
+        record: firstPlayer.record,
+        recentMatches: firstPlayer.recentMatches,
+        lastUpdated: firstPlayer.lastUpdated,
+        error: firstPlayer.error,
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns 404 for an unknown event player', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/42/players/999',
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: 'Event player not found',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects invalid event or player ids for event players', async () => {
+    const app = await createTestApp();
+    try {
+      const invalidEvent = await app.inject({
+        method: 'GET',
+        url: '/api/events/nope/players/1',
+      });
+      expect(invalidEvent.statusCode).toBe(400);
+      expect(invalidEvent.json()).toEqual({
+        error: 'Invalid event id',
+      });
+      const invalidPlayer = await app.inject({
+        method: 'GET',
+        url: '/api/events/42/players/0',
+      });
+      expect(invalidPlayer.statusCode).toBe(400);
+      expect(invalidPlayer.json()).toEqual({
+        error: 'Invalid player id',
+      });
+      expect(mocks.getEventPlayerSnapshot).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

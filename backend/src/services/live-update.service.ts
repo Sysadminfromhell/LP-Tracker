@@ -1,11 +1,15 @@
 import type { ServerResponse } from 'node:http';
 import type {
+  LeaderboardLiveUpdate,
   LiveUpdateEvent,
   PlayerRefreshedLiveUpdate,
   ProviderHealthLiveUpdate,
 } from '@lp-tracker/contracts';
 
-type EmptyLiveUpdateEvent = Exclude<LiveUpdateEvent, 'player-refreshed' | 'provider-health'>;
+type EmptyLiveUpdateEvent = Exclude<
+  LiveUpdateEvent,
+  'leaderboard' | 'player-refreshed' | 'provider-health'
+>;
 
 const clients = new Set<ServerResponse>();
 
@@ -17,6 +21,7 @@ export function addLiveUpdateClient(response: ServerResponse): () => void {
 }
 
 export function broadcastLiveUpdate(event: EmptyLiveUpdateEvent): void;
+export function broadcastLiveUpdate(event: 'leaderboard', data: LeaderboardLiveUpdate): void;
 export function broadcastLiveUpdate(
   event: 'player-refreshed',
   data: PlayerRefreshedLiveUpdate,

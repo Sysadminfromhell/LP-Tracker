@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import type {
+  EventPlayerReadyResponse,
   LeaderboardPlayer,
   LeaderboardResponse,
   PlayerRefreshedLiveUpdate,
 } from '@lp-tracker/contracts';
 import { loadChampionIcons } from '../championIcons';
+import { shouldReloadOverlayForLeaderboard } from '../overlay-live';
+import { createPlayerOverlayPath } from '../routing';
 
 const divisions: Record<number, string> = {
   1: 'I',
@@ -35,8 +39,24 @@ function formatPosition(position: string) {
       return position.toUpperCase();
   }
 }
+function toOverlayPlayer(player: LeaderboardPlayer): EventPlayerReadyResponse {
+  return {
+    ready: true,
+    player: player.player,
+    startedAt: player.startedAt,
+    start: player.start,
+    current: player.current,
+    lpGain: player.lpGain,
+    record: player.record,
+    recentMatches: player.recentMatches,
+    lastUpdated: player.lastUpdated,
+    error: player.error,
+  };
+}
 function PlayerOverlay() {
-  const [player, setPlayer] = useState<LeaderboardPlayer | null>(null);
+  const navigate = useNavigate();
+  const { eventId: eventIdParam, playerId: playerIdParam } = useParams();
+  const [player, setPlayer] = useState<EventPlayerReadyResponse | null>(null);
   const [now, setNow] = useState(0);
   const [championIcons, setChampionIcons] = useState<Map<number, string>>(new Map());
   useEffect(() => {
@@ -75,13 +95,41 @@ function PlayerOverlay() {
     void loadChampionIcons().then(setChampionIcons);
   }, []);
   useEffect(() => {
-    const legacyQuery = window.location.hash.split('?')[1] ?? '';
-    const params = new URLSearchParams(window.location.search || legacyQuery);
-    const region = params.get('region');
-    const name = params.get('name');
-    const tag = params.get('tag');
     async function load() {
-      const response = await fetch('/api/leaderboard');
+      if (eventIdParam !== undefined || playerIdParam !== undefined) {
+        const eventId = Number(eventIdParam);
+        const playerId = Number(playerIdParam);
+        if (
+          !Number.isSafeInteger(eventId) ||
+          eventId <= 0 ||
+          !Number.isSafeInteger(playerId) ||
+          playerId <= 0
+        ) {
+          setPlayer(null);
+          return;
+        }
+        const response = await fetch(`/api/events/${eventId}/players/${playerId}`, {
+          cache: 'no-store',
+        });
+        if (response.status === 404) {
+          setPlayer(null);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`API returned HTTP ${response.status}`);
+        }
+        const data = (await response.json()) as EventPlayerReadyResponse;
+        setPlayer(data);
+        return;
+      }
+      const legacyQuery = window.location.hash.split('?')[1] ?? '';
+      const params = new URLSearchParams(window.location.search || legacyQuery);
+      const region = params.get('region');
+      const name = params.get('name');
+      const tag = params.get('tag');
+      const response = await fetch('/api/leaderboard', {
+        cache: 'no-store',
+      });
       if (!response.ok) {
         throw new Error(`API returned HTTP ${response.status}`);
       }
@@ -92,15 +140,29 @@ function PlayerOverlay() {
           item.player.gameName === name &&
           item.player.tagLine === tag,
       );
-      setPlayer(found ?? null);
+      if (found && data.event.id !== null) {
+        navigate(
+          createPlayerOverlayPath({
+            eventId: data.event.id,
+            playerId: found.player.id,
+          }),
+          {
+            replace: true,
+          },
+        );
+        return;
+      }
+      setPlayer(found ? toOverlayPlayer(found) : null);
     }
     const handlePlayerRefreshed = (event: MessageEvent<string>) => {
       let update: PlayerRefreshedLiveUpdate;
+
       try {
         update = JSON.parse(event.data) as PlayerRefreshedLiveUpdate;
       } catch {
         return;
       }
+
       if (
         !Number.isInteger(update.playerId) ||
         !update.lastUpdated ||
@@ -108,10 +170,26 @@ function PlayerOverlay() {
       ) {
         return;
       }
+
+      if (eventIdParam !== undefined || playerIdParam !== undefined) {
+        const routeEventId = Number(eventIdParam);
+        const routePlayerId = Number(playerIdParam);
+
+        if (
+          !Number.isSafeInteger(routeEventId) ||
+          !Number.isSafeInteger(routePlayerId) ||
+          update.eventId !== routeEventId ||
+          update.playerId !== routePlayerId
+        ) {
+          return;
+        }
+      }
+
       setPlayer((current) => {
         if (!current || current.player.id !== update.playerId) {
           return current;
         }
+
         return {
           ...current,
           lastUpdated: update.lastUpdated,
@@ -121,7 +199,6 @@ function PlayerOverlay() {
     let reloadTimer: number | null = null;
     let reloadInProgress = false;
     let reloadPending = false;
-    let initialConnection = true;
     let disposed = false;
     function scheduleReload() {
       if (disposed || reloadTimer !== null) {
@@ -153,18 +230,16 @@ function PlayerOverlay() {
         }
       }
     }
-    const handleLeaderboardUpdate = () => {
-      scheduleReload();
+    const handleLeaderboardUpdate = (event: MessageEvent<string>) => {
+      if (shouldReloadOverlayForLeaderboard(eventIdParam, playerIdParam, event.data)) {
+        scheduleReload();
+      }
     };
     void reloadPlayerOnce();
     const eventSource = new EventSource('/api/live');
     eventSource.addEventListener('leaderboard', handleLeaderboardUpdate);
     eventSource.addEventListener('player-refreshed', handlePlayerRefreshed);
     eventSource.onopen = () => {
-      if (initialConnection) {
-        initialConnection = false;
-        return;
-      }
       scheduleReload();
     };
     eventSource.onerror = () => {
@@ -179,7 +254,7 @@ function PlayerOverlay() {
       eventSource.removeEventListener('player-refreshed', handlePlayerRefreshed);
       eventSource.close();
     };
-  }, []);
+  }, [eventIdParam, navigate, playerIdParam]);
   if (!player) {
     return null;
   }

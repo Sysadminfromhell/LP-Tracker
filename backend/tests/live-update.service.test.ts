@@ -52,19 +52,22 @@ describe('live update service', () => {
   it('broadcasts leaderboard events to connected clients', () => {
     const { response, state } = createFakeResponse();
     addLiveUpdateClient(response);
-    broadcastLiveUpdate('leaderboard');
-    expect(state.writes).toEqual(['event: leaderboard\ndata: {}\n\n']);
+    broadcastLiveUpdate('leaderboard', {
+      eventId: 42,
+    });
+    expect(state.writes).toEqual(['event: leaderboard\n' + 'data: {"eventId":42}\n\n']);
   });
   it('broadcasts player refresh data to connected clients', () => {
     const { response, state } = createFakeResponse();
     addLiveUpdateClient(response);
     broadcastLiveUpdate('player-refreshed', {
+      eventId: 42,
       playerId: 7,
       lastUpdated: '2026-09-05T00:10:00.000Z',
     });
     expect(state.writes).toEqual([
       'event: player-refreshed\n' +
-        'data: {"playerId":7,"lastUpdated":"2026-09-05T00:10:00.000Z"}\n\n',
+        'data: {"eventId":42,"playerId":7,"lastUpdated":"2026-09-05T00:10:00.000Z"}\n\n',
     ]);
   });
   it('broadcasts to all connected clients', () => {
@@ -72,7 +75,9 @@ describe('live update service', () => {
     const second = createFakeResponse();
     addLiveUpdateClient(first.response);
     addLiveUpdateClient(second.response);
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId: 42,
+    });
     expect(first.state.writes).toHaveLength(1);
     expect(second.state.writes).toHaveLength(1);
   });
@@ -80,17 +85,23 @@ describe('live update service', () => {
     const { response, state } = createFakeResponse();
     const removeClient = addLiveUpdateClient(response);
     removeClient();
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId: 42,
+    });
     expect(state.writes).toHaveLength(0);
   });
   it('removes destroyed clients automatically', () => {
     const { response, state } = createFakeResponse();
     addLiveUpdateClient(response);
     state.destroyed = true;
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId: 42,
+    });
     expect(state.writes).toHaveLength(0);
     state.destroyed = false;
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId: 42,
+    });
     expect(state.writes).toHaveLength(0);
   });
   it('closes all connected clients during shutdown', () => {
@@ -101,7 +112,9 @@ describe('live update service', () => {
     closeLiveUpdateClients();
     expect(first.state.endCalls).toBe(1);
     expect(second.state.endCalls).toBe(1);
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId: 42,
+    });
     expect(first.state.writes).toHaveLength(0);
     expect(second.state.writes).toHaveLength(0);
   });

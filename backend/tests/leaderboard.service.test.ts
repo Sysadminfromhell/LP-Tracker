@@ -25,6 +25,7 @@ vi.mock('../src/services/live-update.service', () => ({
 }));
 
 import {
+  getEventPlayerSnapshot,
   getLeaderboard,
   getLeaderboardHighlights,
   getLeaderboardMeta,
@@ -162,7 +163,9 @@ describe('leaderboard service', () => {
       'Alpha',
       'Bravo',
     ]);
-    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard');
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard', {
+      eventId: event.id,
+    });
   });
   it('builds leaderboard players from DB data and recent matches', async () => {
     const row = createRow();
@@ -331,6 +334,7 @@ describe('leaderboard service', () => {
     await refreshLeaderboardPlayer(event.id, row.playerId);
     expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
     expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('player-refreshed', {
+      eventId: event.id,
       playerId: row.playerId,
       lastUpdated: refreshedRow.lastUpdated,
     });
@@ -369,7 +373,10 @@ describe('leaderboard service', () => {
     expect(getLeaderboardPlayer(2)?.rankMovement.delta).toBe(1);
     expect(getLeaderboardPlayer(1)?.rankMovement.delta).toBe(-1);
     expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
-    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard');
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard', {
+      eventId: event.id,
+      playerId: 2,
+    });
   });
   it('falls back to a full reload for an uncached player', async () => {
     const row = createRow();
@@ -384,7 +391,9 @@ describe('leaderboard service', () => {
     await refreshLeaderboardPlayer(event.id, 999);
     expect(mocks.getEventLeaderboardPlayer).not.toHaveBeenCalled();
     expect(mocks.getEventLeaderboardPlayers).toHaveBeenCalledWith(event.id);
-    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard');
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard', {
+      eventId: event.id,
+    });
   });
   it('clears the cache when there is no display event', async () => {
     mocks.getDisplayEvent.mockResolvedValue(event);
@@ -400,7 +409,9 @@ describe('leaderboard service', () => {
       totalPlayers: 0,
       cachedPlayers: 0,
     });
-    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard');
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard', {
+      eventId: null,
+    });
   });
   it('broadcasts only when a player error changes', async () => {
     const row = createRow();
@@ -413,5 +424,43 @@ describe('leaderboard service', () => {
     expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
     setLeaderboardPlayerError(row.playerId, 'Provider exploded');
     expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('leaderboard', {
+      eventId: event.id,
+      playerId: row.playerId,
+    });
+  });
+  it('returns the cached player for the current display event', async () => {
+    const row = createRow();
+    mocks.getDisplayEvent.mockResolvedValue(event);
+    mocks.getEventLeaderboardPlayers.mockResolvedValue([row]);
+    await loadLeaderboardFromDatabase();
+    vi.clearAllMocks();
+    const player = await getEventPlayerSnapshot(event.id, row.playerId);
+    expect(player?.player.id).toBe(row.playerId);
+    expect(mocks.getEventLeaderboardPlayer).not.toHaveBeenCalled();
+  });
+  it('loads a stable event player outside the current display event', async () => {
+    const row = createRow({
+      eventId: 99,
+      eventParticipantId: 999,
+    });
+    mocks.getEventLeaderboardPlayer.mockResolvedValue(row);
+    mocks.getEventMatchStats.mockResolvedValue(createStats());
+    mocks.getRecentEventMatches.mockResolvedValue([
+      createMatch({
+        eventParticipantId: 999,
+      }),
+    ]);
+    const player = await getEventPlayerSnapshot(99, row.playerId);
+    expect(mocks.getEventLeaderboardPlayer).toHaveBeenCalledWith(99, row.playerId);
+    expect(player).toMatchObject({
+      player: {
+        id: row.playerId,
+      },
+      rankMovement: {
+        delta: 0,
+        changedAt: null,
+      },
+    });
   });
 });

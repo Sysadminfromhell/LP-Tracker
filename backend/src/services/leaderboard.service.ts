@@ -99,6 +99,7 @@ let displayEvent: DbEvent | null = null;
 let totalEventPlayers = 0;
 async function buildLeaderboardPlayer(
   row: EventLeaderboardDbPlayer,
+  preserveRankMovement = true,
 ): Promise<BuiltLeaderboardPlayer> {
   const [matchStats, recentMatchesSource] = await Promise.all([
     getEventMatchStats(row.eventParticipantId),
@@ -116,10 +117,15 @@ async function buildLeaderboardPlayer(
     kda: Math.round(kda * 100) / 100,
     longestWinStreak: matchStats.longestWinStreak,
   };
-  const previousMovement = leaderboardCache.get(row.playerId)?.rankMovement ?? {
-    delta: 0,
-    changedAt: null,
-  };
+  const previousMovement = preserveRankMovement
+    ? (leaderboardCache.get(row.playerId)?.rankMovement ?? {
+        delta: 0,
+        changedAt: null,
+      })
+    : {
+        delta: 0,
+        changedAt: null,
+      };
   const eventWins = matchStats.wins;
   const eventLosses = matchStats.losses;
   const recentMatches: ApiEventMatch[] = recentMatchesSource.map((match) => ({
@@ -216,7 +222,9 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
     totalEventPlayers = 0;
     leaderboardCache.clear();
     eventStatsCache.clear();
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId: null,
+    });
     return;
   }
   const eventChanged = previousEventId !== null && previousEventId !== nextDisplayEvent.id;
@@ -240,7 +248,9 @@ export async function loadLeaderboardFromDatabase(): Promise<void> {
   for (const [playerId, stats] of nextStatsCache) {
     eventStatsCache.set(playerId, stats);
   }
-  broadcastLiveUpdate('leaderboard');
+  broadcastLiveUpdate('leaderboard', {
+    eventId: nextDisplayEvent.id,
+  });
 }
 export async function refreshLeaderboardPlayer(eventId: number, playerId: number): Promise<void> {
   if (!displayEvent || displayEvent.id !== eventId || !leaderboardCache.has(playerId)) {
@@ -270,9 +280,13 @@ export async function refreshLeaderboardPlayer(eventId: number, playerId: number
   }
   eventStatsCache.set(playerId, built.stats);
   if (changed) {
-    broadcastLiveUpdate('leaderboard');
+    broadcastLiveUpdate('leaderboard', {
+      eventId,
+      playerId,
+    });
   } else {
     broadcastLiveUpdate('player-refreshed', {
+      eventId,
       playerId,
       lastUpdated: built.player.lastUpdated,
     });
@@ -330,6 +344,23 @@ export function getLeaderboardHighlights(): LeaderboardHighlights {
     mostWins,
   };
 }
+export async function getEventPlayerSnapshot(
+  eventId: number,
+  playerId: number,
+): Promise<LeaderboardPlayer | null> {
+  if (displayEvent?.id === eventId) {
+    const cached = leaderboardCache.get(playerId);
+    if (cached) {
+      return cached;
+    }
+  }
+  const row = await getEventLeaderboardPlayer(eventId, playerId);
+  if (!row) {
+    return null;
+  }
+  const built = await buildLeaderboardPlayer(row, false);
+  return built.player;
+}
 export function getLeaderboardPlayer(playerId: number): LeaderboardPlayer | null {
   return leaderboardCache.get(playerId) ?? null;
 }
@@ -342,7 +373,10 @@ export function setLeaderboardPlayerError(playerId: number, error: string): void
     ...existing,
     error,
   });
-  broadcastLiveUpdate('leaderboard');
+  broadcastLiveUpdate('leaderboard', {
+    eventId: displayEvent?.id ?? null,
+    playerId,
+  });
 }
 export function getLeaderboardMeta(): {
   event: DbEvent | null;

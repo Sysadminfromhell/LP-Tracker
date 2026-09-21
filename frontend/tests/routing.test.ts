@@ -26,22 +26,26 @@ describe('legacy routing', () => {
 });
 
 describe('player overlay routing', () => {
-  it('creates the player overlay path', () => {
+  it('creates a stable event player overlay path', () => {
     expect(
       createPlayerOverlayPath({
-        region: 'EUW',
-        name: 'Foo',
-        tag: 'BAR',
+        eventId: 42,
+        playerId: 7,
       }),
-    ).toBe('/overlay?region=EUW&name=Foo&tag=BAR');
+    ).toBe('/overlay/events/42/players/7');
   });
-  it('encodes player route parameters', () => {
-    expect(
+  it('rejects invalid overlay ids', () => {
+    expect(() =>
       createPlayerOverlayPath({
-        region: 'EUW',
-        name: 'Foo Bar',
-        tag: 'A#B',
+        eventId: 0,
+        playerId: 7,
       }),
-    ).toBe('/overlay?region=EUW&name=Foo+Bar&tag=A%23B');
+    ).toThrow('Invalid event id');
+    expect(() =>
+      createPlayerOverlayPath({
+        eventId: 42,
+        playerId: -1,
+      }),
+    ).toThrow('Invalid player id');
   });
 });

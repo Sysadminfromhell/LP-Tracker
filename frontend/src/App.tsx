@@ -20,7 +20,7 @@ function App() {
       document.title = 'LP Gain Event - OBS Overlay';
       return;
     }
-    if (location.pathname === '/overlay') {
+    if (location.pathname === '/overlay' || location.pathname.startsWith('/overlay/events/')) {
       document.title = 'LP Gain Event - Player Overlay';
       return;
     }
@@ -42,7 +42,14 @@ function App() {
         <Route path="/" element={<LeaderboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/overlay-generator" element={<OverlayGenerator />} />
-        <Route path="/overlay" element={<PlayerOverlay key={location.search} />} />
+        <Route
+          path="/overlay"
+          element={<PlayerOverlay key={`${location.pathname}${location.search}`} />}
+        />
+        <Route
+          path="/overlay/events/:eventId/players/:playerId"
+          element={<PlayerOverlay key={location.pathname} />}
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

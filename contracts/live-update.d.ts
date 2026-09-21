@@ -5,7 +5,12 @@ export type LiveUpdateEvent =
   | 'player-refreshed'
   | 'events-changed'
   | 'provider-health';
+export interface LeaderboardLiveUpdate {
+  eventId: number | null;
+  playerId?: number;
+}
 export interface PlayerRefreshedLiveUpdate {
+  eventId: number;
   playerId: number;
   lastUpdated: string;
 }
