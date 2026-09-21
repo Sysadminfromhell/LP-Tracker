@@ -1,49 +1,105 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPlayerOverlayPath } from '../routing';
 import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
 
-function getPlayerKey(player: LeaderboardPlayer): string {
-  return `${player.player.region}:` + `${player.player.gameName}#${player.player.tagLine}`;
-}
 function OverlayGenerator() {
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
-  const [selectedPlayerKey, setSelectedPlayerKey] = useState('');
+  const [eventId, setEventId] = useState<number | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const loadPlayers = useCallback(async (): Promise<LeaderboardResponse | null> => {
+    try {
+      const response = await fetch('/api/leaderboard', {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error(`API returned HTTP ${response.status}`);
+      }
+      return (await response.json()) as LeaderboardResponse;
+    } catch (error) {
+      console.error('Failed to load players:', error);
+      return null;
+    }
+  }, []);
   useEffect(() => {
-    async function load() {
+    let reloadTimer: number | null = null;
+    let reloadInProgress = false;
+    let reloadPending = false;
+    let disposed = false;
+    function scheduleReload() {
+      if (disposed || reloadTimer !== null) {
+        return;
+      }
+      reloadTimer = window.setTimeout(() => {
+        reloadTimer = null;
+        void reloadPlayersOnce();
+      }, 150);
+    }
+    async function reloadPlayersOnce() {
+      if (disposed) {
+        return;
+      }
+      if (reloadInProgress) {
+        reloadPending = true;
+        return;
+      }
+      reloadInProgress = true;
       try {
-        const response = await fetch('/api/leaderboard');
-        if (!response.ok) {
-          throw new Error(`API returned HTTP ${response.status}`);
+        const data = await loadPlayers();
+        if (!data || disposed) {
+          return;
         }
-        const data = (await response.json()) as LeaderboardResponse;
         setPlayers(data.players);
-        if (data.players.length > 0) {
-          setSelectedPlayerKey((current) => current || getPlayerKey(data.players[0]));
+        setEventId(data.event.id);
+        setSelectedPlayerId((current) => {
+          if (current !== null && data.players.some((player) => player.player.id === current)) {
+            return current;
+          }
+          return data.players[0]?.player.id ?? null;
+        });
+      } finally {
+        reloadInProgress = false;
+
+        if (reloadPending && !disposed) {
+          reloadPending = false;
+          scheduleReload();
         }
-      } catch (error) {
-        console.error('Failed to load players:', error);
       }
     }
-    void load();
-  }, []);
+    const eventSource = new EventSource('/api/live');
+    eventSource.addEventListener('leaderboard', scheduleReload);
+    eventSource.addEventListener('events-changed', scheduleReload);
+    eventSource.onopen = scheduleReload;
+    eventSource.onerror = () => {
+      console.warn('Overlay generator live update connection lost; reconnecting...');
+    };
+    scheduleReload();
+    return () => {
+      disposed = true;
+      if (reloadTimer !== null) {
+        window.clearTimeout(reloadTimer);
+      }
+      eventSource.removeEventListener('leaderboard', scheduleReload);
+      eventSource.removeEventListener('events-changed', scheduleReload);
+      eventSource.close();
+    };
+  }, [loadPlayers]);
   const selectedPlayer = useMemo(
-    () => players.find((player) => getPlayerKey(player) === selectedPlayerKey) ?? null,
-    [players, selectedPlayerKey],
+    () => players.find((player) => player.player.id === selectedPlayerId) ?? null,
+    [players, selectedPlayerId],
   );
   const overlayUrl = useMemo(() => {
-    if (!selectedPlayer) {
+    if (!selectedPlayer || eventId === null) {
       return '';
     }
     return (
       window.location.origin +
       createPlayerOverlayPath({
-        region: selectedPlayer.player.region,
-        name: selectedPlayer.player.gameName,
-        tag: selectedPlayer.player.tagLine,
+        eventId,
+        playerId: selectedPlayer.player.id,
       })
     );
-  }, [selectedPlayer]);
+  }, [eventId, selectedPlayer]);
   async function copyUrl() {
     if (!overlayUrl) {
       return;
@@ -75,20 +131,17 @@ function OverlayGenerator() {
           <label>
             Player
             <select
-              value={selectedPlayerKey}
+              value={selectedPlayerId ?? ''}
               onChange={(event) => {
-                setSelectedPlayerKey(event.target.value);
+                setSelectedPlayerId(Number(event.target.value));
                 setCopied(false);
               }}
             >
-              {players.map((player) => {
-                const key = getPlayerKey(player);
-                return (
-                  <option key={key} value={key}>
-                    {player.player.gameName}#{player.player.tagLine}
-                  </option>
-                );
-              })}
+              {players.map((player) => (
+                <option key={player.player.id} value={player.player.id}>
+                  {player.player.gameName}#{player.player.tagLine}
+                </option>
+              ))}
             </select>
           </label>
           <label>

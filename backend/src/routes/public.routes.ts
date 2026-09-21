@@ -1,8 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
-import { eventPlayerMatchParamsSchema } from './schemas/id.schemas';
+import { eventPlayerIdParamsSchema, eventPlayerMatchParamsSchema } from './schemas/id.schemas';
+import { errorResponseSchema } from './schemas/common.schemas';
 import { healthResponseSchema } from './schemas/health.schemas';
-import { eventPlayerResponseSchema } from './schemas/event-player.schemas';
+import {
+  eventPlayerReadyResponseSchema,
+  eventPlayerResponseSchema,
+} from './schemas/event-player.schemas';
 import { leaderboardResponseSchema } from './schemas/leaderboard.schemas';
 import {
   matchDetailsErrorResponseSchema,
@@ -11,6 +15,7 @@ import {
 import { findEventMatchDetails } from '../db/event-match-details-reader';
 import { getPlayers } from '../db/players';
 import {
+  getEventPlayerSnapshot,
   getLeaderboard,
   getLeaderboardHighlights,
   getLeaderboardMeta,
@@ -88,6 +93,51 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         recentMatches: first.recentMatches,
         lastUpdated: first.lastUpdated,
         error: first.error,
+      };
+    },
+  );
+  typedApp.get(
+    '/api/events/:eventId/players/:playerId',
+    {
+      schema: {
+        params: eventPlayerIdParamsSchema,
+        response: {
+          200: eventPlayerReadyResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const eventId = Number(request.params.eventId);
+      const playerId = Number(request.params.playerId);
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid event id',
+        });
+      }
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid player id',
+        });
+      }
+      const player = await getEventPlayerSnapshot(eventId, playerId);
+      if (!player) {
+        return reply.code(404).send({
+          error: 'Event player not found',
+        });
+      }
+      return {
+        ready: true as const,
+        player: player.player,
+        startedAt: player.startedAt,
+        start: player.start,
+        current: player.current,
+        lpGain: player.lpGain,
+        record: player.record,
+        recentMatches: player.recentMatches,
+        lastUpdated: player.lastUpdated,
+        error: player.error,
       };
     },
   );
