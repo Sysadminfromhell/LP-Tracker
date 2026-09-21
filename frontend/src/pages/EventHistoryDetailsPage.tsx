@@ -42,7 +42,9 @@ function EventHistoryDetailsPage() {
   const eventId = Number(eventIdParam);
   const validEventId = Number.isSafeInteger(eventId) && eventId > 0;
   const [details, setDetails] = useState<EventHistoryDetailsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ eventId: number; message: string } | null>(null);
+  const currentDetails = details?.event.id === eventId ? details : null;
+  const currentError = error?.eventId === eventId ? error.message : null;
   useEffect(() => {
     if (!validEventId) {
       return;
@@ -86,9 +88,11 @@ function EventHistoryDetailsPage() {
           if (loadedSuccessfully) {
             console.warn('Failed to refresh event history:', loadError);
           } else {
-            setError(
-              loadError instanceof Error ? loadError.message : 'Failed to load event history',
-            );
+            setError({
+              eventId,
+              message:
+                loadError instanceof Error ? loadError.message : 'Failed to load event history',
+            });
           }
         }
       } finally {
@@ -99,8 +103,6 @@ function EventHistoryDetailsPage() {
         }
       }
     }
-    setDetails(null);
-    setError(null);
     void reload();
     const eventSource = new EventSource('/api/live');
     eventSource.addEventListener('events-changed', reload);
@@ -127,14 +129,14 @@ function EventHistoryDetailsPage() {
       </main>
     );
   }
-  if (error && !details) {
+  if (currentError && !currentDetails) {
     return (
       <main className="page">
-        <div className="status-screen error">{error}</div>
+        <div className="status-screen error">{currentError}</div>
       </main>
     );
   }
-  if (!details) {
+  if (!currentDetails) {
     return (
       <main className="page">
         <div className="status-screen">Loading event standings...</div>
@@ -147,9 +149,9 @@ function EventHistoryDetailsPage() {
         <header className="player-details-header">
           <div className="player-details-section-heading">
             <span>EVENT ARCHIVE</span>
-            <h1>{details.event.name}</h1>
+            <h1>{currentDetails.event.name}</h1>
             <span>
-              {formatEventDate(details.event.startsAt)} – {formatEventDate(details.event.endsAt)}
+              {formatEventDate(currentDetails.event.startsAt)} – {formatEventDate(currentDetails.event.endsAt)}
             </span>
           </div>
           <Link className="player-profile-link" to="/history">
@@ -159,7 +161,7 @@ function EventHistoryDetailsPage() {
         <div className="player-details-summary">
           <div>
             <span>Participants</span>
-            <strong>{details.event.participantCount}</strong>
+            <strong>{currentDetails.event.participantCount}</strong>
           </div>
           <div>
             <span>Status</span>
@@ -167,11 +169,11 @@ function EventHistoryDetailsPage() {
           </div>
           <div>
             <span>Started</span>
-            <strong>{formatEventDate(details.event.startsAt)}</strong>
+            <strong>{formatEventDate(currentDetails.event.startsAt)}</strong>
           </div>
           <div>
             <span>Ended</span>
-            <strong>{formatEventDate(details.event.endsAt)}</strong>
+            <strong>{formatEventDate(currentDetails.event.endsAt)}</strong>
           </div>
         </div>
         <section className="event-history-standings">
@@ -179,11 +181,11 @@ function EventHistoryDetailsPage() {
             <span>FINAL RESULTS</span>
             <h2>Final Standings</h2>
           </div>
-          {details.standings.length === 0 ? (
+          {currentDetails.standings.length === 0 ? (
             <div className="player-details-empty">No standings available.</div>
           ) : (
             <div className="event-history-standing-list">
-              {details.standings.map((standing, index) => (
+              {currentDetails.standings.map((standing, index) => (
                 <article className="event-history-standing" key={standing.player.id}>
                   <strong className="event-history-place">#{index + 1}</strong>
                   <Link
