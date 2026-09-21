@@ -5,6 +5,10 @@ const mocks = vi.hoisted(() => ({
   findEventMatchDetails: vi.fn(),
   getPlayers: vi.fn(),
   getEventPlayerSnapshot: vi.fn(),
+  getPublicPlayerProfile: vi.fn(),
+  getPublicPlayerEventDetails: vi.fn(),
+  getPublicEventHistory: vi.fn(),
+  getPublicEventHistoryDetails: vi.fn(),
   getLeaderboard: vi.fn(),
   getLeaderboardHighlights: vi.fn(),
   getLeaderboardMeta: vi.fn(),
@@ -25,12 +29,20 @@ vi.mock('../src/services/leaderboard.service', () => ({
   getLeaderboardHighlights: mocks.getLeaderboardHighlights,
   getLeaderboardMeta: mocks.getLeaderboardMeta,
 }));
+vi.mock('../src/services/player-profile.service', () => ({
+  getPublicPlayerProfile: mocks.getPublicPlayerProfile,
+  getPublicPlayerEventDetails: mocks.getPublicPlayerEventDetails,
+}));
 vi.mock('../src/services/league-data.service', () => ({
   getLeagueDataProviderStatus: mocks.getLeagueDataProviderStatus,
   getLeagueDataProviderDiagnostics: mocks.getLeagueDataProviderDiagnostics,
 }));
 vi.mock('../src/jobs/refresh-scheduler', () => ({
   getRefreshSchedulerStatus: mocks.getRefreshSchedulerStatus,
+}));
+vi.mock('../src/services/event-history.service', () => ({
+  getPublicEventHistory: mocks.getPublicEventHistory,
+  getPublicEventHistoryDetails: mocks.getPublicEventHistoryDetails,
 }));
 
 import { createApp } from '../src/app';
@@ -133,6 +145,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.findEventMatchDetails.mockResolvedValue(null);
   mocks.getLeaderboard.mockReturnValue([]);
+  mocks.getPublicEventHistory.mockResolvedValue({
+    events: [],
+  });
+  mocks.getPublicEventHistoryDetails.mockResolvedValue(null);
   mocks.getLeaderboardHighlights.mockReturnValue({
     longestWinStreak: null,
     bestKda: null,
@@ -153,6 +169,8 @@ beforeEach(() => {
     connected: false,
   });
   mocks.getEventPlayerSnapshot.mockResolvedValue(null);
+  mocks.getPublicPlayerProfile.mockResolvedValue(null);
+  mocks.getPublicPlayerEventDetails.mockResolvedValue(null);
   mocks.getRefreshSchedulerStatus.mockReturnValue({
     running: true,
     intervalMs: 60_000,
@@ -160,6 +178,130 @@ beforeEach(() => {
 });
 
 describe('public routes', () => {
+  it('returns public ended event history', async () => {
+    mocks.getPublicEventHistory.mockResolvedValue({
+      events: [
+        {
+          id: 42,
+          name: 'September Event',
+          startsAt: '2026-09-01T18:00:00.000Z',
+          endsAt: '2026-09-05T18:00:00.000Z',
+          participantCount: 8,
+        },
+      ],
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/history',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getPublicEventHistory).toHaveBeenCalledTimes(1);
+      expect(response.json()).toEqual({
+        events: [
+          {
+            id: 42,
+            name: 'September Event',
+            startsAt: '2026-09-01T18:00:00.000Z',
+            endsAt: '2026-09-05T18:00:00.000Z',
+            participantCount: 8,
+          },
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns public historical event standings', async () => {
+    mocks.getPublicEventHistoryDetails.mockResolvedValue({
+      event: {
+        id: 42,
+        name: 'September Event',
+        startsAt: '2026-09-01T18:00:00.000Z',
+        endsAt: '2026-09-05T18:00:00.000Z',
+        participantCount: 1,
+      },
+      standings: [
+        {
+          player: firstPlayer.player,
+          start: firstPlayer.start,
+          final: firstPlayer.current,
+          penalty: {
+            lp: 0,
+            reason: null,
+          },
+          lpGain: 125,
+          record: firstPlayer.record,
+        },
+      ],
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/history/42',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getPublicEventHistoryDetails).toHaveBeenCalledWith(42);
+      expect(response.json()).toEqual({
+        event: {
+          id: 42,
+          name: 'September Event',
+          startsAt: '2026-09-01T18:00:00.000Z',
+          endsAt: '2026-09-05T18:00:00.000Z',
+          participantCount: 1,
+        },
+        standings: [
+          {
+            player: firstPlayer.player,
+            start: firstPlayer.start,
+            final: firstPlayer.current,
+            penalty: {
+              lp: 0,
+              reason: null,
+            },
+            lpGain: 125,
+            record: firstPlayer.record,
+          },
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects invalid public event history ids', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/history/nope',
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid event id',
+      });
+      expect(mocks.getPublicEventHistoryDetails).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns 404 for unknown public event history', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/events/history/999',
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: 'Event history not found',
+      });
+      expect(mocks.getPublicEventHistoryDetails).toHaveBeenCalledWith(999);
+    } finally {
+      await app.close();
+    }
+  });
   it('returns rich match details for an event player match', async () => {
     mocks.findEventMatchDetails.mockResolvedValue({
       durationSeconds: 1852,
@@ -572,6 +714,115 @@ describe('public routes', () => {
         error: 'Invalid player id',
       });
       expect(mocks.getEventPlayerSnapshot).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns a public player profile', async () => {
+    mocks.getPublicPlayerProfile.mockResolvedValue({
+      player: firstPlayer.player,
+      latestEvent: {
+        id: 42,
+        name: 'September Event',
+        status: 'ended',
+        startsAt: '2026-09-01T18:00:00.000Z',
+        endsAt: '2026-09-05T18:00:00.000Z',
+        start: firstPlayer.start,
+        current: firstPlayer.current,
+        penalty: {
+          lp: 0,
+          reason: null,
+        },
+        lpGain: 125,
+        record: firstPlayer.record,
+        mainRole: 'MID',
+        lastUpdated: firstPlayer.lastUpdated,
+      },
+      previousEvents: [],
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/players/1',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getPublicPlayerProfile).toHaveBeenCalledWith(1);
+      expect(response.json().latestEvent.name).toBe('September Event');
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns a complete player event match history', async () => {
+    mocks.getPublicPlayerEventDetails.mockResolvedValue({
+      event: {
+        id: 42,
+        name: 'September Event',
+        status: 'ended',
+        startsAt: '2026-09-01T18:00:00.000Z',
+        endsAt: '2026-09-05T18:00:00.000Z',
+        start: firstPlayer.start,
+        current: firstPlayer.current,
+        penalty: {
+          lp: 0,
+          reason: null,
+        },
+        lpGain: 125,
+        record: firstPlayer.record,
+        mainRole: 'MID',
+        lastUpdated: firstPlayer.lastUpdated,
+      },
+      matches: firstPlayer.recentMatches.map((match) => ({
+        ...match,
+        durationSeconds: 1800,
+        items: ['6655', '3020', '3089'],
+      })),
+    });
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/players/1/events/42',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.getPublicPlayerEventDetails).toHaveBeenCalledWith(1, 42);
+      expect(response.json().matches).toEqual(
+        firstPlayer.recentMatches.map((match) => ({
+          ...match,
+          durationSeconds: 1800,
+          items: ['6655', '3020', '3089'],
+        })),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects invalid public player profile ids', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/players/nope',
+      });
+      expect(response.statusCode).toBe(400);
+      expect(mocks.getPublicPlayerProfile).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('returns 404 for unknown public players and events', async () => {
+    const app = await createTestApp();
+    try {
+      const playerResponse = await app.inject({
+        method: 'GET',
+        url: '/api/players/999',
+      });
+      expect(playerResponse.statusCode).toBe(404);
+      const eventResponse = await app.inject({
+        method: 'GET',
+        url: '/api/players/1/events/999',
+      });
+      expect(eventResponse.statusCode).toBe(404);
     } finally {
       await app.close();
     }

@@ -189,8 +189,9 @@ export async function syncRecentEventMatchDetails(
         match.participants !== undefined &&
         match.participants.length > 0,
     )
-    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-    .slice(0, 3);
+    .sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
   await client.query('BEGIN');
   try {
     for (const match of richMatches) {
@@ -211,7 +212,6 @@ export async function syncRecentEventMatchDetails(
       }
       await replaceEventMatchDetails(client, Number(eventMatch.id), match);
     }
-    await pruneEventMatchDetails(client, eventParticipantId, 3);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

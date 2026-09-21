@@ -270,7 +270,7 @@ describe('event refresh', () => {
 
     expect(anchorUpdateCalls).toHaveLength(0);
   });
-  it('stores rich details and prunes details outside the newest three matches', async () => {
+  it('stores rich details without pruning older match details', async () => {
     mocks.insertRowCounts = [1];
     mocks.eventMatchIds = {
       'rich-match': '501',
@@ -323,8 +323,7 @@ describe('event refresh', () => {
     const pruneCall = mocks.query.mock.calls.find(([sql]) =>
       String(sql).includes('DELETE FROM event_match_details'),
     );
-    expect(pruneCall).toBeDefined();
-    expect(pruneCall?.[1]).toEqual([EVENT_PARTICIPANT_ID, 3]);
+    expect(pruneCall).toBeUndefined();
     const beginCalls = mocks.query.mock.calls.filter(([sql]) => String(sql).trim() === 'BEGIN');
     const commitCalls = mocks.query.mock.calls.filter(([sql]) => String(sql).trim() === 'COMMIT');
     expect(beginCalls).toHaveLength(2);
