@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import type {
   AdminPlayer,
   AdminPlayersRefreshResponse,
@@ -69,6 +70,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [playerSearch, setPlayerSearch] = useState('');
   const [playerStatusFilter, setPlayerStatusFilter] = useState<PlayerStatusFilter>('all');
   const [playerSort, setPlayerSort] = useState<PlayerSort>('name');
+  const navigate = useNavigate();
+  const [showDatabaseWarning, setShowDatabaseWarning] = useState(false);
   const notify = useCallback((variant: AdminToastVariant, notificationMessage: string) => {
     const toast: AdminToastMessage = {
       id: crypto.randomUUID(),
@@ -689,6 +692,38 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             </div>
           )}
         </div>
+        <div className="admin-database-entry">
+          <div>
+            <span className="admin-section-eyebrow">ADVANCED</span>
+            <h2>Dangerzone Database</h2>
+            <p>Inspect PostgreSQL internals and perform advanced database maintenance.</p>
+          </div>
+          <button
+            className="admin-danger-button"
+            type="button"
+            onClick={() => {
+              setShowDatabaseWarning(true);
+            }}
+          >
+            Dangerzone Database
+          </button>
+        </div>
+        {showDatabaseWarning && (
+          <AdminConfirmDialog
+            open={showDatabaseWarning}
+            title="Enter Database Dangerzone?"
+            message="This area contains advanced database maintenance and destructive operations. Incorrect actions may affect application availability or permanently remove stored data."
+            confirmLabel="Enter Dangerzone"
+            danger
+            onCancel={() => {
+              setShowDatabaseWarning(false);
+            }}
+            onConfirm={() => {
+              setShowDatabaseWarning(false);
+              navigate('/admin/database');
+            }}
+          />
+        )}
       </section>
     </main>
   );
