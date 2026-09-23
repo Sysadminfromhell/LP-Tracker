@@ -8,6 +8,7 @@ import AdminDatabasePanel from './AdminDatabasePanel';
 import type {
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceOperation,
+  AdminDatabaseMatchDetailsPruneResponse,
   AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseResetResponse,
 } from '@lp-tracker/contracts';
@@ -43,6 +44,9 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
   const [databaseRefreshKey, setDatabaseRefreshKey] = useState(0);
   const [showPlayerCacheCleanupWarning, setShowPlayerCacheCleanupWarning] = useState(false);
   const [playerCacheCleanupBusy, setPlayerCacheCleanupBusy] = useState(false);
+  const [matchDetailsRetentionDays, setMatchDetailsRetentionDays] = useState(90);
+  const [showMatchDetailsPruneWarning, setShowMatchDetailsPruneWarning] = useState(false);
+  const [matchDetailsPruneBusy, setMatchDetailsPruneBusy] = useState(false);
 
   async function runMaintenanceAll() {
     if (!maintenanceOperation) {
@@ -119,6 +123,53 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
       notify('error', error instanceof Error ? error.message : 'Player cache cleanup failed.');
     } finally {
       setPlayerCacheCleanupBusy(false);
+    }
+  }
+
+  const matchDetailsRetentionValid =
+    Number.isSafeInteger(matchDetailsRetentionDays) &&
+    matchDetailsRetentionDays >= 7 &&
+    matchDetailsRetentionDays <= 3650;
+
+  async function pruneMatchDetails() {
+    if (!matchDetailsRetentionValid) {
+      return;
+    }
+    setMatchDetailsPruneBusy(true);
+    try {
+      const response = await fetch('/api/admin/database/cleanup/match-details', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          olderThanDays: matchDetailsRetentionDays,
+        }),
+      });
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? `Match details prune failed with status ${response.status}`);
+      }
+      const result = (await response.json()) as AdminDatabaseMatchDetailsPruneResponse;
+      setShowMatchDetailsPruneWarning(false);
+      setDatabaseRefreshKey((value) => value + 1);
+      notify(
+        'success',
+        `Historical match details pruned. ${result.deletedMatchDetails} match details and ${result.deletedMatchParticipants} participant records removed.`,
+      );
+    } catch (error) {
+      notify(
+        'error',
+        error instanceof Error ? error.message : 'Historical match details prune failed.',
+      );
+    } finally {
+      setMatchDetailsPruneBusy(false);
     }
   }
 
@@ -255,31 +306,73 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
           <div className="admin-section-header">
             <div>
               <span className="admin-section-eyebrow">DATABASE CLEANUP</span>
-              <h2>Player Cache</h2>
+              <h2>Cleanup Tools</h2>
               <p>
-                Remove cached player data. Cache entries are rebuilt automatically when players are
-                refreshed again.
+                Remove rebuildable or historical database data without deleting core application
+                records.
               </p>
             </div>
           </div>
-          <div className="admin-database-reset-box">
-            <div>
-              <strong>Clear player cache</strong>
-              <p>
-                Removes all entries from the player cache without deleting players, events, matches
-                or other application data.
-              </p>
+          <div className="admin-database-cleanup-grid">
+            <div className="admin-database-cleanup-card">
+              <div>
+                <strong>Clear player cache</strong>
+                <p>
+                  Removes all entries from the player cache without deleting players, events,
+                  matches or other application data.
+                </p>
+                <p>Cache entries are rebuilt automatically when players are refreshed.</p>
+              </div>
+              <button
+                className="admin-secondary-button"
+                type="button"
+                disabled={playerCacheCleanupBusy}
+                onClick={() => {
+                  setShowPlayerCacheCleanupWarning(true);
+                }}
+              >
+                CLEAR PLAYER CACHE
+              </button>
             </div>
-            <button
-              className="admin-secondary-button"
-              type="button"
-              disabled={playerCacheCleanupBusy}
-              onClick={() => {
-                setShowPlayerCacheCleanupWarning(true);
-              }}
-            >
-              CLEAR PLAYER CACHE
-            </button>
+            <div className="admin-database-cleanup-card">
+              <div>
+                <strong>Prune historical match details</strong>
+                <p>
+                  Removes detailed match and participant data from ended events older than the
+                  selected retention period.
+                </p>
+                <p>Event history, matches, results and LP data are preserved.</p>
+                <div className="admin-database-retention-control">
+                  <label htmlFor="admin-match-details-retention">Retention</label>
+                  <div className="admin-database-retention-input">
+                    <input
+                      id="admin-match-details-retention"
+                      type="number"
+                      min={7}
+                      max={3650}
+                      step={1}
+                      value={matchDetailsRetentionDays}
+                      disabled={matchDetailsPruneBusy}
+                      onChange={(event) => {
+                        setMatchDetailsRetentionDays(Number(event.target.value));
+                      }}
+                    />
+                    <span>days</span>
+                  </div>
+                  <small>Allowed range: 7–3650 days</small>
+                </div>
+              </div>
+              <button
+                className="admin-danger-button"
+                type="button"
+                disabled={matchDetailsPruneBusy || !matchDetailsRetentionValid}
+                onClick={() => {
+                  setShowMatchDetailsPruneWarning(true);
+                }}
+              >
+                PRUNE MATCH DETAILS
+              </button>
+            </div>
           </div>
         </section>
         <section className="admin-section admin-database-reset-zone">
@@ -362,6 +455,22 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
             onCancel={() => {
               if (!playerCacheCleanupBusy) {
                 setShowPlayerCacheCleanupWarning(false);
+              }
+            }}
+          />
+          <AdminConfirmDialog
+            open={showMatchDetailsPruneWarning}
+            title="Prune Historical Match Details"
+            message={`Delete detailed match data from ended events older than ${matchDetailsRetentionDays} days? Event history, match results and LP data will be preserved.`}
+            confirmLabel="Yes, Prune Match Details"
+            danger
+            busy={matchDetailsPruneBusy}
+            onConfirm={() => {
+              void pruneMatchDetails();
+            }}
+            onCancel={() => {
+              if (!matchDetailsPruneBusy) {
+                setShowMatchDetailsPruneWarning(false);
               }
             }}
           />

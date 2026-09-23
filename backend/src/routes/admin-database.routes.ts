@@ -8,6 +8,8 @@ import {
   adminDatabaseMaintenanceResponseSchema,
   adminDatabaseOverviewResponseSchema,
   adminDatabaseTableDetailsResponseSchema,
+  adminDatabaseMatchDetailsPruneRequestSchema,
+  adminDatabaseMatchDetailsPruneResponseSchema,
   adminDatabaseResetRequestSchema,
   adminDatabaseResetResponseSchema,
   adminDatabaseMaintenanceAllResponseSchema,
@@ -17,6 +19,7 @@ import { errorResponseSchema } from './schemas/common.schemas';
 import { resetAdminDatabase } from '../db/admin-database-reset';
 import { runAdminDatabaseMaintenanceAll } from '../db/admin-database-maintenance-all';
 import { clearAdminDatabasePlayerCache } from '../db/admin-database-player-cache-cleanup';
+import { pruneAdminDatabaseMatchDetails } from '../db/admin-database-match-details-prune';
 
 const adminDatabaseTableParamsSchema = {
   type: 'object',
@@ -175,6 +178,27 @@ export const adminDatabaseRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app)
         return;
       }
       return clearAdminDatabasePlayerCache();
+    },
+  );
+  app.post(
+    '/api/admin/database/cleanup/match-details',
+    {
+      schema: {
+        body: adminDatabaseMatchDetailsPruneRequestSchema,
+        response: {
+          200: adminDatabaseMatchDetailsPruneResponseSchema,
+          401: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+
+      if (!admin) {
+        return;
+      }
+      return pruneAdminDatabaseMatchDetails(request.body.olderThanDays);
     },
   );
 };

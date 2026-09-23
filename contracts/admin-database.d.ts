@@ -123,3 +123,13 @@ export interface AdminDatabasePlayerCacheCleanupResponse {
   clearedEntries: number;
   completedAt: string;
 }
+export interface AdminDatabaseMatchDetailsPruneRequest {
+  olderThanDays: number;
+}
+export interface AdminDatabaseMatchDetailsPruneResponse {
+  olderThanDays: number;
+  cutoffAt: string;
+  deletedMatchDetails: number;
+  deletedMatchParticipants: number;
+  completedAt: string;
+}

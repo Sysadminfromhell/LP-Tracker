@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceResponse,
+  AdminDatabaseMatchDetailsPruneResponse,
   AdminDatabaseOverviewResponse,
   AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseResetResponse,
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   resetAdminDatabase: vi.fn(),
   runAdminDatabaseMaintenanceAll: vi.fn(),
   clearAdminDatabasePlayerCache: vi.fn(),
+  pruneAdminDatabaseMatchDetails: vi.fn(),
 }));
 vi.mock('../src/auth/admin-auth', () => ({
   requireAdmin: mocks.requireAdmin,
@@ -37,6 +39,9 @@ vi.mock('../src/db/admin-database-maintenance-all', () => ({
 }));
 vi.mock('../src/db/admin-database-player-cache-cleanup', () => ({
   clearAdminDatabasePlayerCache: mocks.clearAdminDatabasePlayerCache,
+}));
+vi.mock('../src/db/admin-database-match-details-prune', () => ({
+  pruneAdminDatabaseMatchDetails: mocks.pruneAdminDatabaseMatchDetails,
 }));
 
 import { createApp } from '../src/app';
@@ -210,6 +215,13 @@ const playerCacheCleanupResult: AdminDatabasePlayerCacheCleanupResponse = {
   clearedEntries: 42,
   completedAt: '2026-09-23T11:30:00.000Z',
 };
+const matchDetailsPruneResult: AdminDatabaseMatchDetailsPruneResponse = {
+  olderThanDays: 90,
+  cutoffAt: '2026-06-25T12:00:00.000Z',
+  deletedMatchDetails: 12,
+  deletedMatchParticipants: 120,
+  completedAt: '2026-09-23T12:00:00.000Z',
+};
 
 async function createTestApp() {
   const app = createApp();
@@ -237,6 +249,8 @@ describe('admin database routes', () => {
     mocks.runAdminDatabaseMaintenanceAll.mockResolvedValue(maintenanceAllResult);
     mocks.clearAdminDatabasePlayerCache.mockReset();
     mocks.clearAdminDatabasePlayerCache.mockResolvedValue(playerCacheCleanupResult);
+    mocks.pruneAdminDatabaseMatchDetails.mockReset();
+    mocks.pruneAdminDatabaseMatchDetails.mockResolvedValue(matchDetailsPruneResult);
   });
   it('returns database overview for an authenticated admin', async () => {
     const app = await createTestApp();
@@ -533,6 +547,53 @@ describe('admin database routes', () => {
     });
     expect(response.statusCode).toBe(401);
     expect(mocks.clearAdminDatabasePlayerCache).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('prunes historical match details for an authenticated admin', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/match-details',
+      payload: {
+        olderThanDays: 90,
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(matchDetailsPruneResult);
+    expect(mocks.pruneAdminDatabaseMatchDetails).toHaveBeenCalledTimes(1);
+    expect(mocks.pruneAdminDatabaseMatchDetails).toHaveBeenCalledWith(90);
+    await app.close();
+  });
+  it('rejects unauthenticated match details prune requests', async () => {
+    mocks.requireAdmin.mockImplementationOnce(async (_request, reply) => {
+      await reply.code(401).send({
+        error: 'Authentication required',
+      });
+      return null;
+    });
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/match-details',
+      payload: {
+        olderThanDays: 90,
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(mocks.pruneAdminDatabaseMatchDetails).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects invalid match details retention before execution', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/match-details',
+      payload: {
+        olderThanDays: 6,
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mocks.pruneAdminDatabaseMatchDetails).not.toHaveBeenCalled();
     await app.close();
   });
 });

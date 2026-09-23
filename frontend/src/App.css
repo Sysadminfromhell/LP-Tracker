@@ -4123,3 +4123,102 @@ a.social-link.twitch:hover {
 .admin-reset-confirm-dialog {
   width: min(460px, calc(100vw - 32px));
 }
+/* --------------------------------------------------
+   Admin database cleanup
+-------------------------------------------------- */
+.admin-database-cleanup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.admin-database-cleanup-card {
+  display: flex;
+  min-width: 0;
+  min-height: 260px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid rgba(126, 161, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.018);
+}
+.admin-database-cleanup-card > div:first-child {
+  min-width: 0;
+}
+.admin-database-cleanup-card > div > strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #e7eaf4;
+  font-size: var(--admin-font-md);
+}
+.admin-database-cleanup-card p {
+  margin: 7px 0 0;
+  color: #8b94aa;
+  font-size: var(--admin-font-xs);
+  line-height: 1.55;
+}
+.admin-database-cleanup-card > button {
+  width: 100%;
+  min-height: 42px;
+}
+.admin-database-retention-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.admin-database-retention-control > label {
+  color: #747e98;
+  font-size: var(--admin-font-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-database-retention-input {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(126, 161, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(126, 161, 255, 0.035);
+}
+.admin-database-retention-input:focus-within {
+  border-color: rgba(126, 161, 255, 0.34);
+  box-shadow: 0 0 0 3px rgba(126, 161, 255, 0.06);
+}
+.admin-database-retention-input input {
+  width: 78px;
+  padding: 9px 10px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e7eaf4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--admin-font-sm);
+  font-weight: 700;
+}
+.admin-database-retention-input span {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  border-left: 1px solid rgba(126, 161, 255, 0.1);
+  color: #7f8aa8;
+  font-size: var(--admin-font-xs);
+}
+.admin-database-retention-control small {
+  flex-basis: 100%;
+  color: #626c84;
+  font-size: var(--admin-font-2xs);
+}
+@media (max-width: 900px) {
+  .admin-database-cleanup-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-database-cleanup-card {
+    min-height: 0;
+  }
+}

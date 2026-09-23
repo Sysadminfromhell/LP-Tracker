@@ -8,6 +8,8 @@ import type {
   AdminDatabaseMaintenanceOperation,
   AdminDatabaseMaintenanceRequest,
   AdminDatabaseMaintenanceResponse,
+  AdminDatabaseMatchDetailsPruneRequest,
+  AdminDatabaseMatchDetailsPruneResponse,
   AdminDatabaseOverviewResponse,
   AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseRelationship,
@@ -27,6 +29,8 @@ import {
   adminDatabaseMaintenanceResponseSchema,
   adminDatabaseOverviewResponseSchema,
   adminDatabasePlayerCacheCleanupResponseSchema,
+  adminDatabaseMatchDetailsPruneRequestSchema,
+  adminDatabaseMatchDetailsPruneResponseSchema,
   adminDatabaseRelationshipSchema,
   adminDatabaseResetRequestSchema,
   adminDatabaseResetResponseSchema,
@@ -57,6 +61,13 @@ type MaintenanceAllResponseSchema = FromSchema<typeof adminDatabaseMaintenanceAl
 type PlayerCacheCleanupResponseSchema = FromSchema<
   typeof adminDatabasePlayerCacheCleanupResponseSchema
 >;
+type MatchDetailsPruneRequestSchema = FromSchema<
+  typeof adminDatabaseMatchDetailsPruneRequestSchema
+>;
+type MatchDetailsPruneResponseSchema = FromSchema<
+  typeof adminDatabaseMatchDetailsPruneResponseSchema
+>;
+
 type _TableOverviewMatchesContract = Assert<Equal<TableOverviewSchema, AdminDatabaseTableOverview>>;
 type _RelationshipMatchesContract = Assert<Equal<RelationshipSchema, AdminDatabaseRelationship>>;
 type _OverviewResponseMatchesContract = Assert<
@@ -87,4 +98,10 @@ type _MaintenanceAllResponseMatchesContract = Assert<
 >;
 type _PlayerCacheCleanupResponseMatchesContract = Assert<
   Equal<PlayerCacheCleanupResponseSchema, AdminDatabasePlayerCacheCleanupResponse>
+>;
+type _MatchDetailsPruneRequestMatchesContract = Assert<
+  Equal<MatchDetailsPruneRequestSchema, AdminDatabaseMatchDetailsPruneRequest>
+>;
+type _MatchDetailsPruneResponseMatchesContract = Assert<
+  Equal<MatchDetailsPruneResponseSchema, AdminDatabaseMatchDetailsPruneResponse>
 >;

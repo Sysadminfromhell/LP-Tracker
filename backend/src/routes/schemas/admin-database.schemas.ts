@@ -409,8 +409,49 @@ export const adminDatabasePlayerCacheCleanupResponseSchema = {
       type: 'string',
     },
   },
+  required: ['clearedEntries', 'completedAt'],
+} as const;
+export const adminDatabaseMatchDetailsPruneRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    olderThanDays: {
+      type: 'integer',
+      minimum: 7,
+      maximum: 3650,
+    },
+  },
+  required: ['olderThanDays'],
+} as const;
+export const adminDatabaseMatchDetailsPruneResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    olderThanDays: {
+      type: 'integer',
+      minimum: 7,
+      maximum: 3650,
+    },
+    cutoffAt: {
+      type: 'string',
+    },
+    deletedMatchDetails: {
+      type: 'integer',
+      minimum: 0,
+    },
+    deletedMatchParticipants: {
+      type: 'integer',
+      minimum: 0,
+    },
+    completedAt: {
+      type: 'string',
+    },
+  },
   required: [
-    'clearedEntries',
+    'olderThanDays',
+    'cutoffAt',
+    'deletedMatchDetails',
+    'deletedMatchParticipants',
     'completedAt',
   ],
 } as const;
