@@ -3,6 +3,7 @@ import type {
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceResponse,
   AdminDatabaseOverviewResponse,
+  AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseResetResponse,
   AdminDatabaseTableDetailsResponse,
 } from '@lp-tracker/contracts';
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   runAdminDatabaseMaintenance: vi.fn(),
   resetAdminDatabase: vi.fn(),
   runAdminDatabaseMaintenanceAll: vi.fn(),
+  clearAdminDatabasePlayerCache: vi.fn(),
 }));
 vi.mock('../src/auth/admin-auth', () => ({
   requireAdmin: mocks.requireAdmin,
@@ -32,6 +34,9 @@ vi.mock('../src/db/admin-database-reset', () => ({
 }));
 vi.mock('../src/db/admin-database-maintenance-all', () => ({
   runAdminDatabaseMaintenanceAll: mocks.runAdminDatabaseMaintenanceAll,
+}));
+vi.mock('../src/db/admin-database-player-cache-cleanup', () => ({
+  clearAdminDatabasePlayerCache: mocks.clearAdminDatabasePlayerCache,
 }));
 
 import { createApp } from '../src/app';
@@ -201,6 +206,10 @@ const maintenanceAllResult: AdminDatabaseMaintenanceAllResponse = {
     },
   ],
 };
+const playerCacheCleanupResult: AdminDatabasePlayerCacheCleanupResponse = {
+  clearedEntries: 42,
+  completedAt: '2026-09-23T11:30:00.000Z',
+};
 
 async function createTestApp() {
   const app = createApp();
@@ -226,6 +235,8 @@ describe('admin database routes', () => {
     mocks.resetAdminDatabase.mockResolvedValue(resetResult);
     mocks.runAdminDatabaseMaintenanceAll.mockReset();
     mocks.runAdminDatabaseMaintenanceAll.mockResolvedValue(maintenanceAllResult);
+    mocks.clearAdminDatabasePlayerCache.mockReset();
+    mocks.clearAdminDatabasePlayerCache.mockResolvedValue(playerCacheCleanupResult);
   });
   it('returns database overview for an authenticated admin', async () => {
     const app = await createTestApp();
@@ -495,6 +506,33 @@ describe('admin database routes', () => {
     });
     expect(response.statusCode).toBe(400);
     expect(mocks.runAdminDatabaseMaintenanceAll).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('clears the player cache for an authenticated admin', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/player-cache',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(playerCacheCleanupResult);
+    expect(mocks.clearAdminDatabasePlayerCache).toHaveBeenCalledTimes(1);
+    await app.close();
+  });
+  it('rejects unauthenticated player cache cleanup requests', async () => {
+    mocks.requireAdmin.mockImplementationOnce(async (_request, reply) => {
+      await reply.code(401).send({
+        error: 'Authentication required',
+      });
+      return null;
+    });
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/player-cache',
+    });
+    expect(response.statusCode).toBe(401);
+    expect(mocks.clearAdminDatabasePlayerCache).not.toHaveBeenCalled();
     await app.close();
   });
 });

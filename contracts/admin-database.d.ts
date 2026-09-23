@@ -119,3 +119,7 @@ export interface AdminDatabaseMaintenanceAllResponse {
   completedAt: string;
   results: AdminDatabaseMaintenanceAllResult[];
 }
+export interface AdminDatabasePlayerCacheCleanupResponse {
+  clearedEntries: number;
+  completedAt: string;
+}

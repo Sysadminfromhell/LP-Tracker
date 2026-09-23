@@ -11,10 +11,12 @@ import {
   adminDatabaseResetRequestSchema,
   adminDatabaseResetResponseSchema,
   adminDatabaseMaintenanceAllResponseSchema,
+  adminDatabasePlayerCacheCleanupResponseSchema,
 } from './schemas/admin-database.schemas';
 import { errorResponseSchema } from './schemas/common.schemas';
 import { resetAdminDatabase } from '../db/admin-database-reset';
 import { runAdminDatabaseMaintenanceAll } from '../db/admin-database-maintenance-all';
+import { clearAdminDatabasePlayerCache } from '../db/admin-database-player-cache-cleanup';
 
 const adminDatabaseTableParamsSchema = {
   type: 'object',
@@ -154,6 +156,25 @@ export const adminDatabaseRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app)
         return;
       }
       return runAdminDatabaseMaintenanceAll(request.body.operation);
+    },
+  );
+  app.post(
+    '/api/admin/database/cleanup/player-cache',
+    {
+      schema: {
+        response: {
+          200: adminDatabasePlayerCacheCleanupResponseSchema,
+          401: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      return clearAdminDatabasePlayerCache();
     },
   );
 };

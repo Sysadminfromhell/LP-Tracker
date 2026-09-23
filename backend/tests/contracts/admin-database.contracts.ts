@@ -9,6 +9,7 @@ import type {
   AdminDatabaseMaintenanceRequest,
   AdminDatabaseMaintenanceResponse,
   AdminDatabaseOverviewResponse,
+  AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseRelationship,
   AdminDatabaseResetRequest,
   AdminDatabaseResetResponse,
@@ -25,6 +26,7 @@ import {
   adminDatabaseMaintenanceRequestSchema,
   adminDatabaseMaintenanceResponseSchema,
   adminDatabaseOverviewResponseSchema,
+  adminDatabasePlayerCacheCleanupResponseSchema,
   adminDatabaseRelationshipSchema,
   adminDatabaseResetRequestSchema,
   adminDatabaseResetResponseSchema,
@@ -52,6 +54,9 @@ type ResetRequestSchema = FromSchema<typeof adminDatabaseResetRequestSchema>;
 type ResetResponseSchema = FromSchema<typeof adminDatabaseResetResponseSchema>;
 type MaintenanceAllResultSchema = FromSchema<typeof adminDatabaseMaintenanceAllResultSchema>;
 type MaintenanceAllResponseSchema = FromSchema<typeof adminDatabaseMaintenanceAllResponseSchema>;
+type PlayerCacheCleanupResponseSchema = FromSchema<
+  typeof adminDatabasePlayerCacheCleanupResponseSchema
+>;
 type _TableOverviewMatchesContract = Assert<Equal<TableOverviewSchema, AdminDatabaseTableOverview>>;
 type _RelationshipMatchesContract = Assert<Equal<RelationshipSchema, AdminDatabaseRelationship>>;
 type _OverviewResponseMatchesContract = Assert<
@@ -79,4 +84,7 @@ type _MaintenanceAllResultMatchesContract = Assert<
 >;
 type _MaintenanceAllResponseMatchesContract = Assert<
   Equal<MaintenanceAllResponseSchema, AdminDatabaseMaintenanceAllResponse>
+>;
+type _PlayerCacheCleanupResponseMatchesContract = Assert<
+  Equal<PlayerCacheCleanupResponseSchema, AdminDatabasePlayerCacheCleanupResponse>
 >;

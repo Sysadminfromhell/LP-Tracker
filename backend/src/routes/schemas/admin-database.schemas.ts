@@ -398,3 +398,19 @@ export const adminDatabaseMaintenanceAllResponseSchema = {
   },
   required: ['operation', 'completedAt', 'results'],
 } as const;
+export const adminDatabasePlayerCacheCleanupResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    clearedEntries: {
+      type: 'number',
+    },
+    completedAt: {
+      type: 'string',
+    },
+  },
+  required: [
+    'clearedEntries',
+    'completedAt',
+  ],
+} as const;

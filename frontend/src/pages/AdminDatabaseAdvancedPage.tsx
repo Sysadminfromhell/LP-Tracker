@@ -8,6 +8,7 @@ import AdminDatabasePanel from './AdminDatabasePanel';
 import type {
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceOperation,
+  AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseResetResponse,
 } from '@lp-tracker/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
@@ -40,6 +41,8 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
     useState<AdminDatabaseMaintenanceOperation | null>(null);
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [databaseRefreshKey, setDatabaseRefreshKey] = useState(0);
+  const [showPlayerCacheCleanupWarning, setShowPlayerCacheCleanupWarning] = useState(false);
+  const [playerCacheCleanupBusy, setPlayerCacheCleanupBusy] = useState(false);
 
   async function runMaintenanceAll() {
     if (!maintenanceOperation) {
@@ -88,6 +91,34 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
       notify('error', error instanceof Error ? error.message : 'Database maintenance failed.');
     } finally {
       setMaintenanceBusy(false);
+    }
+  }
+  async function clearPlayerCache() {
+    setPlayerCacheCleanupBusy(true);
+    try {
+      const response = await fetch('/api/admin/database/cleanup/player-cache', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(
+          body?.error ?? `Player cache cleanup failed with status ${response.status}`,
+        );
+      }
+      const result = (await response.json()) as AdminDatabasePlayerCacheCleanupResponse;
+      setShowPlayerCacheCleanupWarning(false);
+      setDatabaseRefreshKey((value) => value + 1);
+      notify('success', `Player cache cleared. ${result.clearedEntries} entries removed.`);
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Player cache cleanup failed.');
+    } finally {
+      setPlayerCacheCleanupBusy(false);
     }
   }
 
@@ -220,6 +251,37 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
           </div>
         </section>
         <AdminDatabasePanel key={databaseRefreshKey} onUnauthorized={onLogout} onNotify={notify} />
+        <section className="admin-section">
+          <div className="admin-section-header">
+            <div>
+              <span className="admin-section-eyebrow">DATABASE CLEANUP</span>
+              <h2>Player Cache</h2>
+              <p>
+                Remove cached player data. Cache entries are rebuilt automatically when players are
+                refreshed again.
+              </p>
+            </div>
+          </div>
+          <div className="admin-database-reset-box">
+            <div>
+              <strong>Clear player cache</strong>
+              <p>
+                Removes all entries from the player cache without deleting players, events, matches
+                or other application data.
+              </p>
+            </div>
+            <button
+              className="admin-secondary-button"
+              type="button"
+              disabled={playerCacheCleanupBusy}
+              onClick={() => {
+                setShowPlayerCacheCleanupWarning(true);
+              }}
+            >
+              CLEAR PLAYER CACHE
+            </button>
+          </div>
+        </section>
         <section className="admin-section admin-database-reset-zone">
           <div className="admin-section-header">
             <div>
@@ -285,6 +347,22 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
             }}
             onCancel={() => {
               setShowResetWarning(false);
+            }}
+          />
+          <AdminConfirmDialog
+            open={showPlayerCacheCleanupWarning}
+            title="Clear Player Cache"
+            message="Are you sure you want to remove all cached player data? The cache will be rebuilt automatically as players are refreshed."
+            confirmLabel="Yes, Clear Player Cache"
+            danger
+            busy={playerCacheCleanupBusy}
+            onConfirm={() => {
+              void clearPlayerCache();
+            }}
+            onCancel={() => {
+              if (!playerCacheCleanupBusy) {
+                setShowPlayerCacheCleanupWarning(false);
+              }
             }}
           />
           <AdminResetConfirmDialog
