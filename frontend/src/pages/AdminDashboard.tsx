@@ -383,7 +383,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               <h2>Players</h2>
               <p>Manage Riot accounts and social links.</p>
               <p className="admin-form-note">
-                Riot ID and region cannot be changed after a player has been added.
+                To delete a User from the plattform please enter the danger zone.
+                There you have the option to delete a User.
               </p>
             </div>
             <div className="admin-section-actions">
