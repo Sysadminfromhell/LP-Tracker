@@ -455,3 +455,43 @@ export const adminDatabaseMatchDetailsPruneResponseSchema = {
     'completedAt',
   ],
 } as const;
+export const adminDatabaseDeleteEndedEventParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    eventId: {
+      type: 'string',
+      pattern: '^[1-9][0-9]*$',
+    },
+  },
+  required: ['eventId'],
+} as const;
+export const adminDatabaseDeleteEndedEventRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    confirmation: {
+      type: 'string',
+      enum: ['DELETE_ENDED_EVENT'],
+    },
+  },
+  required: ['confirmation'],
+} as const;
+export const adminDatabaseDeleteEndedEventResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    eventId: {
+      type: 'integer',
+      minimum: 1,
+    },
+    eventName: {
+      type: 'string',
+      minLength: 1,
+    },
+    deletedAt: {
+      type: 'string',
+    },
+  },
+  required: ['eventId', 'eventName', 'deletedAt'],
+} as const;

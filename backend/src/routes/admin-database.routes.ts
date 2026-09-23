@@ -10,6 +10,9 @@ import {
   adminDatabaseTableDetailsResponseSchema,
   adminDatabaseMatchDetailsPruneRequestSchema,
   adminDatabaseMatchDetailsPruneResponseSchema,
+  adminDatabaseDeleteEndedEventParamsSchema,
+  adminDatabaseDeleteEndedEventRequestSchema,
+  adminDatabaseDeleteEndedEventResponseSchema,
   adminDatabaseResetRequestSchema,
   adminDatabaseResetResponseSchema,
   adminDatabaseMaintenanceAllResponseSchema,
@@ -20,6 +23,7 @@ import { resetAdminDatabase } from '../db/admin-database-reset';
 import { runAdminDatabaseMaintenanceAll } from '../db/admin-database-maintenance-all';
 import { clearAdminDatabasePlayerCache } from '../db/admin-database-player-cache-cleanup';
 import { pruneAdminDatabaseMatchDetails } from '../db/admin-database-match-details-prune';
+import { deleteAdminDatabaseEndedEvent } from '../db/admin-database-delete-ended-event';
 
 const adminDatabaseTableParamsSchema = {
   type: 'object',
@@ -199,6 +203,62 @@ export const adminDatabaseRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app)
         return;
       }
       return pruneAdminDatabaseMatchDetails(request.body.olderThanDays);
+    },
+  );
+  app.post(
+    '/api/admin/database/cleanup/events/:eventId/delete',
+    {
+      schema: {
+        params: adminDatabaseDeleteEndedEventParamsSchema,
+        body: adminDatabaseDeleteEndedEventRequestSchema,
+        response: {
+          200: adminDatabaseDeleteEndedEventResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      if (request.body.confirmation !== 'DELETE_ENDED_EVENT') {
+        return reply.code(400).send({
+          error: 'Event deletion confirmation invalid',
+        });
+      }
+      const eventId = Number(request.params.eventId);
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid event ID',
+        });
+      }
+      try {
+        return await deleteAdminDatabaseEndedEvent(eventId);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === 'INVALID_EVENT_ID') {
+            return reply.code(400).send({
+              error: 'Invalid event ID',
+            });
+          }
+          if (error.message === 'EVENT_NOT_FOUND') {
+            return reply.code(404).send({
+              error: 'Event not found',
+            });
+          }
+          if (error.message === 'EVENT_NOT_ENDED') {
+            return reply.code(409).send({
+              error: 'Only ended events can be permanently deleted',
+            });
+          }
+        }
+        throw error;
+      }
     },
   );
 };

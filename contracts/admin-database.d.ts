@@ -133,3 +133,11 @@ export interface AdminDatabaseMatchDetailsPruneResponse {
   deletedMatchParticipants: number;
   completedAt: string;
 }
+export interface AdminDatabaseDeleteEndedEventRequest {
+  confirmation: 'DELETE_ENDED_EVENT';
+}
+export interface AdminDatabaseDeleteEndedEventResponse {
+  eventId: number;
+  eventName: string;
+  deletedAt: string;
+}

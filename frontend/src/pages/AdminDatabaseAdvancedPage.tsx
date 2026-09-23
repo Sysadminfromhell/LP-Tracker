@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import AdminToastHost, {
   type AdminToastMessage,
@@ -6,6 +6,9 @@ import AdminToastHost, {
 } from '../components/AdminToastHost';
 import AdminDatabasePanel from './AdminDatabasePanel';
 import type {
+  AdminDatabaseDeleteEndedEventResponse,
+  AdminEvent,
+  AdminEventsResponse,
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceOperation,
   AdminDatabaseMatchDetailsPruneResponse,
@@ -47,6 +50,11 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
   const [matchDetailsRetentionDays, setMatchDetailsRetentionDays] = useState(90);
   const [showMatchDetailsPruneWarning, setShowMatchDetailsPruneWarning] = useState(false);
   const [matchDetailsPruneBusy, setMatchDetailsPruneBusy] = useState(false);
+  const [endedEvents, setEndedEvents] = useState<AdminEvent[]>([]);
+  const [endedEventsLoading, setEndedEventsLoading] = useState(true);
+  const [selectedEndedEventId, setSelectedEndedEventId] = useState<number | null>(null);
+  const [showDeleteEndedEventWarning, setShowDeleteEndedEventWarning] = useState(false);
+  const [deleteEndedEventBusy, setDeleteEndedEventBusy] = useState(false);
 
   async function runMaintenanceAll() {
     if (!maintenanceOperation) {
@@ -184,6 +192,43 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
+  const loadEndedEvents = useCallback(async () => {
+    setEndedEventsLoading(true);
+    try {
+      const response = await fetch('/api/admin/events', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        throw new Error(body?.error ?? `Could not load events with status ${response.status}`);
+      }
+      const data = (await response.json()) as AdminEventsResponse;
+      const ended = data.events
+        .filter((event) => event.status === 'ended')
+        .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+      setEndedEvents(ended);
+      setSelectedEndedEventId((current) =>
+        current !== null && ended.some((event) => event.id === current) ? current : null,
+      );
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Could not load ended events.');
+    } finally {
+      setEndedEventsLoading(false);
+    }
+  }, [notify, onLogout]);
+
+  useEffect(() => {
+    void loadEndedEvents();
+  }, [loadEndedEvents]);
+
   async function resetApplication() {
     setResetBusy(true);
     try {
@@ -222,6 +267,61 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
       setResetBusy(false);
     }
   }
+  async function deleteEndedEvent() {
+    if (selectedEndedEventId === null) {
+      return;
+    }
+    setDeleteEndedEventBusy(true);
+    try {
+      const response = await fetch(
+        `/api/admin/database/cleanup/events/${selectedEndedEventId}/delete`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            confirmation: 'DELETE_ENDED_EVENT',
+          }),
+        },
+      );
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error ?? `Event deletion failed with status ${response.status}`);
+      }
+      const result = (await response.json()) as AdminDatabaseDeleteEndedEventResponse;
+      setShowDeleteEndedEventWarning(false);
+      setSelectedEndedEventId(null);
+      setDatabaseRefreshKey((value) => value + 1);
+      await loadEndedEvents();
+      notify('success', `Event "${result.eventName}" permanently deleted.`);
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Event deletion failed.');
+    } finally {
+      setDeleteEndedEventBusy(false);
+    }
+  }
+  function formatEventDateOnly(value: string | null): string {
+    if (!value) {
+      return '—';
+    }
+
+    return new Intl.DateTimeFormat('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(value));
+  }
+
+  const selectedEndedEvent = endedEvents.find((event) => event.id === selectedEndedEventId) ?? null;
   return (
     <main className="admin-page">
       <AdminToastHost toasts={toasts} onDismiss={dismissToast} />
@@ -373,6 +473,51 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
                 PRUNE MATCH DETAILS
               </button>
             </div>
+            <div className="admin-database-cleanup-card admin-database-cleanup-card-wide">
+              <div>
+                <strong>Delete ended event</strong>
+                <p>Permanently deletes an ended event and all database records belonging to it.</p>
+                <p>
+                  Players are preserved. Draft, scheduled and active events cannot be deleted by
+                  this operation.
+                </p>
+                <div className="admin-database-event-delete-control">
+                  <label htmlFor="admin-ended-event-delete">Ended Event</label>
+                  <select
+                    id="admin-ended-event-delete"
+                    value={selectedEndedEventId ?? ''}
+                    disabled={endedEventsLoading || deleteEndedEventBusy}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setSelectedEndedEventId(value ? Number(value) : null);
+                    }}
+                  >
+                    <option value="">
+                      {endedEventsLoading
+                        ? 'Loading ended events...'
+                        : endedEvents.length === 0
+                          ? 'No ended events available'
+                          : 'Select ended event'}
+                    </option>
+                    {endedEvents.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {`${event.name} - Timespan: ${formatEventDateOnly(event.startsAt)} - ${formatEventDateOnly(event.endsAt)}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                className="admin-danger-button"
+                type="button"
+                disabled={deleteEndedEventBusy || endedEventsLoading || selectedEndedEvent === null}
+                onClick={() => {
+                  setShowDeleteEndedEventWarning(true);
+                }}
+              >
+                DELETE ENDED EVENT
+              </button>
+            </div>
           </div>
         </section>
         <section className="admin-section admin-database-reset-zone">
@@ -471,6 +616,26 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
             onCancel={() => {
               if (!matchDetailsPruneBusy) {
                 setShowMatchDetailsPruneWarning(false);
+              }
+            }}
+          />
+          <AdminConfirmDialog
+            open={showDeleteEndedEventWarning}
+            title="Permanently Delete Event"
+            message={
+              selectedEndedEvent
+                ? `Permanently delete "${selectedEndedEvent.name}" and all data belonging to this event? This cannot be undone.`
+                : ''
+            }
+            confirmLabel="Yes, Delete Event"
+            danger
+            busy={deleteEndedEventBusy}
+            onConfirm={() => {
+              void deleteEndedEvent();
+            }}
+            onCancel={() => {
+              if (!deleteEndedEventBusy) {
+                setShowDeleteEndedEventWarning(false);
               }
             }}
           />

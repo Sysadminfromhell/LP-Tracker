@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
+  AdminDatabaseDeleteEndedEventResponse,
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceResponse,
   AdminDatabaseMatchDetailsPruneResponse,
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   runAdminDatabaseMaintenanceAll: vi.fn(),
   clearAdminDatabasePlayerCache: vi.fn(),
   pruneAdminDatabaseMatchDetails: vi.fn(),
+  deleteAdminDatabaseEndedEvent: vi.fn(),
 }));
 vi.mock('../src/auth/admin-auth', () => ({
   requireAdmin: mocks.requireAdmin,
@@ -42,6 +44,9 @@ vi.mock('../src/db/admin-database-player-cache-cleanup', () => ({
 }));
 vi.mock('../src/db/admin-database-match-details-prune', () => ({
   pruneAdminDatabaseMatchDetails: mocks.pruneAdminDatabaseMatchDetails,
+}));
+vi.mock('../src/db/admin-database-delete-ended-event', () => ({
+  deleteAdminDatabaseEndedEvent: mocks.deleteAdminDatabaseEndedEvent,
 }));
 
 import { createApp } from '../src/app';
@@ -222,6 +227,11 @@ const matchDetailsPruneResult: AdminDatabaseMatchDetailsPruneResponse = {
   deletedMatchParticipants: 120,
   completedAt: '2026-09-23T12:00:00.000Z',
 };
+const deleteEndedEventResult: AdminDatabaseDeleteEndedEventResponse = {
+  eventId: 42,
+  eventName: 'August LP Event',
+  deletedAt: '2026-09-23T13:00:00.000Z',
+};
 
 async function createTestApp() {
   const app = createApp();
@@ -251,6 +261,8 @@ describe('admin database routes', () => {
     mocks.clearAdminDatabasePlayerCache.mockResolvedValue(playerCacheCleanupResult);
     mocks.pruneAdminDatabaseMatchDetails.mockReset();
     mocks.pruneAdminDatabaseMatchDetails.mockResolvedValue(matchDetailsPruneResult);
+    mocks.deleteAdminDatabaseEndedEvent.mockReset();
+    mocks.deleteAdminDatabaseEndedEvent.mockResolvedValue(deleteEndedEventResult);
   });
   it('returns database overview for an authenticated admin', async () => {
     const app = await createTestApp();
@@ -594,6 +606,100 @@ describe('admin database routes', () => {
     });
     expect(response.statusCode).toBe(400);
     expect(mocks.pruneAdminDatabaseMatchDetails).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('permanently deletes an ended event for an authenticated admin', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/events/42/delete',
+      payload: {
+        confirmation: 'DELETE_ENDED_EVENT',
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(deleteEndedEventResult);
+    expect(mocks.deleteAdminDatabaseEndedEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteAdminDatabaseEndedEvent).toHaveBeenCalledWith(42);
+    await app.close();
+  });
+  it('rejects unauthenticated ended event deletion requests', async () => {
+    mocks.requireAdmin.mockImplementationOnce(async (_request, reply) => {
+      await reply.code(401).send({
+        error: 'Authentication required',
+      });
+      return null;
+    });
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/events/42/delete',
+      payload: {
+        confirmation: 'DELETE_ENDED_EVENT',
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(mocks.deleteAdminDatabaseEndedEvent).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('returns 404 when the event does not exist', async () => {
+    mocks.deleteAdminDatabaseEndedEvent.mockRejectedValueOnce(new Error('EVENT_NOT_FOUND'));
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/events/42/delete',
+      payload: {
+        confirmation: 'DELETE_ENDED_EVENT',
+      },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: 'Event not found',
+    });
+    expect(mocks.deleteAdminDatabaseEndedEvent).toHaveBeenCalledWith(42);
+    await app.close();
+  });
+  it('returns 409 when the event has not ended', async () => {
+    mocks.deleteAdminDatabaseEndedEvent.mockRejectedValueOnce(new Error('EVENT_NOT_ENDED'));
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/events/42/delete',
+      payload: {
+        confirmation: 'DELETE_ENDED_EVENT',
+      },
+    });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: 'Only ended events can be permanently deleted',
+    });
+    expect(mocks.deleteAdminDatabaseEndedEvent).toHaveBeenCalledWith(42);
+    await app.close();
+  });
+  it('rejects an invalid event deletion confirmation before execution', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/events/42/delete',
+      payload: {
+        confirmation: 'DELETE_EVENT',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mocks.deleteAdminDatabaseEndedEvent).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects an invalid event id before execution', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/events/0/delete',
+      payload: {
+        confirmation: 'DELETE_ENDED_EVENT',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mocks.deleteAdminDatabaseEndedEvent).not.toHaveBeenCalled();
     await app.close();
   });
 });

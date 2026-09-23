@@ -2,6 +2,8 @@ import type { FromSchema } from 'json-schema-to-ts';
 import type {
   AdminDatabaseColumn,
   AdminDatabaseConstraint,
+  AdminDatabaseDeleteEndedEventRequest,
+  AdminDatabaseDeleteEndedEventResponse,
   AdminDatabaseIndex,
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceAllResult,
@@ -22,6 +24,8 @@ import {
   adminDatabaseColumnSchema,
   adminDatabaseConstraintSchema,
   adminDatabaseIndexSchema,
+  adminDatabaseDeleteEndedEventRequestSchema,
+  adminDatabaseDeleteEndedEventResponseSchema,
   adminDatabaseMaintenanceAllResponseSchema,
   adminDatabaseMaintenanceAllResultSchema,
   adminDatabaseMaintenanceOperationSchema,
@@ -67,6 +71,10 @@ type MatchDetailsPruneRequestSchema = FromSchema<
 type MatchDetailsPruneResponseSchema = FromSchema<
   typeof adminDatabaseMatchDetailsPruneResponseSchema
 >;
+type DeleteEndedEventRequestSchema = FromSchema<typeof adminDatabaseDeleteEndedEventRequestSchema>;
+type DeleteEndedEventResponseSchema = FromSchema<
+  typeof adminDatabaseDeleteEndedEventResponseSchema
+>;
 
 type _TableOverviewMatchesContract = Assert<Equal<TableOverviewSchema, AdminDatabaseTableOverview>>;
 type _RelationshipMatchesContract = Assert<Equal<RelationshipSchema, AdminDatabaseRelationship>>;
@@ -104,4 +112,10 @@ type _MatchDetailsPruneRequestMatchesContract = Assert<
 >;
 type _MatchDetailsPruneResponseMatchesContract = Assert<
   Equal<MatchDetailsPruneResponseSchema, AdminDatabaseMatchDetailsPruneResponse>
+>;
+type _DeleteEndedEventRequestMatchesContract = Assert<
+  Equal<DeleteEndedEventRequestSchema, AdminDatabaseDeleteEndedEventRequest>
+>;
+type _DeleteEndedEventResponseMatchesContract = Assert<
+  Equal<DeleteEndedEventResponseSchema, AdminDatabaseDeleteEndedEventResponse>
 >;

@@ -2096,6 +2096,12 @@ a.social-link.twitch:hover {
   .player-details-header {
     flex-direction: column;
   }
+  .admin-database-cleanup-card-wide {
+    grid-column: auto;
+  }
+  .admin-database-cleanup-card-wide > button {
+    max-width: none;
+  }
 }
 @media (max-width: 600px) {
   .admin-scheduled-event-card {
@@ -4221,4 +4227,53 @@ a.social-link.twitch:hover {
   .admin-database-cleanup-card {
     min-height: 0;
   }
+}
+.admin-database-cleanup-card-wide {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+.admin-database-event-delete-control {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.admin-database-event-delete-control > label {
+  color: #747e98;
+  font-size: var(--admin-font-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-database-event-delete-control select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 38px 9px 11px;
+  border: 1px solid rgba(126, 161, 255, 0.14);
+  border-radius: 8px;
+  outline: 0;
+  background: rgba(126, 161, 255, 0.035);
+  color: #e7eaf4;
+  font: inherit;
+  font-size: var(--admin-font-sm);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+.admin-database-event-delete-control select:focus {
+  border-color: rgba(126, 161, 255, 0.34);
+  background: rgba(126, 161, 255, 0.055);
+  box-shadow: 0 0 0 3px rgba(126, 161, 255, 0.06);
+}
+.admin-database-event-delete-control select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.admin-database-event-delete-control option {
+  background: #111522;
+  color: #e7eaf4;
+}
+.admin-database-cleanup-card-wide > button {
+  max-width: 320px;
 }
