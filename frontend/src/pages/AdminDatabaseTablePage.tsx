@@ -119,8 +119,6 @@ function AdminDatabaseTablePage({ username, onLogout }: AdminDatabaseTablePagePr
 
   useEffect(() => {
     if (!tableName) {
-      setLoading(false);
-      setNotFound(true);
       return;
     }
     const resolvedTableName = tableName;
@@ -165,8 +163,11 @@ function AdminDatabaseTablePage({ username, onLogout }: AdminDatabaseTablePagePr
         }
       }
     }
-    void loadDetails();
+    const timer = window.setTimeout(() => {
+      void loadDetails();
+    }, 0);
     return () => {
+      window.clearTimeout(timer);
       controller.abort();
     };
   }, [tableName, onLogout, refreshKey]);

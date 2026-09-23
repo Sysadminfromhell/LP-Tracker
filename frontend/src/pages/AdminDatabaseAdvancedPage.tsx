@@ -303,15 +303,25 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
   );
 
   useEffect(() => {
-    void loadEndedEvents();
-    void loadPlayers();
+    const timer = window.setTimeout(() => {
+      void loadEndedEvents();
+      void loadPlayers();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadEndedEvents, loadPlayers]);
+
   useEffect(() => {
     if (selectedPlayerId === null) {
-      setPlayerDeleteDependencies(null);
       return;
     }
-    void loadPlayerDeleteDependencies(selectedPlayerId);
+    const timer = window.setTimeout(() => {
+      void loadPlayerDeleteDependencies(selectedPlayerId);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [selectedPlayerId, loadPlayerDeleteDependencies]);
 
   async function resetApplication() {
@@ -672,6 +682,8 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
                     disabled={playersLoading || deletePlayerBusy}
                     onChange={(event) => {
                       const value = event.target.value;
+                      setPlayerDeleteDependencies(null);
+                      setPlayerDeleteDependenciesLoading(Boolean(value));
                       setSelectedPlayerId(value ? Number(value) : null);
                     }}
                   >

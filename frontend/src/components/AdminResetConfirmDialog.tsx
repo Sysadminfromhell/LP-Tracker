@@ -18,11 +18,11 @@ function AdminResetConfirmDialog({
   const acknowledged = acknowledgement.trim() === 'I understand';
   useEffect(() => {
     if (!open) {
-      setAcknowledgement('');
       return;
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && !busy) {
+        setAcknowledgement('');
         onCancel();
       }
     }
@@ -40,6 +40,7 @@ function AdminResetConfirmDialog({
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) {
+          setAcknowledgement('');
           onCancel();
         }
       }}
@@ -79,7 +80,10 @@ function AdminResetConfirmDialog({
             className="admin-secondary-button"
             type="button"
             disabled={busy}
-            onClick={onCancel}
+            onClick={() => {
+              setAcknowledgement('');
+              onCancel();
+            }}
           >
             Cancel
           </button>
