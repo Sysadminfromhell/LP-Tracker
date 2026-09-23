@@ -495,3 +495,86 @@ export const adminDatabaseDeleteEndedEventResponseSchema = {
   },
   required: ['eventId', 'eventName', 'deletedAt'],
 } as const;
+export const adminDatabasePlayerDeleteParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    playerId: {
+      type: 'string',
+      pattern: '^[1-9][0-9]*$',
+    },
+  },
+  required: ['playerId'],
+} as const;
+
+export const adminDatabasePlayerDeleteDependenciesResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    playerId: {
+      type: 'integer',
+      minimum: 1,
+    },
+    playerName: {
+      type: 'string',
+      minLength: 1,
+    },
+    eventSelections: {
+      type: 'integer',
+      minimum: 0,
+    },
+    eventParticipations: {
+      type: 'integer',
+      minimum: 0,
+    },
+    activeEventParticipations: {
+      type: 'integer',
+      minimum: 0,
+    },
+    endedEventParticipations: {
+      type: 'integer',
+      minimum: 0,
+    },
+    canDelete: {
+      type: 'boolean',
+    },
+  },
+  required: [
+    'playerId',
+    'playerName',
+    'eventSelections',
+    'eventParticipations',
+    'activeEventParticipations',
+    'endedEventParticipations',
+    'canDelete',
+  ],
+} as const;
+export const adminDatabaseDeletePlayerRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    confirmation: {
+      type: 'string',
+      enum: ['DELETE_PLAYER'],
+    },
+  },
+  required: ['confirmation'],
+} as const;
+export const adminDatabaseDeletePlayerResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    playerId: {
+      type: 'integer',
+      minimum: 1,
+    },
+    playerName: {
+      type: 'string',
+      minLength: 1,
+    },
+    deletedAt: {
+      type: 'string',
+    },
+  },
+  required: ['playerId', 'playerName', 'deletedAt'],
+} as const;

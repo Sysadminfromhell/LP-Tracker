@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   AdminDatabaseDeleteEndedEventResponse,
+  AdminDatabaseDeletePlayerResponse,
+  AdminDatabasePlayerDeleteDependencies,
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceResponse,
   AdminDatabaseMatchDetailsPruneResponse,
@@ -22,6 +24,8 @@ const mocks = vi.hoisted(() => ({
   deleteAdminDatabaseEndedEvent: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   broadcastLiveUpdate: vi.fn(),
+  getAdminDatabasePlayerDeleteDependencies: vi.fn(),
+  deleteAdminDatabasePlayer: vi.fn(),
 }));
 vi.mock('../src/auth/admin-auth', () => ({
   requireAdmin: mocks.requireAdmin,
@@ -55,6 +59,12 @@ vi.mock('../src/services/leaderboard.service', () => ({
 }));
 vi.mock('../src/services/live-update.service', () => ({
   broadcastLiveUpdate: mocks.broadcastLiveUpdate,
+}));
+vi.mock('../src/db/admin-database-player-delete-dependencies', () => ({
+  getAdminDatabasePlayerDeleteDependencies: mocks.getAdminDatabasePlayerDeleteDependencies,
+}));
+vi.mock('../src/db/admin-database-delete-player', () => ({
+  deleteAdminDatabasePlayer: mocks.deleteAdminDatabasePlayer,
 }));
 
 import { createApp } from '../src/app';
@@ -240,6 +250,20 @@ const deleteEndedEventResult: AdminDatabaseDeleteEndedEventResponse = {
   eventName: 'August LP Event',
   deletedAt: '2026-09-23T13:00:00.000Z',
 };
+const playerDeleteDependencies: AdminDatabasePlayerDeleteDependencies = {
+  playerId: 42,
+  playerName: 'Mante#Pog',
+  eventSelections: 2,
+  eventParticipations: 0,
+  activeEventParticipations: 0,
+  endedEventParticipations: 0,
+  canDelete: true,
+};
+const deletePlayerResult: AdminDatabaseDeletePlayerResponse = {
+  playerId: 42,
+  playerName: 'Mante#Pog',
+  deletedAt: '2026-09-23T14:30:00.000Z',
+};
 
 async function createTestApp() {
   const app = createApp();
@@ -274,6 +298,10 @@ describe('admin database routes', () => {
     mocks.loadLeaderboardFromDatabase.mockReset();
     mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
     mocks.broadcastLiveUpdate.mockReset();
+    mocks.getAdminDatabasePlayerDeleteDependencies.mockReset();
+    mocks.getAdminDatabasePlayerDeleteDependencies.mockResolvedValue(playerDeleteDependencies);
+    mocks.deleteAdminDatabasePlayer.mockReset();
+    mocks.deleteAdminDatabasePlayer.mockResolvedValue(deletePlayerResult);
   });
   it('returns database overview for an authenticated admin', async () => {
     const app = await createTestApp();
@@ -716,6 +744,176 @@ describe('admin database routes', () => {
     });
     expect(response.statusCode).toBe(400);
     expect(mocks.deleteAdminDatabaseEndedEvent).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('returns player delete dependencies for an authenticated admin', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/database/cleanup/players/42/dependencies',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(playerDeleteDependencies);
+    expect(mocks.getAdminDatabasePlayerDeleteDependencies).toHaveBeenCalledTimes(1);
+    expect(mocks.getAdminDatabasePlayerDeleteDependencies).toHaveBeenCalledWith(42);
+    await app.close();
+  });
+  it('allows scheduled selections in player delete dependencies', async () => {
+    mocks.getAdminDatabasePlayerDeleteDependencies.mockResolvedValueOnce({
+      ...playerDeleteDependencies,
+      eventSelections: 5,
+      eventParticipations: 0,
+      canDelete: true,
+    });
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/database/cleanup/players/42/dependencies',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      ...playerDeleteDependencies,
+      eventSelections: 5,
+      eventParticipations: 0,
+      canDelete: true,
+    });
+    await app.close();
+  });
+  it('returns 404 for player delete dependencies when the player does not exist', async () => {
+    mocks.getAdminDatabasePlayerDeleteDependencies.mockResolvedValueOnce(null);
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/database/cleanup/players/42/dependencies',
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: 'Player not found',
+    });
+    await app.close();
+  });
+  it('rejects invalid player dependency ids before execution', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/database/cleanup/players/0/dependencies',
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mocks.getAdminDatabasePlayerDeleteDependencies).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects unauthenticated player dependency requests', async () => {
+    mocks.requireAdmin.mockImplementationOnce(async (_request, reply) => {
+      await reply.code(401).send({
+        error: 'Authentication required',
+      });
+      return null;
+    });
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/admin/database/cleanup/players/42/dependencies',
+    });
+    expect(response.statusCode).toBe(401);
+    expect(mocks.getAdminDatabasePlayerDeleteDependencies).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('permanently deletes a player without event history', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/players/42/delete',
+      payload: {
+        confirmation: 'DELETE_PLAYER',
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(deletePlayerResult);
+    expect(mocks.deleteAdminDatabasePlayer).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteAdminDatabasePlayer).toHaveBeenCalledWith(42);
+    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
+    await app.close();
+  });
+  it('returns 409 when player event history prevents deletion', async () => {
+    mocks.deleteAdminDatabasePlayer.mockRejectedValueOnce(new Error('PLAYER_HAS_EVENT_HISTORY'));
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/players/42/delete',
+      payload: {
+        confirmation: 'DELETE_PLAYER',
+      },
+    });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: 'Player cannot be permanently deleted while event history exists',
+    });
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    expect(mocks.broadcastLiveUpdate).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('returns 404 when deleting an unknown player', async () => {
+    mocks.deleteAdminDatabasePlayer.mockRejectedValueOnce(new Error('PLAYER_NOT_FOUND'));
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/players/42/delete',
+      payload: {
+        confirmation: 'DELETE_PLAYER',
+      },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: 'Player not found',
+    });
+    await app.close();
+  });
+  it('rejects invalid player deletion confirmation before execution', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/players/42/delete',
+      payload: {
+        confirmation: 'DELETE',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mocks.deleteAdminDatabasePlayer).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects invalid player deletion ids before execution', async () => {
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/players/0/delete',
+      payload: {
+        confirmation: 'DELETE_PLAYER',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mocks.deleteAdminDatabasePlayer).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects unauthenticated player deletion requests', async () => {
+    mocks.requireAdmin.mockImplementationOnce(async (_request, reply) => {
+      await reply.code(401).send({
+        error: 'Authentication required',
+      });
+      return null;
+    });
+    const app = await createTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/database/cleanup/players/42/delete',
+      payload: {
+        confirmation: 'DELETE_PLAYER',
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(mocks.deleteAdminDatabasePlayer).not.toHaveBeenCalled();
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    expect(mocks.broadcastLiveUpdate).not.toHaveBeenCalled();
     await app.close();
   });
 });

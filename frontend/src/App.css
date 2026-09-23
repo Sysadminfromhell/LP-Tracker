@@ -4278,3 +4278,67 @@ a.social-link.twitch:hover {
   background: #111522;
   color: #e7eaf4;
 }
+.admin-database-player-delete-status {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.admin-database-player-delete-checking {
+  color: #7f8aa8;
+  font-size: var(--admin-font-xs);
+}
+.admin-database-player-delete-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.admin-database-player-delete-stats > div {
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid rgba(126, 161, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(126, 161, 255, 0.025);
+}
+.admin-database-player-delete-stats span {
+  color: #747e98;
+  font-size: var(--admin-font-2xs);
+  text-transform: uppercase;
+}
+.admin-database-player-delete-stats strong {
+  color: #e7eaf4;
+  font-size: var(--admin-font-sm);
+}
+.admin-database-player-delete-result {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid rgba(126, 161, 255, 0.12);
+  border-radius: 8px;
+}
+.admin-database-player-delete-result strong {
+  font-size: var(--admin-font-xs);
+}
+.admin-database-player-delete-result span {
+  color: #8b94aa;
+  font-size: var(--admin-font-xs);
+}
+.admin-database-player-delete-result.is-allowed {
+  border-color: rgba(82, 196, 132, 0.2);
+  background: rgba(82, 196, 132, 0.045);
+}
+.admin-database-player-delete-result.is-allowed strong {
+  color: #6fd29a;
+}
+.admin-database-player-delete-result.is-blocked {
+  border-color: rgba(230, 92, 92, 0.2);
+  background: rgba(230, 92, 92, 0.045);
+}
+.admin-database-player-delete-result.is-blocked strong {
+  color: #ef8686;
+}
+@media (max-width: 700px) {
+  .admin-database-player-delete-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

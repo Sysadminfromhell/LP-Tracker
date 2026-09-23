@@ -14,6 +14,10 @@ import type {
   AdminDatabaseMatchDetailsPruneResponse,
   AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseResetResponse,
+  AdminDatabaseDeletePlayerResponse,
+  AdminDatabasePlayerDeleteDependencies,
+  AdminPlayer,
+  AdminPlayersResponse,
 } from '@lp-tracker/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import AdminResetConfirmDialog from '../components/AdminResetConfirmDialog';
@@ -55,6 +59,14 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
   const [selectedEndedEventId, setSelectedEndedEventId] = useState<number | null>(null);
   const [showDeleteEndedEventWarning, setShowDeleteEndedEventWarning] = useState(false);
   const [deleteEndedEventBusy, setDeleteEndedEventBusy] = useState(false);
+  const [players, setPlayers] = useState<AdminPlayer[]>([]);
+  const [playersLoading, setPlayersLoading] = useState(true);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
+  const [playerDeleteDependencies, setPlayerDeleteDependencies] =
+    useState<AdminDatabasePlayerDeleteDependencies | null>(null);
+  const [playerDeleteDependenciesLoading, setPlayerDeleteDependenciesLoading] = useState(false);
+  const [showDeletePlayerWarning, setShowDeletePlayerWarning] = useState(false);
+  const [deletePlayerBusy, setDeletePlayerBusy] = useState(false);
 
   async function runMaintenanceAll() {
     if (!maintenanceOperation) {
@@ -224,10 +236,83 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
       setEndedEventsLoading(false);
     }
   }, [notify, onLogout]);
+  const loadPlayers = useCallback(async () => {
+    setPlayersLoading(true);
+    try {
+      const response = await fetch('/api/admin/players', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error ?? `Could not load players with status ${response.status}`);
+      }
+      const data = (await response.json()) as AdminPlayersResponse;
+      setPlayers(data.players);
+      setSelectedPlayerId((current) =>
+        current !== null && data.players.some((player) => player.id === current) ? current : null,
+      );
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Could not load players.');
+    } finally {
+      setPlayersLoading(false);
+    }
+  }, [notify, onLogout]);
+  const loadPlayerDeleteDependencies = useCallback(
+    async (playerId: number) => {
+      setPlayerDeleteDependenciesLoading(true);
+      setPlayerDeleteDependencies(null);
+      try {
+        const response = await fetch(
+          `/api/admin/database/cleanup/players/${playerId}/dependencies`,
+          {
+            credentials: 'include',
+            cache: 'no-store',
+          },
+        );
+        if (response.status === 401) {
+          onLogout();
+          return;
+        }
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(
+            body?.error ?? `Could not load player dependencies with status ${response.status}`,
+          );
+        }
+        const result = (await response.json()) as AdminDatabasePlayerDeleteDependencies;
+        setPlayerDeleteDependencies(result);
+      } catch (error) {
+        notify(
+          'error',
+          error instanceof Error ? error.message : 'Could not load player dependencies.',
+        );
+      } finally {
+        setPlayerDeleteDependenciesLoading(false);
+      }
+    },
+    [notify, onLogout],
+  );
 
   useEffect(() => {
     void loadEndedEvents();
-  }, [loadEndedEvents]);
+    void loadPlayers();
+  }, [loadEndedEvents, loadPlayers]);
+  useEffect(() => {
+    if (selectedPlayerId === null) {
+      setPlayerDeleteDependencies(null);
+      return;
+    }
+    void loadPlayerDeleteDependencies(selectedPlayerId);
+  }, [selectedPlayerId, loadPlayerDeleteDependencies]);
 
   async function resetApplication() {
     setResetBusy(true);
@@ -309,6 +394,49 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
       setDeleteEndedEventBusy(false);
     }
   }
+  async function deletePlayer() {
+    if (selectedPlayerId === null || !playerDeleteDependencies?.canDelete) {
+      return;
+    }
+    setDeletePlayerBusy(true);
+    try {
+      const response = await fetch(
+        `/api/admin/database/cleanup/players/${selectedPlayerId}/delete`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            confirmation: 'DELETE_PLAYER',
+          }),
+        },
+      );
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error ?? `Player deletion failed with status ${response.status}`);
+      }
+      const result = (await response.json()) as AdminDatabaseDeletePlayerResponse;
+      setShowDeletePlayerWarning(false);
+      setSelectedPlayerId(null);
+      setPlayerDeleteDependencies(null);
+      setDatabaseRefreshKey((value) => value + 1);
+      await loadPlayers();
+      notify('success', `Player "${result.playerName}" permanently deleted.`);
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Player deletion failed.');
+    } finally {
+      setDeletePlayerBusy(false);
+    }
+  }
   function formatEventDateOnly(value: string | null): string {
     if (!value) {
       return '—';
@@ -322,6 +450,13 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
   }
 
   const selectedEndedEvent = endedEvents.find((event) => event.id === selectedEndedEventId) ?? null;
+  const selectedPlayer = players.find((player) => player.id === selectedPlayerId) ?? null;
+  const playerDeleteAllowed =
+    selectedPlayer !== null &&
+    playerDeleteDependencies !== null &&
+    playerDeleteDependencies.playerId === selectedPlayer.id &&
+    playerDeleteDependencies.canDelete;
+
   return (
     <main className="admin-page">
       <AdminToastHost toasts={toasts} onDismiss={dismissToast} />
@@ -518,6 +653,109 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
                 DELETE ENDED EVENT
               </button>
             </div>
+            <div className="admin-database-cleanup-card admin-database-cleanup-card-wide">
+              <div>
+                <strong>Delete player</strong>
+                <p>
+                  Permanently removes a player from the application. Player cache and scheduled
+                  event selections are removed automatically.
+                </p>
+                <p>
+                  Active or historical event participation protects the player from permanent
+                  deletion.
+                </p>
+                <div className="admin-database-event-delete-control">
+                  <label htmlFor="admin-player-delete">Player</label>
+                  <select
+                    id="admin-player-delete"
+                    value={selectedPlayerId ?? ''}
+                    disabled={playersLoading || deletePlayerBusy}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setSelectedPlayerId(value ? Number(value) : null);
+                    }}
+                  >
+                    <option value="">
+                      {playersLoading
+                        ? 'Loading players...'
+                        : players.length === 0
+                          ? 'No players available'
+                          : 'Select player'}
+                    </option>
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {`${player.gameName}#${player.tagLine} (${player.region})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedPlayer && (
+                  <div className="admin-database-player-delete-status">
+                    {playerDeleteDependenciesLoading ? (
+                      <span className="admin-database-player-delete-checking">
+                        Checking dependencies...
+                      </span>
+                    ) : playerDeleteDependencies ? (
+                      <>
+                        <div className="admin-database-player-delete-stats">
+                          <div>
+                            <span>Scheduled selections</span>
+                            <strong>{playerDeleteDependencies.eventSelections}</strong>
+                          </div>
+                          <div>
+                            <span>Event participations</span>
+                            <strong>{playerDeleteDependencies.eventParticipations}</strong>
+                          </div>
+                          <div>
+                            <span>Active</span>
+                            <strong>{playerDeleteDependencies.activeEventParticipations}</strong>
+                          </div>
+                          <div>
+                            <span>Ended</span>
+                            <strong>{playerDeleteDependencies.endedEventParticipations}</strong>
+                          </div>
+                        </div>
+                        {playerDeleteDependencies.canDelete ? (
+                          <div className="admin-database-player-delete-result is-allowed">
+                            <strong>Deletion allowed</strong>
+                            <span>
+                              {playerDeleteDependencies.eventSelections > 0
+                                ? `${playerDeleteDependencies.eventSelections} scheduled event selection${
+                                    playerDeleteDependencies.eventSelections === 1 ? '' : 's'
+                                  } will also be removed.`
+                                : 'No protected event history exists for this player.'}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="admin-database-player-delete-result is-blocked">
+                            <strong>Deletion blocked</strong>
+                            <span>
+                              Event participation history exists. Remove the related event history
+                              before permanently deleting this player.
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+              <button
+                className="admin-danger-button"
+                type="button"
+                disabled={
+                  deletePlayerBusy ||
+                  playersLoading ||
+                  playerDeleteDependenciesLoading ||
+                  !playerDeleteAllowed
+                }
+                onClick={() => {
+                  setShowDeletePlayerWarning(true);
+                }}
+              >
+                {deletePlayerBusy ? 'DELETING PLAYER...' : 'DELETE PLAYER'}
+              </button>
+            </div>
           </div>
         </section>
         <section className="admin-section admin-database-reset-zone">
@@ -636,6 +874,32 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
             onCancel={() => {
               if (!deleteEndedEventBusy) {
                 setShowDeleteEndedEventWarning(false);
+              }
+            }}
+          />
+          <AdminConfirmDialog
+            open={showDeletePlayerWarning}
+            title="Permanently Delete Player"
+            message={
+              selectedPlayer && playerDeleteDependencies
+                ? `Permanently delete "${selectedPlayer.gameName}#${selectedPlayer.tagLine}"? ${
+                    playerDeleteDependencies.eventSelections > 0
+                      ? `${playerDeleteDependencies.eventSelections} scheduled event selection${
+                          playerDeleteDependencies.eventSelections === 1 ? '' : 's'
+                        } will also be removed. `
+                      : ''
+                  }This cannot be undone.`
+                : ''
+            }
+            confirmLabel="Yes, Delete Player"
+            danger
+            busy={deletePlayerBusy}
+            onConfirm={() => {
+              void deletePlayer();
+            }}
+            onCancel={() => {
+              if (!deletePlayerBusy) {
+                setShowDeletePlayerWarning(false);
               }
             }}
           />

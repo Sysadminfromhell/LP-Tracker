@@ -4,6 +4,9 @@ import type {
   AdminDatabaseConstraint,
   AdminDatabaseDeleteEndedEventRequest,
   AdminDatabaseDeleteEndedEventResponse,
+  AdminDatabaseDeletePlayerRequest,
+  AdminDatabaseDeletePlayerResponse,
+  AdminDatabasePlayerDeleteDependencies,
   AdminDatabaseIndex,
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceAllResult,
@@ -26,6 +29,9 @@ import {
   adminDatabaseIndexSchema,
   adminDatabaseDeleteEndedEventRequestSchema,
   adminDatabaseDeleteEndedEventResponseSchema,
+  adminDatabaseDeletePlayerRequestSchema,
+  adminDatabaseDeletePlayerResponseSchema,
+  adminDatabasePlayerDeleteDependenciesResponseSchema,
   adminDatabaseMaintenanceAllResponseSchema,
   adminDatabaseMaintenanceAllResultSchema,
   adminDatabaseMaintenanceOperationSchema,
@@ -75,6 +81,11 @@ type DeleteEndedEventRequestSchema = FromSchema<typeof adminDatabaseDeleteEndedE
 type DeleteEndedEventResponseSchema = FromSchema<
   typeof adminDatabaseDeleteEndedEventResponseSchema
 >;
+type PlayerDeleteDependenciesResponseSchema = FromSchema<
+  typeof adminDatabasePlayerDeleteDependenciesResponseSchema
+>;
+type DeletePlayerRequestSchema = FromSchema<typeof adminDatabaseDeletePlayerRequestSchema>;
+type DeletePlayerResponseSchema = FromSchema<typeof adminDatabaseDeletePlayerResponseSchema>;
 
 type _TableOverviewMatchesContract = Assert<Equal<TableOverviewSchema, AdminDatabaseTableOverview>>;
 type _RelationshipMatchesContract = Assert<Equal<RelationshipSchema, AdminDatabaseRelationship>>;
@@ -118,4 +129,13 @@ type _DeleteEndedEventRequestMatchesContract = Assert<
 >;
 type _DeleteEndedEventResponseMatchesContract = Assert<
   Equal<DeleteEndedEventResponseSchema, AdminDatabaseDeleteEndedEventResponse>
+>;
+type _PlayerDeleteDependenciesMatchesContract = Assert<
+  Equal<PlayerDeleteDependenciesResponseSchema, AdminDatabasePlayerDeleteDependencies>
+>;
+type _DeletePlayerRequestMatchesContract = Assert<
+  Equal<DeletePlayerRequestSchema, AdminDatabaseDeletePlayerRequest>
+>;
+type _DeletePlayerResponseMatchesContract = Assert<
+  Equal<DeletePlayerResponseSchema, AdminDatabaseDeletePlayerResponse>
 >;

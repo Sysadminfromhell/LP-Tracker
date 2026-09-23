@@ -15,6 +15,10 @@ import {
   adminDatabaseDeleteEndedEventParamsSchema,
   adminDatabaseDeleteEndedEventRequestSchema,
   adminDatabaseDeleteEndedEventResponseSchema,
+  adminDatabasePlayerDeleteParamsSchema,
+  adminDatabasePlayerDeleteDependenciesResponseSchema,
+  adminDatabaseDeletePlayerRequestSchema,
+  adminDatabaseDeletePlayerResponseSchema,
   adminDatabaseResetRequestSchema,
   adminDatabaseResetResponseSchema,
   adminDatabaseMaintenanceAllResponseSchema,
@@ -26,6 +30,8 @@ import { runAdminDatabaseMaintenanceAll } from '../db/admin-database-maintenance
 import { clearAdminDatabasePlayerCache } from '../db/admin-database-player-cache-cleanup';
 import { pruneAdminDatabaseMatchDetails } from '../db/admin-database-match-details-prune';
 import { deleteAdminDatabaseEndedEvent } from '../db/admin-database-delete-ended-event';
+import { getAdminDatabasePlayerDeleteDependencies } from '../db/admin-database-player-delete-dependencies';
+import { deleteAdminDatabasePlayer } from '../db/admin-database-delete-player';
 
 const adminDatabaseTableParamsSchema = {
   type: 'object',
@@ -83,6 +89,40 @@ export const adminDatabaseRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app)
         });
       }
       return details;
+    },
+  );
+  app.get(
+    '/api/admin/database/cleanup/players/:playerId/dependencies',
+    {
+      schema: {
+        params: adminDatabasePlayerDeleteParamsSchema,
+        response: {
+          200: adminDatabasePlayerDeleteDependenciesResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      const playerId = Number(request.params.playerId);
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid player ID',
+        });
+      }
+      const dependencies = await getAdminDatabasePlayerDeleteDependencies(playerId);
+      if (!dependencies) {
+        return reply.code(404).send({
+          error: 'Player not found',
+        });
+      }
+      return dependencies;
     },
   );
   app.post(
@@ -259,6 +299,65 @@ export const adminDatabaseRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app)
           if (error.message === 'EVENT_NOT_ENDED') {
             return reply.code(409).send({
               error: 'Only ended events can be permanently deleted',
+            });
+          }
+        }
+        throw error;
+      }
+    },
+  );
+  app.post(
+    '/api/admin/database/cleanup/players/:playerId/delete',
+    {
+      schema: {
+        params: adminDatabasePlayerDeleteParamsSchema,
+        body: adminDatabaseDeletePlayerRequestSchema,
+        response: {
+          200: adminDatabaseDeletePlayerResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          default: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) {
+        return;
+      }
+      if (request.body.confirmation !== 'DELETE_PLAYER') {
+        return reply.code(400).send({
+          error: 'Player deletion confirmation invalid',
+        });
+      }
+      const playerId = Number(request.params.playerId);
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+        return reply.code(400).send({
+          error: 'Invalid player ID',
+        });
+      }
+      try {
+        const result = await deleteAdminDatabasePlayer(playerId);
+        await loadLeaderboardFromDatabase();
+        broadcastLiveUpdate('events-changed');
+        return result;
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === 'INVALID_PLAYER_ID') {
+            return reply.code(400).send({
+              error: 'Invalid player ID',
+            });
+          }
+          if (error.message === 'PLAYER_NOT_FOUND') {
+            return reply.code(404).send({
+              error: 'Player not found',
+            });
+          }
+          if (error.message === 'PLAYER_HAS_EVENT_HISTORY') {
+            return reply.code(409).send({
+              error: 'Player cannot be permanently deleted while event history exists',
             });
           }
         }

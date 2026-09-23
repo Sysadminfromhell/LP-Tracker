@@ -141,3 +141,20 @@ export interface AdminDatabaseDeleteEndedEventResponse {
   eventName: string;
   deletedAt: string;
 }
+export interface AdminDatabasePlayerDeleteDependencies {
+  playerId: number;
+  playerName: string;
+  eventSelections: number;
+  eventParticipations: number;
+  activeEventParticipations: number;
+  endedEventParticipations: number;
+  canDelete: boolean;
+}
+export interface AdminDatabaseDeletePlayerRequest {
+  confirmation: 'DELETE_PLAYER';
+}
+export interface AdminDatabaseDeletePlayerResponse {
+  playerId: number;
+  playerName: string;
+  deletedAt: string;
+}
