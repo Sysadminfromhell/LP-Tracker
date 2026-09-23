@@ -383,8 +383,8 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
               <h2>Players</h2>
               <p>Manage Riot accounts and social links.</p>
               <p className="admin-form-note">
-                To delete a User from the plattform please enter the danger zone.
-                There you have the option to delete a User.
+                To permanently delete a player, use the Danger Zone.
+                Eligible players can be removed there after a dependency check.
               </p>
             </div>
             <div className="admin-section-actions">
