@@ -9,5 +9,6 @@ steps:
     image: node:26-alpine
     commands:
       - npm ci --prefix frontend
+      - npm --prefix frontend run test
       - npm --prefix frontend run build
       - npm --prefix frontend run lint
