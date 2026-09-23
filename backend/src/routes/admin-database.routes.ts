@@ -1,4 +1,6 @@
 import type { FastifyPluginAsyncJsonSchemaToTs } from '@fastify/type-provider-json-schema-to-ts';
+import { broadcastLiveUpdate } from '../services/live-update.service';
+import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { requireAdmin } from '../auth/admin-auth';
 import { getAdminDatabaseOverview } from '../db/admin-database';
 import { getAdminDatabaseTableDetails } from '../db/admin-database-table-details';
@@ -238,7 +240,10 @@ export const adminDatabaseRoutes: FastifyPluginAsyncJsonSchemaToTs = async (app)
         });
       }
       try {
-        return await deleteAdminDatabaseEndedEvent(eventId);
+        const result = await deleteAdminDatabaseEndedEvent(eventId);
+        await loadLeaderboardFromDatabase();
+        broadcastLiveUpdate('events-changed');
+        return result;
       } catch (error) {
         if (error instanceof Error) {
           if (error.message === 'INVALID_EVENT_ID') {

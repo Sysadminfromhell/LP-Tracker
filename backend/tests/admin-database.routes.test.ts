@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   clearAdminDatabasePlayerCache: vi.fn(),
   pruneAdminDatabaseMatchDetails: vi.fn(),
   deleteAdminDatabaseEndedEvent: vi.fn(),
+  loadLeaderboardFromDatabase: vi.fn(),
+  broadcastLiveUpdate: vi.fn(),
 }));
 vi.mock('../src/auth/admin-auth', () => ({
   requireAdmin: mocks.requireAdmin,
@@ -47,6 +49,12 @@ vi.mock('../src/db/admin-database-match-details-prune', () => ({
 }));
 vi.mock('../src/db/admin-database-delete-ended-event', () => ({
   deleteAdminDatabaseEndedEvent: mocks.deleteAdminDatabaseEndedEvent,
+}));
+vi.mock('../src/services/leaderboard.service', () => ({
+  loadLeaderboardFromDatabase: mocks.loadLeaderboardFromDatabase,
+}));
+vi.mock('../src/services/live-update.service', () => ({
+  broadcastLiveUpdate: mocks.broadcastLiveUpdate,
 }));
 
 import { createApp } from '../src/app';
@@ -263,6 +271,9 @@ describe('admin database routes', () => {
     mocks.pruneAdminDatabaseMatchDetails.mockResolvedValue(matchDetailsPruneResult);
     mocks.deleteAdminDatabaseEndedEvent.mockReset();
     mocks.deleteAdminDatabaseEndedEvent.mockResolvedValue(deleteEndedEventResult);
+    mocks.loadLeaderboardFromDatabase.mockReset();
+    mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
+    mocks.broadcastLiveUpdate.mockReset();
   });
   it('returns database overview for an authenticated admin', async () => {
     const app = await createTestApp();
@@ -621,6 +632,9 @@ describe('admin database routes', () => {
     expect(response.json()).toEqual(deleteEndedEventResult);
     expect(mocks.deleteAdminDatabaseEndedEvent).toHaveBeenCalledTimes(1);
     expect(mocks.deleteAdminDatabaseEndedEvent).toHaveBeenCalledWith(42);
+    expect(mocks.loadLeaderboardFromDatabase).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastLiveUpdate).toHaveBeenCalledWith('events-changed');
     await app.close();
   });
   it('rejects unauthenticated ended event deletion requests', async () => {
@@ -640,6 +654,8 @@ describe('admin database routes', () => {
     });
     expect(response.statusCode).toBe(401);
     expect(mocks.deleteAdminDatabaseEndedEvent).not.toHaveBeenCalled();
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+    expect(mocks.broadcastLiveUpdate).not.toHaveBeenCalled();
     await app.close();
   });
   it('returns 404 when the event does not exist', async () => {

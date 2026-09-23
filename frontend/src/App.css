@@ -2096,12 +2096,6 @@ a.social-link.twitch:hover {
   .player-details-header {
     flex-direction: column;
   }
-  .admin-database-cleanup-card-wide {
-    grid-column: auto;
-  }
-  .admin-database-cleanup-card-wide > button {
-    max-width: none;
-  }
 }
 @media (max-width: 600px) {
   .admin-scheduled-event-card {
@@ -4220,6 +4214,14 @@ a.social-link.twitch:hover {
   color: #626c84;
   font-size: var(--admin-font-2xs);
 }
+.admin-database-cleanup-card-wide {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+.admin-database-cleanup-card-wide > button {
+  max-width: 320px;
+}
+
 @media (max-width: 900px) {
   .admin-database-cleanup-grid {
     grid-template-columns: 1fr;
@@ -4227,10 +4229,12 @@ a.social-link.twitch:hover {
   .admin-database-cleanup-card {
     min-height: 0;
   }
-}
-.admin-database-cleanup-card-wide {
-  grid-column: 1 / -1;
-  min-height: 0;
+  .admin-database-cleanup-card-wide {
+    grid-column: auto;
+  }
+  .admin-database-cleanup-card-wide > button {
+    max-width: none;
+  }
 }
 .admin-database-event-delete-control {
   display: grid;
@@ -4273,7 +4277,4 @@ a.social-link.twitch:hover {
 .admin-database-event-delete-control option {
   background: #111522;
   color: #e7eaf4;
-}
-.admin-database-cleanup-card-wide > button {
-  max-width: 320px;
 }
