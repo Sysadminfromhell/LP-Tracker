@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import type { AdminMeResponse, AdminSessionUser } from '@lp-tracker/contracts';
 import AdminDashboard from './AdminDashboard';
+import AdminDatabaseAdvancedPage from './AdminDatabaseAdvancedPage';
+import AdminDatabaseTablePage from './AdminDatabaseTablePage';
 import AdminLogin from './AdminLogin';
 
 function AdminPage() {
+  const location = useLocation();
   const [admin, setAdmin] = useState<AdminSessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const checkSession = useCallback(async () => {
@@ -60,6 +64,26 @@ function AdminPage() {
       <AdminLogin
         onLogin={() => {
           void checkSession();
+        }}
+      />
+    );
+  }
+  if (location.pathname.startsWith('/admin/database/tables/')) {
+    return (
+      <AdminDatabaseTablePage
+        username={currentAdmin.username}
+        onLogout={() => {
+          void logout();
+        }}
+      />
+    );
+  }
+  if (location.pathname === '/admin/database') {
+    return (
+      <AdminDatabaseAdvancedPage
+        username={currentAdmin.username}
+        onLogout={() => {
+          void logout();
         }}
       />
     );

@@ -15,7 +15,15 @@ function App() {
   const location = useLocation();
   const legacyRedirect = getLegacyRedirect(location.hash);
   useEffect(() => {
-    if (location.pathname === '/admin') {
+    if (location.pathname.startsWith('/admin/database/tables/')) {
+      document.title = 'LP Gain Event - Database Table';
+      return;
+    }
+    if (location.pathname === '/admin/database') {
+      document.title = 'LP Gain Event - Database Advanced';
+      return;
+    }
+    if (location.pathname.startsWith('/admin')) {
       document.title = 'LP Gain Event - Admin';
       return;
     }
@@ -54,7 +62,8 @@ function App() {
         <Route path="/history" element={<EventHistoryPage />} />
         <Route path="/history/:eventId" element={<EventHistoryDetailsPage />} />
         <Route path="/players/:playerId" element={<PlayerDetailsPage />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/database/tables/:tableName" element={<AdminPage />} />
+        <Route path="/admin/*" element={<AdminPage />} />
         <Route path="/overlay-generator" element={<OverlayGenerator />} />
         <Route
           path="/overlay"

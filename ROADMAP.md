@@ -10,7 +10,8 @@ This file describes the next Roadmap milestones and feature sets currently plann
 | ~~v2.2.0~~ | ~~Replace polling with SSE~~ | Yes (09/21/2026) |
 | ~~v2.3.0~~ | ~~Add stable player/event overlay routes~~ | Yes (09/21/2026) |
 | ~~v2.4.0~~ | ~~Add event history and player detail views~~ | Yes (09/21/2026) |
-| v2.4.1 | Add CLI/Diagnostic Tools | No |
-| v2.4.2 | Add "Dangerzone" in Admin Page for advanced Database manipulation and pruning | No |
-| v2.5.0 | Add manual LP correction and audit log | No |
-| v2.6.0 | Add Prometheus metrics and performance monitoring | No |
+| ~~v2.4.1~~ | ~~Add CLI/Diagnostic Tools~~ | Yes (09/22/2026) |
+| ~~v2.4.2~~ | ~~Add "Dangerzone" in Admin Page for advanced Database manipulation and pruning~~ | Yes (09/23/2026) |
+| v2.5.0 | Add serveral Privacy Policy Pages and subpages to comply with German/EU Data protection rights | No |
+| v2.6.0 | Add manual LP correction and audit log | No |
+| v2.7.0 | Add Prometheus metrics and performance monitoring | No |
