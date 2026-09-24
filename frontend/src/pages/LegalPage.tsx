@@ -5,6 +5,7 @@ import type {
   LegalPageResponse,
   LegalPageSlug,
 } from '@lp-tracker/contracts';
+import PublicLegalLinks from '../components/PublicLegalLinks';
 
 interface LegalPageProps {
   slug: LegalPageSlug;
@@ -61,6 +62,9 @@ export default function LegalPage({ slug }: LegalPageProps) {
         <div dangerouslySetInnerHTML={{ __html: page.contentHtml }} />
         <Link to="/">Back to home</Link>
       </article>
+      <footer className="public-page-footer">
+        <PublicLegalLinks />
+      </footer>
     </main>
   );
 }

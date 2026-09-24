@@ -4367,7 +4367,9 @@ a.social-link.twitch:hover {
   cursor: pointer;
 }
 .admin-legal-tabs button:hover,
-.admin-legal-toolbar button:hover { background: #3a4b65; }
+.admin-legal-toolbar button:hover {
+  background: #3a4b65;
+}
 .admin-legal-tabs button.is-active {
   background: #2f6fed;
   color: white;
@@ -4435,4 +4437,58 @@ a.social-link.twitch:hover {
   max-width: 900px;
   margin: 2rem auto;
   padding: 1.5rem;
+}
+/* --------------------------------------------------
+   Public legal navigation
+-------------------------------------------------- */
+.public-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #51596e;
+  font-size: 10px;
+}
+.public-legal-links a {
+  color: #69728a;
+  text-decoration: none;
+  transition:
+    color 120ms ease,
+    opacity 120ms ease;
+}
+.public-legal-links a:hover {
+  color: #c9cede;
+}
+.public-legal-links span {
+  color: #3f4658;
+  user-select: none;
+}
+.public-page-footer {
+  width: min(1180px, 100%);
+  margin: 24px auto 0;
+  padding: 14px 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+.legal-page-back-link {
+  display: inline-flex;
+  margin-top: 24px;
+  color: #7ea1ff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.legal-page-back-link:hover {
+  color: #a9bdff;
+}
+@media (max-width: 600px) {
+  .public-legal-links {
+    gap: 5px;
+    line-height: 1.8;
+  }
+
+  .public-page-footer {
+    margin-top: 18px;
+  }
 }

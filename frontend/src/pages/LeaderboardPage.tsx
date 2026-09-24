@@ -8,6 +8,7 @@ import type {
   PlayerRefreshedLiveUpdate,
 } from '@lp-tracker/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
+import PublicLegalLinks from '../components/PublicLegalLinks';
 import { loadChampionIcons } from '../championIcons';
 import {
   getCachedMatchDetails,
@@ -1202,6 +1203,7 @@ function LeaderboardPage() {
         )}
         <footer>
           <div>Rankings are based on LP gained since the event started.</div>
+          <PublicLegalLinks />
           <div className="build-info">
             <span>Frontend: {frontendVersion}</span>
             <span className="build-separator">·</span>
