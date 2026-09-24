@@ -1,29 +1,21 @@
 import { db } from './client';
-import type { LegalPage, LegalPageSummary } from '@lp-tracker/contracts';
+import type { LegalPage, LegalPageSlug, LegalPageSummary } from '@lp-tracker/contracts';
 
-const allowedTags = /<\/?(h1|h2|h3|p|ul|ol|li|strong|em|br|a)(\s[^>]*)?>/gi;
-const allowedAttributes =
-  /\s+(href="https?:\/\/[^"\s]+"|target="_blank"|rel="noopener noreferrer")/gi;
+import sanitizeHtml from 'sanitize-html';
 
 export function sanitizeLegalHtml(value: string): string {
-  return value
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<!--([\s\S]*?)-->/g, '')
-    .replace(/<[^>]*>/g, (tag) => {
-      const match = tag.match(allowedTags);
-      if (!match) return '';
-      const tagName = tag.match(/^<\/?\s*([a-z0-9]+)/i)?.[1]?.toLowerCase();
-      if (!tagName) return '';
-      if (/^<\//.test(tag)) return `</${tagName}>`;
-      if (tagName !== 'a') return `<${tagName}>`;
-      const attrs = [...tag.matchAll(allowedAttributes)].map((entry) => ` ${entry[1]}`).join('');
-      return `<a${attrs}>`;
-    });
+  return sanitizeHtml(value, {
+    allowedTags: ['h1', 'h2', 'h3', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'br', 'blockquote', 'a'],
+    allowedAttributes: {
+      a: ['href', 'target', 'rel'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowProtocolRelative: false,
+  });
 }
 
 interface Row {
-  slug: string;
+  slug: LegalPageSlug;
   title: string;
   content_html: string;
   published: boolean;

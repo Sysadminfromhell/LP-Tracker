@@ -20,6 +20,7 @@ interface MigrationRow {
 }
 
 const REQUIRED_TABLES = [
+  'legal_pages',
   'admins',
   'admin_sessions',
   'event_match_details',

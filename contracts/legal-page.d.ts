@@ -1,5 +1,6 @@
+export type LegalPageSlug = 'privacy' | 'privacy-data' | 'privacy-rights' | 'imprint';
 export interface LegalPageSummary {
-  slug: string;
+  slug: LegalPageSlug;
   title: string;
   published: boolean;
   updatedAt: string;
@@ -8,7 +9,7 @@ export interface LegalPage extends LegalPageSummary {
   contentHtml: string;
 }
 export interface LegalPagesResponse {
-  pages: LegalPageSummary[];
+  pages: LegalPage[];
 }
 export interface LegalPageResponse {
   page: LegalPage;

@@ -2303,7 +2303,12 @@ a.social-link.twitch:hover {
 .event-scheduled .live-dot {
   box-shadow: 0 0 12px rgba(126, 161, 255, 0.55);
 }
-.event-offline
+.event-offline {
+  color: #7f8599;
+}
+.event-offline .live-dot {
+  box-shadow: none;
+}
 .event-countdown {
   margin: 20px 0 4px;
   padding: 24px;

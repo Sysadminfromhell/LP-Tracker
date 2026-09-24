@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
-import type { LegalPage } from '@lp-tracker/contracts';
+import type { LegalPage, LegalPagesResponse } from '@lp-tracker/contracts';
 import AdminToastHost, { type AdminToastMessage } from '../components/AdminToastHost';
 
 function Editor({ page, onSaved }: { page: LegalPage; onSaved: (page: LegalPage) => void }) {
@@ -110,10 +110,24 @@ export default function AdminLegalPages() {
   const [toasts, setToasts] = useState<AdminToastMessage[]>([]);
   useEffect(() => {
     void fetch('/api/admin/legal-pages', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data: { pages: LegalPage[] }) => {
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return (await response.json()) as LegalPagesResponse;
+      })
+      .then((data) => {
         setPages(data.pages);
         setSelected(data.pages[0]?.slug ?? null);
+      })
+      .catch(() => {
+        setToasts([
+          {
+            id: String(Date.now()),
+            variant: 'error',
+            message: 'Could not load legal pages.',
+          },
+        ]);
       });
   }, []);
   const page = pages.find((entry) => entry.slug === selected);

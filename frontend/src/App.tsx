@@ -11,11 +11,23 @@ const EventHistoryPage = lazy(() => import('./pages/EventHistoryPage'));
 const EventHistoryDetailsPage = lazy(() => import('./pages/EventHistoryDetailsPage'));
 const PlayerDetailsPage = lazy(() => import('./pages/PlayerDetailsPage'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
+const LEGAL_PAGE_TITLES: Record<string, string> = {
+  '/privacy': 'Privacy Policy',
+  '/privacy/data': 'Processed Data',
+  '/privacy/rights': 'Your Rights',
+  '/imprint': 'Imprint',
+};
 
 function App() {
   const location = useLocation();
   const legacyRedirect = getLegacyRedirect(location.hash);
   useEffect(() => {
+    const legalTitle = LEGAL_PAGE_TITLES[location.pathname];
+
+    if (legalTitle) {
+      document.title = `LP Gain Event - ${legalTitle}`;
+      return;
+    }
     if (location.pathname.startsWith('/admin/database/tables/')) {
       document.title = 'LP Gain Event - Database Table';
       return;
@@ -63,9 +75,16 @@ function App() {
         <Route path="/history" element={<EventHistoryPage />} />
         <Route path="/history/:eventId" element={<EventHistoryDetailsPage />} />
         <Route path="/players/:playerId" element={<PlayerDetailsPage />} />
-        <Route path="/privacy" element={<LegalPage />} />
-        <Route path="/privacy/:slug" element={<LegalPage />} />
-        <Route path="/imprint" element={<LegalPage />} />
+        <Route path="/privacy" element={<LegalPage key="privacy" slug="privacy" />} />
+        <Route
+          path="/privacy/data"
+          element={<LegalPage key="privacy-data" slug="privacy-data" />}
+        />
+        <Route
+          path="/privacy/rights"
+          element={<LegalPage key="privacy-rights" slug="privacy-rights" />}
+        />
+        <Route path="/imprint" element={<LegalPage key="imprint" slug="imprint" />} />
         <Route path="/admin/database/tables/:tableName" element={<AdminPage />} />
         <Route path="/admin/*" element={<AdminPage />} />
         <Route path="/overlay-generator" element={<OverlayGenerator />} />

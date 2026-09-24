@@ -7,14 +7,17 @@ import { getLegalPage, sanitizeLegalHtml, updateLegalPage } from '../src/db/lega
 
 describe('legal pages', () => {
   beforeEach(() => mocks.query.mockReset());
-  it('keeps supported formatting and removes scripts and unsupported attributes', () => {
+  it('keeps supported formatting and removes unsafe markup', () => {
     expect(
       sanitizeLegalHtml(
-        '<h1>Title</h1><p><strong>Text</strong> <a href="https://example.com" target="_blank">link</a></p><script>alert(1)</script><img src="x" onerror="bad">',
+        '<h1>Title</h1><blockquote>Quote</blockquote><p><strong>Text</strong> <a href="mailto:test@example.com">Mail</a></p><script>alert(1)</script><img src="x" onerror="bad">',
       ),
     ).toBe(
-      '<h1>Title</h1><p><strong>Text</strong> <a href="https://example.com" target="_blank">link</a></p>',
+      '<h1>Title</h1><blockquote>Quote</blockquote><p><strong>Text</strong> <a href="mailto:test@example.com">Mail</a></p>',
     );
+  });
+  it('removes unsafe link schemes', () => {
+    expect(sanitizeLegalHtml('<a href="javascript:alert(1)">Bad</a>')).toBe('<a>Bad</a>');
   });
   it('returns a mapped public page', async () => {
     mocks.query.mockResolvedValueOnce({

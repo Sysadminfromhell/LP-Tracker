@@ -873,7 +873,15 @@ function LeaderboardPage() {
             </div>
           </div>
           <div
-            className={`live ${eventStatus === 'scheduled' ? 'event-scheduled' : 'event-ended'}`}
+            className={`live ${
+              eventStatus === 'scheduled'
+                ? 'event-scheduled'
+                : eventStatus === 'ended'
+                  ? 'event-ended'
+                  : eventStatus === null
+                    ? 'event-offline'
+                    : ''
+            }`}
           >
             <span className="live-dot" />
             {eventStatus === 'scheduled'

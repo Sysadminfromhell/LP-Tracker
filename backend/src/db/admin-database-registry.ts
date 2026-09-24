@@ -59,6 +59,12 @@ export const ADMIN_DATABASE_TABLES = {
     sensitive: false,
     maintenance: true,
   },
+  legal_pages: {
+    label: 'Legal Pages',
+    group: 'system',
+    sensitive: false,
+    maintenance: true,
+  },
   admins: {
     label: 'Admins',
     group: 'system',
