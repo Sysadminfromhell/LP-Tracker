@@ -293,7 +293,6 @@ INSERT INTO legal_pages (slug, title, content_html, published) VALUES
   'Imprint',
   $$<h1>Imprint</h1>
 <p>This page contains the operator information for this LP-Tracker installation.</p>
-<p>LP-Tracker is an independent project and is not endorsed by Riot Games, OP.GG or their affiliates.</p>
 
 <h2>Operator</h2>
 <p><strong>[FULL LEGAL NAME / COMPANY NAME]</strong><br>[STREET / HOUSE NUMBER]<br>[POSTCODE / CITY]<br>[COUNTRY]</p>

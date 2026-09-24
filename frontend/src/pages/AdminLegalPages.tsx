@@ -5,7 +5,15 @@ import Link from '@tiptap/extension-link';
 import type { LegalPage, LegalPagesResponse } from '@lp-tracker/contracts';
 import AdminToastHost, { type AdminToastMessage } from '../components/AdminToastHost';
 
-function Editor({ page, onSaved }: { page: LegalPage; onSaved: (page: LegalPage) => void }) {
+function Editor({
+  page,
+  onSaved,
+  onError,
+}: {
+  page: LegalPage;
+  onSaved: (page: LegalPage) => void;
+  onError: (message: string) => void;
+}) {
   const [title, setTitle] = useState(page.title);
   const [html, setHtml] = useState(page.contentHtml);
   const [published, setPublished] = useState(page.published);
@@ -43,8 +51,12 @@ function Editor({ page, onSaved }: { page: LegalPage; onSaved: (page: LegalPage)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, contentHtml: html, published }),
       });
-      if (!response.ok) throw new Error('Saving failed');
+      if (!response.ok) {
+        throw new Error('Saving failed');
+      }
       onSaved(((await response.json()) as { page: LegalPage }).page);
+    } catch {
+      onError('Could not save legal page.');
     } finally {
       setBusy(false);
     }
@@ -255,6 +267,9 @@ export default function AdminLegalPages() {
               current.map((entry) => (entry.slug === updated.slug ? updated : entry)),
             );
             setToasts([{ id: String(Date.now()), variant: 'success', message: 'Page saved.' }]);
+          }}
+          onError={(message) => {
+            setToasts([{ id: String(Date.now()), variant: 'error', message }]);
           }}
         />
       ) : (
