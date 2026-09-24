@@ -21,6 +21,7 @@ import type {
 } from '@lp-tracker/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import AdminResetConfirmDialog from '../components/AdminResetConfirmDialog';
+import AdminLegalPages from './AdminLegalPages';
 
 const maintenanceAllLabels: Record<AdminDatabaseMaintenanceOperation, string> = {
   analyze: 'ANALYZE ALL',
@@ -770,6 +771,7 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
             </div>
           </div>
         </section>
+        <AdminLegalPages />
         <section className="admin-section admin-database-reset-zone">
           <div className="admin-section-header">
             <div>

@@ -9,3 +9,4 @@ export * from './player-profile';
 export * from './event-history';
 export * from './live-update';
 export * from './admin-database';
+export * from './legal-page';

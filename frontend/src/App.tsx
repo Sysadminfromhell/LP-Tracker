@@ -10,6 +10,7 @@ const PlayerOverlay = lazy(() => import('./pages/PlayerOverlay'));
 const EventHistoryPage = lazy(() => import('./pages/EventHistoryPage'));
 const EventHistoryDetailsPage = lazy(() => import('./pages/EventHistoryDetailsPage'));
 const PlayerDetailsPage = lazy(() => import('./pages/PlayerDetailsPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 
 function App() {
   const location = useLocation();
@@ -62,6 +63,9 @@ function App() {
         <Route path="/history" element={<EventHistoryPage />} />
         <Route path="/history/:eventId" element={<EventHistoryDetailsPage />} />
         <Route path="/players/:playerId" element={<PlayerDetailsPage />} />
+        <Route path="/privacy" element={<LegalPage />} />
+        <Route path="/privacy/:slug" element={<LegalPage />} />
+        <Route path="/imprint" element={<LegalPage />} />
         <Route path="/admin/database/tables/:tableName" element={<AdminPage />} />
         <Route path="/admin/*" element={<AdminPage />} />
         <Route path="/overlay-generator" element={<OverlayGenerator />} />

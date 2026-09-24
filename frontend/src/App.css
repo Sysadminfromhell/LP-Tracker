@@ -2303,6 +2303,7 @@ a.social-link.twitch:hover {
 .event-scheduled .live-dot {
   box-shadow: 0 0 12px rgba(126, 161, 255, 0.55);
 }
+.event-offline
 .event-countdown {
   margin: 20px 0 4px;
   padding: 24px;
@@ -4341,4 +4342,92 @@ a.social-link.twitch:hover {
   .admin-database-player-delete-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+.admin-legal-section {
+  margin-bottom: 2rem;
+}
+.admin-legal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.admin-legal-tabs button,
+.admin-legal-toolbar button {
+  border: 1px solid #4a586d;
+  border-radius: 4px;
+  background: #293548;
+  color: #edf2fa;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+.admin-legal-tabs button:hover,
+.admin-legal-toolbar button:hover { background: #3a4b65; }
+.admin-legal-tabs button.is-active {
+  background: #2f6fed;
+  color: white;
+}
+.admin-legal-editor {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 900px;
+}
+.admin-legal-editor label {
+  display: grid;
+  gap: 0.35rem;
+  color: #aeb9c9;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.admin-legal-editor input:not([type='checkbox']) {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #3b4657;
+  border-radius: 6px;
+  background: #111925;
+  color: #f5f7fb;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+}
+.admin-legal-toolbar {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.5rem;
+  border: 1px solid #3b4657;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: #202a38;
+  margin-bottom: -0.75rem;
+}
+.admin-legal-editable {
+  min-height: 300px;
+  padding: 1rem;
+  border: 1px solid #3b4657;
+  border-radius: 0 0 6px 6px;
+  background: #111925;
+  color: #f5f7fb;
+}
+.admin-legal-editable .tiptap {
+  min-height: 270px;
+  outline: none;
+}
+.admin-legal-editable .tiptap p {
+  margin: 0 0 0.75rem;
+}
+.admin-legal-editable .tiptap blockquote {
+  border-left: 3px solid #78a9ff;
+  margin-left: 0;
+  padding-left: 1rem;
+  color: #b9c7dc;
+}
+.admin-legal-published {
+  display: flex !important;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+.legal-page-content {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 1.5rem;
 }

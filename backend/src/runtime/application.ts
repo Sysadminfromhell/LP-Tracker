@@ -7,6 +7,7 @@ import { adminDatabaseRoutes } from '../routes/admin-database.routes';
 import { adminPlayerRoutes } from '../routes/admin-player.routes';
 import { liveUpdateRoutes } from '../routes/live-update.routes';
 import { metricsRoutes } from '../routes/metrics.routes';
+import { legalPageRoutes } from '../routes/legal-page.routes';
 import { publicRoutes } from '../routes/public.routes';
 
 export function createApplication(): FastifyInstance {
@@ -18,5 +19,6 @@ export function createApplication(): FastifyInstance {
   app.register(publicRoutes);
   app.register(liveUpdateRoutes);
   app.register(metricsRoutes);
+  app.register(legalPageRoutes);
   return app;
 }
