@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { EventHistoryDetailsResponse, EventHistoryStanding } from '@lp-tracker/contracts';
 import { getRankIconUrl } from '../rankIcons';
+import PublicLegalLinks from '../components/PublicLegalLinks';
 
 const divisions: Record<number, string> = {
   1: 'I',
@@ -151,7 +152,8 @@ function EventHistoryDetailsPage() {
             <span>EVENT ARCHIVE</span>
             <h1>{currentDetails.event.name}</h1>
             <span>
-              {formatEventDate(currentDetails.event.startsAt)} – {formatEventDate(currentDetails.event.endsAt)}
+              {formatEventDate(currentDetails.event.startsAt)} –{' '}
+              {formatEventDate(currentDetails.event.endsAt)}
             </span>
           </div>
           <Link className="player-profile-link" to="/history">
@@ -236,6 +238,9 @@ function EventHistoryDetailsPage() {
           )}
         </section>
       </div>
+      <footer className="public-page-footer">
+        <PublicLegalLinks />
+      </footer>
     </main>
   );
 }

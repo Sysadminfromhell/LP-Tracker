@@ -8,6 +8,7 @@ import type {
   PlayerRefreshedLiveUpdate,
 } from '@lp-tracker/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
+import PublicLegalLinks from '../components/PublicLegalLinks';
 import { loadChampionIcons } from '../championIcons';
 import {
   getCachedMatchDetails,
@@ -55,7 +56,7 @@ function formatGitHead(gitHead: string): string {
 }
 function formatEventDate(date: string | null): string {
   if (!date) {
-    return 'Open';
+    return 'Unknown';
   }
   return new Date(date).toLocaleString('de-DE', {
     day: '2-digit',
@@ -854,18 +855,18 @@ function LeaderboardPage() {
       <section className="tracker">
         <header className="topbar">
           <div>
-            <span className="eyebrow">LP GAIN EVENT</span>
+            <span className="eyebrow">LP EVENT TRACKER</span>
             <h1>{leaderboard?.event.name ?? 'Leaderboard'}</h1>
             <div className="event-window">
               <div className="event-window-item">
-                <span className="event-window-label">Eventstart</span>
+                <span className="event-window-label">Event Start</span>
                 <strong className="event-window-value">
                   {formatEventDate(leaderboard?.event.startsAt ?? null)}
                 </strong>
               </div>
               <span className="event-separator">•</span>
               <div className="event-window-item">
-                <span className="event-window-label">Eventende</span>
+                <span className="event-window-label">Event End</span>
                 <strong className="event-window-value">
                   {formatEventDate(leaderboard?.event.endsAt ?? null)}
                 </strong>
@@ -874,15 +875,23 @@ function LeaderboardPage() {
           </div>
           <div
             className={`live ${
-              eventStatus === 'ended'
-                ? 'event-ended'
-                : eventStatus === 'scheduled'
-                  ? 'event-scheduled'
-                  : ''
+              eventStatus === 'scheduled'
+                ? 'event-scheduled'
+                : eventStatus === 'ended'
+                  ? 'event-ended'
+                  : eventStatus === null
+                    ? 'event-offline'
+                    : ''
             }`}
           >
             <span className="live-dot" />
-            {eventStatus === 'scheduled' ? 'SCHEDULED' : eventStatus === 'ended' ? 'ENDED' : 'LIVE'}
+            {eventStatus === 'scheduled'
+              ? 'SCHEDULED'
+              : eventStatus === 'ended'
+                ? 'ENDED'
+                : eventStatus === 'active'
+                  ? 'ACTIVE'
+                  : 'Offline'}
             <Link className="overlay-link" to="/admin">
               Admin
             </Link>
@@ -897,7 +906,10 @@ function LeaderboardPage() {
             <strong>{countdownValue}</strong>
           </div>
         )}
-        {players.length === 0 && (
+        {eventStatus === null && players.length === 0 && (
+          <div className="empty-board">No Event scheduled...</div>
+        )}
+        {eventStatus !== null && players.length === 0 && (
           <div className="empty-board">Waiting for the first player update...</div>
         )}
         {players.length > 0 && (
@@ -1191,6 +1203,7 @@ function LeaderboardPage() {
         )}
         <footer>
           <div>Rankings are based on LP gained since the event started.</div>
+          <PublicLegalLinks />
           <div className="build-info">
             <span>Frontend: {frontendVersion}</span>
             <span className="build-separator">·</span>

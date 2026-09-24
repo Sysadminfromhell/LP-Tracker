@@ -12,6 +12,7 @@ vi.mock('../src/db/client', () => ({
 import { runDatabaseDiagnostics } from '../src/diagnostics/database';
 
 const requiredTables = [
+  'legal_pages',
   'admins',
   'admin_sessions',
   'event_match_details',

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { EventHistoryResponse } from '@lp-tracker/contracts';
+import PublicLegalLinks from '../components/PublicLegalLinks';
 
 function formatEventDate(date: string): string {
   return new Date(date).toLocaleString('de-DE', {
@@ -129,6 +130,9 @@ function EventHistoryPage() {
           </section>
         )}
       </div>
+      <footer className="public-page-footer">
+        <PublicLegalLinks />
+      </footer>
     </main>
   );
 }

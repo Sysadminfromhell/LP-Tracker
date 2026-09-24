@@ -227,6 +227,8 @@ Administrative PostgreSQL credentials are not required for normal application ru
 
 Database migrations run automatically during backend startup before the application begins serving traffic.
 
+Database migrations also install the default legal-page templates on new installations. Existing edited legal pages are not overwritten by later application starts.
+
 Back up the database before upgrading a production deployment.
 
 ---
@@ -245,6 +247,53 @@ These values do not overwrite an administrator that already exists in the databa
 Use a strong, unique password in production.
 
 Existing admin sessions are invalidated when the backend restarts, requiring administrators to sign in again.
+
+---
+
+## Legal and privacy pages
+
+LP-Tracker includes editable public legal pages for:
+
+- Privacy Policy
+- Processed Data
+- Your Rights
+- Imprint
+
+New installations receive pre-filled templates that describe the data processing performed by LP-Tracker as far as it can be determined from the application itself.
+
+The templates are created as **unpublished** by default and must be reviewed before they are made publicly available.
+
+Open the admin interface and review:
+
+```text
+Admin -> Privacy and Imprint
+```
+
+Before enabling Published publicly, replace all deployment-specific placeholders, including values such as:
+```text
+[OPERATOR NAME]
+[FULL LEGAL NAME / COMPANY NAME]
+[PRIVACY CONTACT EMAIL]
+[CONTACT EMAIL]
+[STREET / HOUSE NUMBER]
+[POSTCODE / CITY]
+[COUNTRY]
+```
+
+The operator should also review and document the actual deployment configuration, including:
+
+* the responsible operator and contact information;
+* the applicable legal basis for processing;
+* hosting and reverse-proxy infrastructure;
+* access, security and application logging;
+* log and data retention periods;
+* the configured League data provider;
+* international data transfers where applicable;
+* any additional statutory imprint information required for the deployment.
+
+The provided texts are intended as practical templates based on LP-Tracker's functionality and stored data. They are not automatically suitable for every deployment without review.
+
+Changing the configured League data provider, hosting environment, logging configuration or retention policy may require the legal pages to be updated as well.
 
 ---
 

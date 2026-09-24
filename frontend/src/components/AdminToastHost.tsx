@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export type AdminToastVariant = 'success' | 'error' | 'info';
 export interface AdminToastMessage {
@@ -55,12 +56,13 @@ function AdminToastItem({ toast, onDismiss }: AdminToastItemProps) {
   );
 }
 function AdminToastHost({ toasts, onDismiss }: AdminToastHostProps) {
-  return (
+  return createPortal(
     <div className="admin-toast-host" aria-live="polite" aria-atomic="false">
       {toasts.map((toast) => (
         <AdminToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 export default AdminToastHost;

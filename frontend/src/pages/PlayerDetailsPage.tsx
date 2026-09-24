@@ -18,6 +18,7 @@ import {
   shouldReloadPlayerProfileForLeaderboard,
   shouldReloadPlayerProfileForRefresh,
 } from '../player-profile-live';
+import PublicLegalLinks from '../components/PublicLegalLinks';
 
 const divisions: Record<number, string> = {
   1: 'I',
@@ -651,6 +652,9 @@ function PlayerDetailsPage() {
           </>
         )}
       </section>
+      <footer className="public-page-footer">
+        <PublicLegalLinks />
+      </footer>
     </main>
   );
 }

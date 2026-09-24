@@ -23,6 +23,7 @@ const MAINTENANCE_TABLE_SQL: Record<AdminDatabaseTableName, string> = {
   event_match_participants: '"public"."event_match_participants"',
   lp_rank_observations: '"public"."lp_rank_observations"',
   lp_reconciliation_queue: '"public"."lp_reconciliation_queue"',
+  legal_pages: '"public"."legal_pages"',
   admins: '"public"."admins"',
   admin_sessions: '"public"."admin_sessions"',
   schema_migrations: '"public"."schema_migrations"',

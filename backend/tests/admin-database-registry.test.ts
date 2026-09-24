@@ -19,6 +19,7 @@ describe('admin database registry', () => {
       'event_match_participants',
       'lp_rank_observations',
       'lp_reconciliation_queue',
+      'legal_pages',
       'admins',
       'admin_sessions',
       'schema_migrations',
@@ -27,6 +28,7 @@ describe('admin database registry', () => {
   it('accepts only registered table names', () => {
     expect(isAdminDatabaseTableName('players')).toBe(true);
     expect(isAdminDatabaseTableName('event_matches')).toBe(true);
+    expect(isAdminDatabaseTableName('legal_pages')).toBe(true);
     expect(isAdminDatabaseTableName('schema_migrations')).toBe(true);
     expect(isAdminDatabaseTableName('pg_user')).toBe(false);
     expect(isAdminDatabaseTableName('information_schema')).toBe(false);
