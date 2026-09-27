@@ -65,7 +65,15 @@ describe('event match details', () => {
     const client = {
       query,
     } as unknown as Pick<PoolClient, 'query'>;
-    await replaceEventMatchDetails(client, 501, createMatch());
+    const match = createMatch();
+    match.championId = 1;
+    match.champion = 'Annie';
+    match.position = 'TOP';
+    match.kills = 1;
+    match.deaths = 6;
+    match.assists = 3;
+    match.cs = 120;
+    await replaceEventMatchDetails(client, 501, match);
     expect(query).toHaveBeenCalledTimes(4);
     const detailCall = query.mock.calls[0];
     expect(String(detailCall[0])).toContain('INSERT INTO event_match_details');
