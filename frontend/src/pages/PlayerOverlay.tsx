@@ -322,16 +322,22 @@ function PlayerOverlay() {
                       ? 'remake'
                       : match.lpDelta === null
                         ? 'unknown'
-                        : match.lpDelta >= 0
+                        : match.lpDelta > 0
                           ? 'positive'
-                          : 'negative'
+                          : match.lpDelta < 0
+                            ? 'negative'
+                            : match.result === 'LOSE'
+                              ? 'negative'
+                              : 'positive'
                   }
                 >
                   {match.isRemake
                     ? '0'
                     : match.lpDelta === null
                       ? '—'
-                      : `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta}`}
+                      : match.lpDelta === 0
+                        ? `${match.result === 'LOSE' ? '-' : '+'}0`
+                        : `${match.lpDelta > 0 ? '+' : ''}${match.lpDelta}`}
                 </strong>
               </div>
             );
