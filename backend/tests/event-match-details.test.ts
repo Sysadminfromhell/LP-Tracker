@@ -65,8 +65,16 @@ describe('event match details', () => {
     const client = {
       query,
     } as unknown as Pick<PoolClient, 'query'>;
-    await replaceEventMatchDetails(client, 501, createMatch());
-    expect(query).toHaveBeenCalledTimes(3);
+    const match = createMatch();
+    match.championId = 1;
+    match.champion = 'Annie';
+    match.position = 'TOP';
+    match.kills = 1;
+    match.deaths = 6;
+    match.assists = 3;
+    match.cs = 120;
+    await replaceEventMatchDetails(client, 501, match);
+    expect(query).toHaveBeenCalledTimes(4);
     const detailCall = query.mock.calls[0];
     expect(String(detailCall[0])).toContain('INSERT INTO event_match_details');
     expect(detailCall[1]).toEqual([501, 1852]);
@@ -104,6 +112,9 @@ describe('event match details', () => {
       ['2503', '3113'],
       false,
     ]);
+    const summaryCall = query.mock.calls[3];
+    expect(String(summaryCall[0])).toContain('UPDATE event_matches');
+    expect(summaryCall[1]).toEqual([501, 90, 'Malzahar', 'MID', 4, 0, 10, 244]);
   });
   it('rejects match details without exactly one tracked player', async () => {
     const query = vi.fn();
