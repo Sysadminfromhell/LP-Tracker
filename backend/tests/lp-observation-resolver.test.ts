@@ -344,4 +344,27 @@ describe('resolveLpObservationDeltas', () => {
     );
     expect(result).toEqual([]);
   });
+  it('does not infer a short match as a remake when LP changed', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [
+        match('match-1', '2026-09-10T10:00:00.000Z', 240, 'LOSE'),
+        match('match-2', '2026-09-10T10:40:00.000Z', 1800, 'WIN'),
+      ],
+      [
+        {
+          id: 471,
+          rankScore: 2180,
+          observedAt: '2026-09-10T10:05:00.000Z',
+        },
+      ],
+    );
+    expect(result[0]).toEqual({
+      matchId: 'match-1',
+      lpDelta: -20,
+      rankScoreAfter: 2180,
+      observationId: 471,
+    });
+    expect(result[0]).not.toHaveProperty('isRemake');
+  });
 });
