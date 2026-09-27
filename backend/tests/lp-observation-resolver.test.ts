@@ -302,4 +302,69 @@ describe('resolveLpObservationDeltas', () => {
       },
     ]);
   });
+  it('infers a short zero-LP match as a remake from an unchanged observation', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [
+        match('match-1', '2026-09-10T10:00:00.000Z', 180, 'LOSE'),
+        match('match-2', '2026-09-10T10:40:00.000Z', 1800, 'WIN'),
+      ],
+      [
+        {
+          id: 471,
+          rankScore: 2200,
+          observedAt: '2026-09-10T10:05:00.000Z',
+        },
+      ],
+    );
+    expect(result).toEqual([
+      {
+        matchId: 'match-1',
+        lpDelta: 0,
+        rankScoreAfter: 2200,
+        observationId: 471,
+        isRemake: true,
+      },
+    ]);
+  });
+  it('does not infer a normal-duration zero-LP match as a remake', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [
+        match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'LOSE'),
+        match('match-2', '2026-09-10T11:00:00.000Z', 1800, 'WIN'),
+      ],
+      [
+        {
+          id: 471,
+          rankScore: 2200,
+          observedAt: '2026-09-10T10:05:00.000Z',
+        },
+      ],
+    );
+    expect(result).toEqual([]);
+  });
+  it('does not infer a short match as a remake when LP changed', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [
+        match('match-1', '2026-09-10T10:00:00.000Z', 240, 'LOSE'),
+        match('match-2', '2026-09-10T10:40:00.000Z', 1800, 'WIN'),
+      ],
+      [
+        {
+          id: 471,
+          rankScore: 2180,
+          observedAt: '2026-09-10T10:05:00.000Z',
+        },
+      ],
+    );
+    expect(result[0]).toEqual({
+      matchId: 'match-1',
+      lpDelta: -20,
+      rankScoreAfter: 2180,
+      observationId: 471,
+    });
+    expect(result[0]).not.toHaveProperty('isRemake');
+  });
 });

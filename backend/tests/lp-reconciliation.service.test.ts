@@ -350,4 +350,38 @@ describe('LP reconciliation service', () => {
       message: 'Resolved 0/2 matches',
     });
   });
+  it('passes inferred remake resolutions to the reconciliation apply layer', async () => {
+    mocks.resolveLpObservationDeltas.mockReturnValue([
+      {
+        matchId: 'match-1',
+        lpDelta: 0,
+        rankScoreAfter: 2235,
+        observationId: 471,
+        isRemake: true,
+      },
+    ]);
+    mocks.applyLpReconciliationResolutions.mockResolvedValue({
+      applied: true,
+      resolvedMatches: 1,
+      remainingUnresolved: true,
+      reason: null,
+    });
+    await reconcileLpParticipant(50, 4);
+    expect(mocks.applyLpReconciliationResolutions).toHaveBeenCalledWith({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 2235,
+      expectedRightRankScore: 2275,
+      expectedRightBoundaryAt: '2026-09-08T20:00:00.000Z',
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 2235,
+          observationId: 471,
+          isRemake: true,
+        },
+      ],
+    });
+  });
 });

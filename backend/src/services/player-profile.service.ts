@@ -59,6 +59,7 @@ function mapMatch(match: DbPlayerHistoryMatch): PlayerHistoryMatch {
     assists: match.assists,
     cs: match.cs,
     result: match.result,
+    isRemake: match.isRemake,
     lpDelta: match.lpDelta,
     lpDeltaStatus: match.lpDeltaStatus,
     items: match.items,

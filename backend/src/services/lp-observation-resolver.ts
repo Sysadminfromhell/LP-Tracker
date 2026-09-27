@@ -20,11 +20,13 @@ export interface ResolvedObservationLpDelta {
   lpDelta: number;
   rankScoreAfter: number;
   observationId?: number;
+  isRemake?: boolean;
 }
 interface TimedMatch {
   id: string;
   startAt: number | null;
   endAt: number;
+  durationSeconds: number | null;
   result: 'WIN' | 'LOSE';
 }
 interface TimedObservation {
@@ -32,6 +34,8 @@ interface TimedObservation {
   rankScore: number;
   observedAt: number;
 }
+
+const REMAKE_MAX_DURATION_SECONDS = 300;
 
 function parseTimestamp(value: string, label: string): number {
   const timestamp = new Date(value).getTime();
@@ -81,6 +85,7 @@ export function resolveLpObservationDeltas(
         id: match.id,
         startAt: durationValid ? endAt - match.durationSeconds! * 1000 : null,
         endAt,
+        durationSeconds: durationValid ? match.durationSeconds : null,
         result: match.result,
       };
     })
@@ -136,6 +141,25 @@ export function resolveLpObservationDeltas(
       const observedScores = [
         ...new Set(matchingObservations.map((observation) => observation.rankScore)),
       ];
+      const unchangedObservations = matchingObservations.filter(
+        (observation) => observation.rankScore === previousScore,
+      );
+      const remakeCandidate =
+        match.durationSeconds !== null &&
+        match.durationSeconds <= REMAKE_MAX_DURATION_SECONDS &&
+        unchangedObservations.length > 0 &&
+        observedScores.length === 1;
+      if (remakeCandidate) {
+        const evidenceObservation = unchangedObservations[0];
+        resolutions.push({
+          matchId: match.id,
+          lpDelta: 0,
+          rankScoreAfter: previousScore,
+          ...(evidenceObservation.id !== null ? { observationId: evidenceObservation.id } : {}),
+          isRemake: true,
+        });
+        continue;
+      }
       reportDiagnostic(
         `Match ${match.id}: no valid ${match.result} LP change from ` +
           `${previousScore}; observed rank score(s): ${observedScores.join(', ')}`,
@@ -183,6 +207,30 @@ export function resolveLpObservationDeltas(
   const validFinalObservations = finalObservations.filter((observation) =>
     isValidDelta(finalMatch.result, observation.rankScore - previousScore),
   );
+  if (validFinalObservations.length === 0 && finalObservations.length > 0) {
+    const observedScores = [
+      ...new Set(finalObservations.map((observation) => observation.rankScore)),
+    ];
+    const unchangedObservations = finalObservations.filter(
+      (observation) => observation.rankScore === previousScore,
+    );
+    const remakeCandidate =
+      finalMatch.durationSeconds !== null &&
+      finalMatch.durationSeconds <= REMAKE_MAX_DURATION_SECONDS &&
+      unchangedObservations.length > 0 &&
+      observedScores.length === 1;
+    if (remakeCandidate) {
+      const evidenceObservation = unchangedObservations[0];
+      resolutions.push({
+        matchId: finalMatch.id,
+        lpDelta: 0,
+        rankScoreAfter: previousScore,
+        ...(evidenceObservation.id !== null ? { observationId: evidenceObservation.id } : {}),
+        isRemake: true,
+      });
+      return resolutions;
+    }
+  }
   if (finalObservations.length > 0 && validFinalObservations.length === 0) {
     const observedScores = [
       ...new Set(finalObservations.map((observation) => observation.rankScore)),

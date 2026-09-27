@@ -301,23 +301,37 @@ function PlayerOverlay() {
             return (
               <div className="overlay-match" key={match.id}>
                 {icon && <img src={icon} alt="" />}
-
-                <b className={match.result === 'WIN' ? 'match-win' : 'match-loss'}>
-                  {match.result === 'WIN' ? 'W' : 'L'}
+                <b
+                  className={
+                    match.isRemake
+                      ? 'match-remake'
+                      : match.result === 'WIN'
+                        ? 'match-win'
+                        : 'match-loss'
+                  }
+                >
+                  {match.isRemake ? 'R' : match.result === 'WIN' ? 'W' : 'L'}
                 </b>
-
                 <span>{formatPosition(match.position)}</span>
-
                 <span>
                   {match.kills}/{match.deaths}/{match.assists}
                 </span>
-
                 <strong
-                  className={match.lpDelta !== null && match.lpDelta >= 0 ? 'positive' : 'negative'}
+                  className={
+                    match.isRemake
+                      ? 'remake'
+                      : match.lpDelta === null
+                        ? 'unknown'
+                        : match.lpDelta >= 0
+                          ? 'positive'
+                          : 'negative'
+                  }
                 >
-                  {match.lpDelta === null
-                    ? '—'
-                    : `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta}`}
+                  {match.isRemake
+                    ? '0'
+                    : match.lpDelta === null
+                      ? '—'
+                      : `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta}`}
                 </strong>
               </div>
             );

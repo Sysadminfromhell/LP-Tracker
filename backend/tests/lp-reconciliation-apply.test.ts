@@ -291,7 +291,7 @@ describe('LP reconciliation apply', () => {
     const matchUpdate = mocks.clientQuery.mock.calls.find(([sql]) =>
       String(sql).includes('UPDATE event_matches'),
     );
-    expect(matchUpdate?.[1]).toEqual(['101', 20, 1500, 1520, 471, 50]);
+    expect(matchUpdate?.[1]).toEqual(['101', 20, 1500, 1520, 471, false, 50]);
     const participantUpdate = mocks.clientQuery.mock.calls.find(([sql]) =>
       String(sql).includes('UPDATE event_participants'),
     );
@@ -540,5 +540,100 @@ describe('LP reconciliation apply', () => {
     expect(
       mocks.clientQuery.mock.calls.some(([sql]) => String(sql).includes('UPDATE event_matches')),
     ).toBe(false);
+  });
+  it('accepts an inferred zero-LP remake backed by observation evidence', async () => {
+    mockApplyScenario({
+      matches: [
+        unresolvedMatch({
+          result: 'LOSE',
+          is_sync_anchor: true,
+        }),
+      ],
+      remainingUnresolved: false,
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 1500,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 1500,
+          observationId: 471,
+          isRemake: true,
+        },
+      ],
+    });
+    expect(result).toEqual({
+      applied: true,
+      resolvedMatches: 1,
+      remainingUnresolved: false,
+      reason: null,
+    });
+    const matchUpdate = mocks.clientQuery.mock.calls.find(([sql]) =>
+      String(sql).includes('UPDATE event_matches'),
+    );
+    expect(matchUpdate?.[1]).toEqual(['101', 0, 1500, 1500, 471, true, 50]);
+  });
+  it('rejects a zero-LP resolution without the remake marker', async () => {
+    mockApplyScenario({
+      matches: [
+        unresolvedMatch({
+          result: 'LOSE',
+          is_sync_anchor: true,
+        }),
+      ],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 1500,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 1500,
+          observationId: 471,
+        },
+      ],
+    });
+    expect(result.applied).toBe(false);
+    expect(result.reason).toContain('LP direction does not match result');
+  });
+  it('rejects an inferred remake without observation evidence', async () => {
+    mockApplyScenario({
+      matches: [
+        unresolvedMatch({
+          result: 'LOSE',
+          is_sync_anchor: true,
+        }),
+      ],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 1500,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 1500,
+          isRemake: true,
+        },
+      ],
+    });
+    expect(result).toEqual({
+      applied: false,
+      resolvedMatches: 0,
+      remainingUnresolved: true,
+      reason: 'Remake resolution for match match-1 requires observation evidence',
+    });
   });
 });

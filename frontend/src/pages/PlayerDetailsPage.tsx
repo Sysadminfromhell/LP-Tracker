@@ -36,6 +36,9 @@ function formatDuration(seconds: number | null): string {
   return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 function formatLpDelta(match: PlayerHistoryMatch): string {
+  if (match.isRemake) {
+    return '0 LP';
+  }
   if (match.lpDelta !== null) {
     return `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta} LP`;
   }
@@ -127,7 +130,11 @@ function MatchHistory({
           return (
             <article
               className={`player-details-match ${
-                match.result === 'WIN' ? 'player-details-match-win' : 'player-details-match-loss'
+                match.isRemake
+                  ? 'player-details-match-remake'
+                  : match.result === 'WIN'
+                    ? 'player-details-match-win'
+                    : 'player-details-match-loss'
               }`}
               key={match.id}
               onMouseEnter={(event) => onMatchHover(eventId, match.id, event.currentTarget)}
@@ -144,8 +151,12 @@ function MatchHistory({
                   <span>{formatPosition(match.position)}</span>
                 </div>
               </div>
-              <strong className={match.result === 'WIN' ? 'positive' : 'negative'}>
-                {match.result === 'WIN' ? 'WIN' : 'LOSS'}
+              <strong
+                className={
+                  match.isRemake ? 'remake' : match.result === 'WIN' ? 'positive' : 'negative'
+                }
+              >
+                {match.isRemake ? 'REMAKE' : match.result === 'WIN' ? 'WIN' : 'LOSS'}
               </strong>
               <span className="player-match-kda">
                 {match.kills}/{match.deaths}/{match.assists}
@@ -164,11 +175,13 @@ function MatchHistory({
               </div>
               <span
                 className={
-                  match.lpDelta === null
-                    ? 'player-match-lp unknown'
-                    : match.lpDelta >= 0
-                      ? 'player-match-lp positive'
-                      : 'player-match-lp negative'
+                  match.isRemake
+                    ? 'player-match-lp remake'
+                    : match.lpDelta === null
+                      ? 'player-match-lp unknown'
+                      : match.lpDelta >= 0
+                        ? 'player-match-lp positive'
+                        : 'player-match-lp negative'
                 }
               >
                 {formatLpDelta(match)}
