@@ -160,10 +160,11 @@ describe('LP reconciliation service', () => {
           rankScore: 2254,
         },
       ],
-      {
-        rightRankScore: 2275,
+      expect.objectContaining({
         rightBoundaryAt: '2026-09-08T20:00:00.000Z',
-      },
+        rightRankScore: 2275,
+        onDiagnostic: expect.any(Function),
+      }),
     );
     expect(mocks.applyLpReconciliationResolutions).toHaveBeenCalledWith({
       eventParticipantId: 50,
@@ -200,6 +201,30 @@ describe('LP reconciliation service', () => {
       status: 'retry',
       resolvedMatches: 0,
       message: 'Resolved 0/2 matches',
+    });
+  });
+  it('returns the resolver diagnostic when no match can be resolved', async () => {
+    mocks.resolveLpObservationDeltas.mockImplementation((...args: unknown[]) => {
+      const options = args[3] as {
+        onDiagnostic?: (message: string) => void;
+      };
+      options.onDiagnostic?.(
+        'Match match-1: no rank observation between match end and next match start',
+      );
+      return [];
+    });
+    const result = await reconcileLpParticipant(50, 4);
+    expect(mocks.retryClaimedLpReconciliation).toHaveBeenCalledWith(
+      50,
+      4,
+      1800,
+      'Resolved 0/2 matches',
+    );
+    expect(result).toEqual({
+      status: 'retry',
+      resolvedMatches: 0,
+      message: 'Resolved 0/2 matches',
+      details: 'Match match-1: no rank observation between match end and next match start',
     });
   });
   it('completes the matching claim after resolving the entire block', async () => {

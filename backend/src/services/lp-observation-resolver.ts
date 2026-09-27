@@ -13,6 +13,7 @@ export interface LpRankObservationReference {
 export interface LpObservationResolutionOptions {
   rightRankScore?: number | null;
   rightBoundaryAt?: string | null;
+  onDiagnostic?: (message: string) => void;
 }
 export interface ResolvedObservationLpDelta {
   matchId: string;
@@ -55,6 +56,9 @@ export function resolveLpObservationDeltas(
   observations: LpRankObservationReference[],
   options: LpObservationResolutionOptions = {},
 ): ResolvedObservationLpDelta[] {
+  const reportDiagnostic = (message: string): void => {
+    options.onDiagnostic?.(message);
+  };
   if (!Number.isFinite(previousRankScore)) {
     throw new Error(`Invalid previous rank score: ${previousRankScore}`);
   }
@@ -107,18 +111,42 @@ export function resolveLpObservationDeltas(
   for (let index = 0; index < timedMatches.length - 1; index++) {
     const match = timedMatches[index];
     const nextMatch = timedMatches[index + 1];
-    if (nextMatch.startAt === null || match.endAt >= nextMatch.startAt) {
+    if (nextMatch.startAt === null) {
+      reportDiagnostic(`Match ${match.id}: next match start cannot be determined`);
+      break;
+    }
+    if (match.endAt >= nextMatch.startAt) {
+      reportDiagnostic(`Match ${match.id}: match window overlaps next match`);
       break;
     }
     const matchingObservations = timedObservations.filter(
       (observation) =>
         observation.observedAt > match.endAt && observation.observedAt < nextMatch.startAt!,
     );
+    if (matchingObservations.length === 0) {
+      reportDiagnostic(
+        `Match ${match.id}: no rank observation between match end and next match start`,
+      );
+      break;
+    }
     const validObservations = matchingObservations.filter((observation) =>
       isValidDelta(match.result, observation.rankScore - previousScore),
     );
+    if (validObservations.length === 0) {
+      const observedScores = [
+        ...new Set(matchingObservations.map((observation) => observation.rankScore)),
+      ];
+      reportDiagnostic(
+        `Match ${match.id}: no valid ${match.result} LP change from ` +
+          `${previousScore}; observed rank score(s): ${observedScores.join(', ')}`,
+      );
+      break;
+    }
     const scores = new Set(validObservations.map((observation) => observation.rankScore));
     if (scores.size !== 1) {
+      reportDiagnostic(
+        `Match ${match.id}: conflicting valid rank scores: ` + `${[...scores].join(', ')}`,
+      );
       break;
     }
     const rankScoreAfter = [...scores][0];
@@ -149,6 +177,9 @@ export function resolveLpObservationDeltas(
       observation.observedAt > finalMatch.endAt &&
       (rightBoundaryAt === null || observation.observedAt < rightBoundaryAt),
   );
+  if (finalObservations.length === 0) {
+    reportDiagnostic(`Match ${finalMatch.id}: no rank observation after match end`);
+  }
   const validFinalObservations = finalObservations.filter((observation) =>
     isValidDelta(finalMatch.result, observation.rankScore - previousScore),
   );
@@ -156,6 +187,11 @@ export function resolveLpObservationDeltas(
     validFinalObservations.map((observation) => observation.rankScore),
   );
   if (finalObservationScores.size > 1) {
+    reportDiagnostic(
+      `Match ${finalMatch.id}: conflicting valid rank scores after match: ` +
+        `${[...finalObservationScores].join(', ')}`,
+    );
+    reportDiagnostic(`Match ${finalMatch.id}: no usable rank observation or right rank anchor`);
     return resolutions;
   }
   if (finalObservationScores.size === 1) {

@@ -20,6 +20,12 @@ async function processDueJobs(): Promise<void> {
       `[LP RECONCILIATION] Participant ${job.eventParticipantId}: ` +
         `${result.status} | ${result.resolvedMatches} resolved | ${result.message}`,
     );
+    if (result.details) {
+      console.warn(
+        `[LP RECONCILIATION] Participant ${job.eventParticipantId}: ` +
+          `reason | ${result.details}`,
+      );
+    }
   }
 }
 async function workerTick(): Promise<void> {
