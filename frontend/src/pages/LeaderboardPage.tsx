@@ -348,11 +348,13 @@ function PodiumCard({
                                     : 'positive'
                         }`}
                       >
-                        {match.lpDelta === null
-                          ? '— LP'
-                          : match.lpDelta === 0
-                            ? `${match.result === 'LOSE' ? '-' : '+'}0 LP`
-                            : `${match.lpDelta > 0 ? '+' : ''}${match.lpDelta} LP`}
+                        {match.isRemake
+                          ? '0 LP'
+                          : match.lpDelta === null
+                            ? '— LP'
+                            : match.lpDelta === 0
+                              ? `${match.result === 'LOSE' ? '-' : '+'}0 LP`
+                              : `${match.lpDelta > 0 ? '+' : ''}${match.lpDelta} LP`}
                       </span>
                     </div>
                   </div>

@@ -304,16 +304,10 @@ function PlayerOverlay() {
                 <b
                   className={
                     match.isRemake
-                      ? 'remake'
-                      : match.lpDelta === null
-                        ? 'unknown'
-                        : match.lpDelta > 0
-                          ? 'positive'
-                          : match.lpDelta < 0
-                            ? 'negative'
-                            : match.result === 'LOSE'
-                              ? 'negative'
-                              : 'positive'
+                      ? 'match-remake'
+                      : match.result === 'WIN'
+                        ? 'match-win'
+                        : 'match-loss'
                   }
                 >
                   {match.isRemake ? 'R' : match.result === 'WIN' ? 'W' : 'L'}
