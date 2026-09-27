@@ -40,7 +40,10 @@ function formatLpDelta(match: PlayerHistoryMatch): string {
     return '0 LP';
   }
   if (match.lpDelta !== null) {
-    return `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta} LP`;
+    if (match.lpDelta === 0) {
+      return match.result === 'LOSE' ? '-0 LP' : '+0 LP';
+    }
+    return `${match.lpDelta > 0 ? '+' : ''}${match.lpDelta} LP`;
   }
   return match.lpDeltaStatus === 'pending' ? 'Pending' : 'Unknown';
 }
@@ -179,9 +182,13 @@ function MatchHistory({
                     ? 'player-match-lp remake'
                     : match.lpDelta === null
                       ? 'player-match-lp unknown'
-                      : match.lpDelta >= 0
+                      : match.lpDelta > 0
                         ? 'player-match-lp positive'
-                        : 'player-match-lp negative'
+                        : match.lpDelta < 0
+                          ? 'player-match-lp negative'
+                          : match.result === 'LOSE'
+                            ? 'player-match-lp negative'
+                            : 'player-match-lp positive'
                 }
               >
                 {formatLpDelta(match)}
