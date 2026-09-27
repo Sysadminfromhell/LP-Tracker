@@ -104,6 +104,7 @@ const firstPlayer = {
       assists: 11,
       cs: 210,
       result: 'WIN',
+      isRemake: false,
       lpDelta: 24,
       lpDeltaStatus: 'resolved',
     },

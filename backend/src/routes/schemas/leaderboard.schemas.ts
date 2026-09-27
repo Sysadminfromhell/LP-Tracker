@@ -12,6 +12,7 @@ export const leaderboardMatchSchema = {
     'assists',
     'cs',
     'result',
+    'isRemake',
     'lpDelta',
     'lpDeltaStatus',
   ],
@@ -29,6 +30,7 @@ export const leaderboardMatchSchema = {
       type: 'string',
       enum: ['WIN', 'LOSE'],
     },
+    isRemake: { type: 'boolean' },
     lpDelta: {
       type: ['number', 'null'],
     },

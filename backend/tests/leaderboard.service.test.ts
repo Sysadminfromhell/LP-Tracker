@@ -94,6 +94,7 @@ function createMatch(overrides: Partial<DbEventMatch> = {}): DbEventMatch {
     assists: 6,
     cs: 202,
     result: 'WIN',
+    isRemake: false,
     lpDelta: 24,
     lpDeltaStatus: 'resolved',
     discoveredAt: '2026-09-02T19:30:00.000Z',
@@ -215,6 +216,26 @@ describe('leaderboard service', () => {
           lpDeltaStatus: 'resolved',
         },
       ],
+    });
+  });
+  it('exposes inferred remakes in recent matches', async () => {
+    const row = createRow();
+    mocks.getDisplayEvent.mockResolvedValue(event);
+    mocks.getEventLeaderboardPlayers.mockResolvedValue([row]);
+    mocks.getRecentEventMatches.mockResolvedValue([
+      createMatch({
+        result: 'LOSE',
+        isRemake: true,
+        lpDelta: 0,
+      }),
+    ]);
+    await loadLeaderboardFromDatabase();
+    expect(getLeaderboardPlayer(row.playerId)?.recentMatches[0]).toMatchObject({
+      id: 'match-1',
+      result: 'LOSE',
+      isRemake: true,
+      lpDelta: 0,
+      lpDeltaStatus: 'resolved',
     });
   });
   it('subtracts an LP penalty from the player event gain', async () => {

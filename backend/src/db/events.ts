@@ -45,6 +45,7 @@ export interface DbEventMatch {
   assists: number;
   cs: number;
   result: 'WIN' | 'LOSE';
+  isRemake: boolean;
   lpDelta: number | null;
   lpDeltaStatus: 'pending' | 'resolved' | 'unknown';
   discoveredAt: string;
@@ -108,6 +109,7 @@ interface EventMatchRow {
   assists: number;
   cs: number;
   result: 'WIN' | 'LOSE';
+  is_remake: boolean;
   lp_delta: number | null;
   lp_delta_status: 'pending' | 'resolved' | 'unknown';
   discovered_at: Date;
@@ -172,6 +174,7 @@ function mapMatch(row: EventMatchRow): DbEventMatch {
     assists: row.assists,
     cs: row.cs,
     result: row.result,
+    isRemake: row.is_remake,
     lpDelta: row.lp_delta,
     lpDeltaStatus: row.lp_delta_status,
     discoveredAt: row.discovered_at.toISOString(),
@@ -393,6 +396,7 @@ export async function getEventMatches(eventParticipantId: number): Promise<DbEve
         assists,
         cs,
         result,
+        is_remake,
         lp_delta,
         lp_delta_status,
         discovered_at,
@@ -419,7 +423,9 @@ export async function getEventMatchStats(eventParticipantId: number): Promise<Db
           assists,
           result
         FROM event_matches
-        WHERE event_participant_id = $1
+        WHERE
+          event_participant_id = $1
+          AND is_remake = FALSE
       ),
         totals AS (
           SELECT
@@ -514,6 +520,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
         assists,
         cs,
         result,
+        is_remake,
         lp_delta,
         lp_delta_status
       )
@@ -553,6 +560,7 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
         assists,
         cs,
         result,
+        is_remake,
         lp_delta,
         lp_delta_status,
         discovered_at,
@@ -598,6 +606,7 @@ export async function getRecentEventMatches(
         assists,
         cs,
         result,
+        is_remake,
         lp_delta,
         lp_delta_status,
         discovered_at,

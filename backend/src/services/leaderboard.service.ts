@@ -23,6 +23,7 @@ interface ApiEventMatch {
   assists: number;
   cs: number;
   result: 'WIN' | 'LOSE';
+  isRemake: boolean;
   lpDelta: number | null;
   lpDeltaStatus: 'pending' | 'resolved' | 'unknown';
 }
@@ -139,6 +140,7 @@ async function buildLeaderboardPlayer(
     assists: match.assists,
     cs: match.cs,
     result: match.result,
+    isRemake: match.isRemake,
     lpDelta: match.lpDelta,
     lpDeltaStatus: match.lpDeltaStatus,
   }));

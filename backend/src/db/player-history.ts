@@ -44,6 +44,7 @@ export interface DbPlayerHistoryMatch {
   assists: number;
   cs: number;
   result: 'WIN' | 'LOSE';
+  isRemake: boolean;
   lpDelta: number | null;
   lpDeltaStatus: 'pending' | 'resolved' | 'unknown';
   items: string[];
@@ -171,7 +172,9 @@ export async function getPlayerEventHistory(
           COUNT(*) FILTER (WHERE em.result = 'WIN')::TEXT AS wins,
           COUNT(*) FILTER (WHERE em.result = 'LOSE')::TEXT AS losses
         FROM event_matches em
-        WHERE em.event_participant_id = ep.id
+        WHERE 
+          em.event_participant_id = ep.id
+          AND em.is_remake = FALSE
       ) match_stats ON TRUE
       LEFT JOIN LATERAL (
         SELECT
@@ -190,6 +193,7 @@ export async function getPlayerEventHistory(
         FROM event_matches em
         WHERE
           em.event_participant_id = ep.id
+          AND em.is_remake = FALSE
           AND BTRIM(em.position) <> ''
         GROUP BY 1
         ORDER BY
@@ -247,6 +251,7 @@ export async function getPlayerEventMatches(
     assists: number;
     cs: number;
     result: 'WIN' | 'LOSE';
+    is_remake: boolean;
     lp_delta: number | null;
     lp_delta_status: 'pending' | 'resolved' | 'unknown';
     items: string[];
@@ -264,6 +269,7 @@ export async function getPlayerEventMatches(
         em.assists,
         em.cs,
         em.result,
+        em.is_remake,
         em.lp_delta,
         em.lp_delta_status,
         COALESCE(tracked.items, ARRAY[]::TEXT[]) AS items
@@ -295,6 +301,7 @@ export async function getPlayerEventMatches(
     assists: row.assists,
     cs: row.cs,
     result: row.result,
+    isRemake: row.is_remake,
     lpDelta: row.lp_delta,
     lpDeltaStatus: row.lp_delta_status,
     items: row.items,

@@ -50,6 +50,7 @@ export interface LpReconciliationResolution {
   lpDelta: number;
   rankScoreAfter: number;
   observationId?: number;
+  isRemake?: boolean;
 }
 export interface ApplyLpReconciliationRequest {
   eventParticipantId: number;
@@ -775,9 +776,21 @@ export async function applyLpReconciliationResolutions(
           reason: `Invalid LP observation evidence for match ${resolution.providerMatchId}`,
         };
       }
+      if (resolution.isRemake === true && resolution.observationId === undefined) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason:
+            `Remake resolution for match ${resolution.providerMatchId} ` +
+            `requires observation evidence`,
+        };
+      }
       const directionValid =
-        (match.result === 'WIN' && resolution.lpDelta > 0) ||
-        (match.result === 'LOSE' && resolution.lpDelta < 0);
+        (resolution.isRemake === true && resolution.lpDelta === 0) ||
+        (resolution.isRemake !== true && match.result === 'WIN' && resolution.lpDelta > 0) ||
+        (resolution.isRemake !== true && match.result === 'LOSE' && resolution.lpDelta < 0);
       if (!directionValid) {
         await client.query('COMMIT');
         return {
@@ -881,12 +894,13 @@ export async function applyLpReconciliationResolutions(
                 ELSE 'observation'
               END,
               lp_resolution_observation_id = $5,
+              is_remake = $6,
               lp_resolved_at = NOW(),
               lp_delta_status = 'resolved',
               updated_at = NOW()
             WHERE
               id = $1
-              AND event_participant_id = $6
+              AND event_participant_id = $7
               AND lp_delta_status IN (
                 'pending',
                 'unknown'
@@ -909,6 +923,7 @@ export async function applyLpReconciliationResolutions(
           rankScoreBefore,
           resolution.rankScoreAfter,
           observationId,
+          resolution.isRemake === true,
           eventParticipantId,
         ],
       );

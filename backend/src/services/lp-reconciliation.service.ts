@@ -91,6 +91,7 @@ export async function reconcileLpParticipant(
         ...(resolution.observationId !== undefined
           ? { observationId: resolution.observationId }
           : {}),
+        ...(resolution.isRemake === true ? { isRemake: true } : {}),
       })),
     });
     if (!result.applied) {

@@ -12,6 +12,7 @@ export interface LeaderboardMatch {
   assists: number;
   cs: number;
   result: MatchResult;
+  isRemake: boolean;
   lpDelta: number | null;
   lpDeltaStatus: LpDeltaStatus;
 }
