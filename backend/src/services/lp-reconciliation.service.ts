@@ -11,9 +11,6 @@ export interface LpReconciliationRunResult {
   message: string;
   details?: string;
 }
-
-let resolutionDiagnostic: string | undefined;
-
 export function getLpReconciliationRetryDelaySeconds(attemptCount: number): number {
   if (attemptCount <= 1) return 120;
   if (attemptCount === 2) return 300;
@@ -25,6 +22,7 @@ export async function reconcileLpParticipant(
   eventParticipantId: number,
   attemptCount: number,
 ): Promise<LpReconciliationRunResult> {
+  let resolutionDiagnostic: string | undefined;
   const retry = async (
     message: string,
     delaySeconds = getLpReconciliationRetryDelaySeconds(attemptCount),

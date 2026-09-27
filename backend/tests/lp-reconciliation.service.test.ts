@@ -327,4 +327,27 @@ describe('LP reconciliation service', () => {
       message: 'Invalid observation timestamp',
     });
   });
+  it('does not leak resolver diagnostics between reconciliation runs', async () => {
+    mocks.resolveLpObservationDeltas.mockImplementationOnce((...args: unknown[]) => {
+      const options = args[3] as {
+        onDiagnostic?: (message: string) => void;
+      };
+      options.onDiagnostic?.('Match match-1: first diagnostic');
+      return [];
+    });
+    const firstResult = await reconcileLpParticipant(50, 4);
+    expect(firstResult).toEqual({
+      status: 'retry',
+      resolvedMatches: 0,
+      message: 'Resolved 0/2 matches',
+      details: 'Match match-1: first diagnostic',
+    });
+    mocks.resolveLpObservationDeltas.mockReturnValueOnce([]);
+    const secondResult = await reconcileLpParticipant(50, 4);
+    expect(secondResult).toEqual({
+      status: 'retry',
+      resolvedMatches: 0,
+      message: 'Resolved 0/2 matches',
+    });
+  });
 });

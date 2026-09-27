@@ -183,6 +183,15 @@ export function resolveLpObservationDeltas(
   const validFinalObservations = finalObservations.filter((observation) =>
     isValidDelta(finalMatch.result, observation.rankScore - previousScore),
   );
+  if (finalObservations.length > 0 && validFinalObservations.length === 0) {
+    const observedScores = [
+      ...new Set(finalObservations.map((observation) => observation.rankScore)),
+    ];
+    reportDiagnostic(
+      `Match ${finalMatch.id}: no valid ${finalMatch.result} LP change from ` +
+        `${previousScore}; observed rank score(s): ${observedScores.join(', ')}`,
+    );
+  }
   const finalObservationScores = new Set(
     validFinalObservations.map((observation) => observation.rankScore),
   );

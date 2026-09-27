@@ -21,7 +21,7 @@ async function processDueJobs(): Promise<void> {
         `${result.status} | ${result.resolvedMatches} resolved | ${result.message}`,
     );
     if (result.details) {
-      console.warn(
+      console.log(
         `[LP RECONCILIATION] Participant ${job.eventParticipantId}: ` +
           `reason | ${result.details}`,
       );
