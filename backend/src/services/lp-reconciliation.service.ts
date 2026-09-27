@@ -9,6 +9,7 @@ export interface LpReconciliationRunResult {
   status: 'resolved' | 'retry' | 'complete';
   resolvedMatches: number;
   message: string;
+  details?: string;
 }
 export function getLpReconciliationRetryDelaySeconds(attemptCount: number): number {
   if (attemptCount <= 1) return 120;
@@ -21,6 +22,7 @@ export async function reconcileLpParticipant(
   eventParticipantId: number,
   attemptCount: number,
 ): Promise<LpReconciliationRunResult> {
+  let resolutionDiagnostic: string | undefined;
   const retry = async (
     message: string,
     delaySeconds = getLpReconciliationRetryDelaySeconds(attemptCount),
@@ -64,10 +66,17 @@ export async function reconcileLpParticipant(
       {
         rightRankScore: context.rightRankScore,
         rightBoundaryAt: context.rightBoundaryAt,
+        onDiagnostic: (message) => {
+          resolutionDiagnostic ??= message;
+        },
       },
     );
     if (resolutions.length === 0) {
-      return retry(`Resolved 0/${context.unresolvedMatches.length} matches`);
+      const result = await retry(`Resolved 0/${context.unresolvedMatches.length} matches`);
+      return {
+        ...result,
+        ...(resolutionDiagnostic ? { details: resolutionDiagnostic } : {}),
+      };
     }
     const result = await applyLpReconciliationResolutions({
       eventParticipantId,
@@ -87,7 +96,6 @@ export async function reconcileLpParticipant(
     if (!result.applied) {
       if (!result.remainingUnresolved) {
         await completeClaimedLpReconciliation(eventParticipantId, attemptCount);
-
         return {
           status: 'complete',
           resolvedMatches: 0,
