@@ -22,8 +22,8 @@ export interface ResolvedObservationLpDelta {
 }
 interface TimedMatch {
   id: string;
-  createdAt: number;
-  endAt: number | null;
+  startAt: number | null;
+  endAt: number;
   result: 'WIN' | 'LOSE';
 }
 interface TimedObservation {
@@ -68,19 +68,19 @@ export function resolveLpObservationDeltas(
   }
   const timedMatches: TimedMatch[] = matches
     .map((match) => {
-      const createdAt = parseTimestamp(match.createdAt, 'match timestamp');
+      const endAt = parseTimestamp(match.createdAt, 'match timestamp');
       const durationValid =
         match.durationSeconds !== null &&
         Number.isFinite(match.durationSeconds) &&
         match.durationSeconds > 0;
       return {
         id: match.id,
-        createdAt,
-        endAt: durationValid ? createdAt + match.durationSeconds! * 1000 : null,
+        startAt: durationValid ? endAt - match.durationSeconds! * 1000 : null,
+        endAt,
         result: match.result,
       };
     })
-    .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+    .sort((a, b) => a.endAt - b.endAt || a.id.localeCompare(b.id));
   const timedObservations: TimedObservation[] = observations
     .map((observation) => {
       if (!Number.isFinite(observation.rankScore)) {
@@ -107,26 +107,28 @@ export function resolveLpObservationDeltas(
   for (let index = 0; index < timedMatches.length - 1; index++) {
     const match = timedMatches[index];
     const nextMatch = timedMatches[index + 1];
-    if (match.endAt === null || match.endAt >= nextMatch.createdAt) {
+    if (nextMatch.startAt === null || match.endAt >= nextMatch.startAt) {
       break;
     }
     const matchingObservations = timedObservations.filter(
       (observation) =>
-        observation.observedAt > match.endAt! && observation.observedAt < nextMatch.createdAt,
+        observation.observedAt > match.endAt && observation.observedAt < nextMatch.startAt!,
     );
-    const scores = new Set(matchingObservations.map((observation) => observation.rankScore));
+    const validObservations = matchingObservations.filter((observation) =>
+      isValidDelta(match.result, observation.rankScore - previousScore),
+    );
+    const scores = new Set(validObservations.map((observation) => observation.rankScore));
     if (scores.size !== 1) {
       break;
     }
     const rankScoreAfter = [...scores][0];
-    const evidenceObservation = matchingObservations[0];
-    if (rankScoreAfter === previousScore) {
+    const evidenceObservation = validObservations.find(
+      (observation) => observation.rankScore === rankScoreAfter,
+    );
+    if (!evidenceObservation) {
       break;
     }
     const lpDelta = rankScoreAfter - previousScore;
-    if (!isValidDelta(match.result, lpDelta)) {
-      break;
-    }
     resolutions.push({
       matchId: match.id,
       lpDelta,
@@ -139,30 +141,32 @@ export function resolveLpObservationDeltas(
     return resolutions;
   }
   const finalMatch = timedMatches.at(-1);
-  if (!finalMatch || finalMatch.endAt === null) {
+  if (!finalMatch) {
     return resolutions;
   }
   const finalObservations = timedObservations.filter(
     (observation) =>
-      observation.observedAt > finalMatch.endAt! &&
+      observation.observedAt > finalMatch.endAt &&
       (rightBoundaryAt === null || observation.observedAt < rightBoundaryAt),
   );
+  const validFinalObservations = finalObservations.filter((observation) =>
+    isValidDelta(finalMatch.result, observation.rankScore - previousScore),
+  );
   const finalObservationScores = new Set(
-    finalObservations.map((observation) => observation.rankScore),
+    validFinalObservations.map((observation) => observation.rankScore),
   );
   if (finalObservationScores.size > 1) {
     return resolutions;
   }
   if (finalObservationScores.size === 1) {
     const rankScoreAfter = [...finalObservationScores][0];
-    const evidenceObservation = finalObservations[0];
-    if (rankScoreAfter === previousScore) {
+    const evidenceObservation = validFinalObservations.find(
+      (observation) => observation.rankScore === rankScoreAfter,
+    );
+    if (!evidenceObservation) {
       return resolutions;
     }
     const lpDelta = rankScoreAfter - previousScore;
-    if (!isValidDelta(finalMatch.result, lpDelta)) {
-      return resolutions;
-    }
     resolutions.push({
       matchId: finalMatch.id,
       lpDelta,
