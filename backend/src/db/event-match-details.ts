@@ -63,6 +63,10 @@ export async function replaceEventMatchDetails(
       `Match ${match.id} must contain exactly one tracked player, ` + `found ${trackedPlayerCount}`,
     );
   }
+  const trackedPlayer = participants.find((participant) => participant.isTrackedPlayer);
+  if (!trackedPlayer) {
+    throw new Error(`Match ${match.id} does not contain the tracked player`);
+  }
   await client.query(
     `
       INSERT INTO event_match_details (
@@ -144,6 +148,31 @@ export async function replaceEventMatchDetails(
         ${values.join(',\n')}
     `,
     params,
+  );
+  await client.query(
+    `
+    UPDATE event_matches
+    SET
+      champion_id = $2,
+      champion = $3,
+      position = $4,
+      kills = $5,
+      deaths = $6,
+      assists = $7,
+      cs = $8,
+      updated_at = NOW()
+    WHERE id = $1
+  `,
+    [
+      eventMatchId,
+      trackedPlayer.championId,
+      trackedPlayer.champion,
+      trackedPlayer.position,
+      trackedPlayer.kills,
+      trackedPlayer.deaths,
+      trackedPlayer.assists,
+      trackedPlayer.cs,
+    ],
   );
 }
 export async function pruneEventMatchDetails(
