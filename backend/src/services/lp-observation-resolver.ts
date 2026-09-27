@@ -4,11 +4,12 @@ export interface LpObservationMatchReference {
   durationSeconds: number | null;
   result: 'WIN' | 'LOSE';
 }
-
+export type LpRankObservationSource = 'profile_refresh' | 'provider_history';
 export interface LpRankObservationReference {
   id?: number;
   rankScore: number;
   observedAt: string;
+  source?: LpRankObservationSource;
 }
 export interface LpObservationResolutionOptions {
   rightRankScore?: number | null;
@@ -21,6 +22,7 @@ export interface ResolvedObservationLpDelta {
   rankScoreAfter: number;
   observationId?: number;
   isRemake?: boolean;
+  isProtectedZeroLpLoss?: boolean;
 }
 interface TimedMatch {
   id: string;
@@ -33,6 +35,7 @@ interface TimedObservation {
   id: number | null;
   rankScore: number;
   observedAt: number;
+  source: LpRankObservationSource | null;
 }
 
 const REMAKE_MAX_DURATION_SECONDS = 300;
@@ -52,6 +55,43 @@ function isValidDelta(result: 'WIN' | 'LOSE', delta: number): boolean {
   }
 
   return delta < 0;
+}
+function isTierFourZeroLpBoundary(rankScore: number): boolean {
+  return rankScore >= 0 && rankScore <= 2400 && rankScore % 400 === 0;
+}
+function findProtectedZeroLpLossEvidence(
+  match: TimedMatch,
+  previousScore: number,
+  observations: TimedObservation[],
+): TimedObservation | null {
+  if (
+    match.result !== 'LOSE' ||
+    match.durationSeconds === null ||
+    match.durationSeconds <= REMAKE_MAX_DURATION_SECONDS ||
+    !isTierFourZeroLpBoundary(previousScore)
+  ) {
+    return null;
+  }
+  const observedScores = new Set(observations.map((observation) => observation.rankScore));
+  if (observedScores.size !== 1 || !observedScores.has(previousScore)) {
+    return null;
+  }
+  const providerHistory = observations.find(
+    (observation) =>
+      observation.rankScore === previousScore &&
+      observation.source === 'provider_history' &&
+      observation.id !== null,
+  );
+  const profileRefresh = observations.find(
+    (observation) =>
+      observation.rankScore === previousScore &&
+      observation.source === 'profile_refresh' &&
+      observation.id !== null,
+  );
+  if (!providerHistory || !profileRefresh) {
+    return null;
+  }
+  return providerHistory;
 }
 
 export function resolveLpObservationDeltas(
@@ -105,6 +145,7 @@ export function resolveLpObservationDeltas(
         id: observation.id ?? null,
         rankScore: observation.rankScore,
         observedAt: parseTimestamp(observation.observedAt, 'observation timestamp'),
+        source: observation.source ?? null,
       };
     })
     .sort((a, b) => a.observedAt - b.observedAt);
@@ -157,6 +198,21 @@ export function resolveLpObservationDeltas(
           rankScoreAfter: previousScore,
           ...(evidenceObservation.id !== null ? { observationId: evidenceObservation.id } : {}),
           isRemake: true,
+        });
+        continue;
+      }
+      const protectedZeroLpEvidence = findProtectedZeroLpLossEvidence(
+        match,
+        previousScore,
+        matchingObservations,
+      );
+      if (protectedZeroLpEvidence) {
+        resolutions.push({
+          matchId: match.id,
+          lpDelta: 0,
+          rankScoreAfter: previousScore,
+          observationId: protectedZeroLpEvidence.id!,
+          isProtectedZeroLpLoss: true,
         });
         continue;
       }
@@ -227,6 +283,21 @@ export function resolveLpObservationDeltas(
         rankScoreAfter: previousScore,
         ...(evidenceObservation.id !== null ? { observationId: evidenceObservation.id } : {}),
         isRemake: true,
+      });
+      return resolutions;
+    }
+    const protectedZeroLpEvidence = findProtectedZeroLpLossEvidence(
+      finalMatch,
+      previousScore,
+      finalObservations,
+    );
+    if (protectedZeroLpEvidence) {
+      resolutions.push({
+        matchId: finalMatch.id,
+        lpDelta: 0,
+        rankScoreAfter: previousScore,
+        observationId: protectedZeroLpEvidence.id!,
+        isProtectedZeroLpLoss: true,
       });
       return resolutions;
     }

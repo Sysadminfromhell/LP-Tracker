@@ -636,4 +636,109 @@ describe('LP reconciliation apply', () => {
       reason: 'Remake resolution for match match-1 requires observation evidence',
     });
   });
+  it('accepts an observed zero-LP loss at a tier floor', async () => {
+    mockApplyScenario({
+      participant: {
+        start_rank_score: 400,
+        end_rank_score: null,
+        event_status: 'active',
+        event_ends_at: null,
+      },
+      matches: [
+        unresolvedMatch({
+          result: 'LOSE',
+          is_sync_anchor: true,
+        }),
+      ],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 400,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 400,
+          observationId: 11745,
+          isProtectedZeroLpLoss: true,
+        },
+      ],
+    });
+    expect(result.applied).toBe(true);
+    expect(result.resolvedMatches).toBe(1);
+  });
+  it('rejects a protected zero-LP loss away from a tier floor', async () => {
+    mockApplyScenario({
+      participant: {
+        start_rank_score: 450,
+        end_rank_score: null,
+        event_status: 'active',
+        event_ends_at: null,
+      },
+      matches: [
+        unresolvedMatch({
+          result: 'LOSE',
+          is_sync_anchor: true,
+        }),
+      ],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 450,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 450,
+          observationId: 11745,
+          isProtectedZeroLpLoss: true,
+        },
+      ],
+    });
+    expect(result.applied).toBe(false);
+    expect(result.reason).toContain('LP direction does not match result');
+  });
+  it('rejects a protected zero-LP loss without observation evidence', async () => {
+    mockApplyScenario({
+      participant: {
+        start_rank_score: 400,
+        end_rank_score: null,
+        event_status: 'active',
+        event_ends_at: null,
+      },
+      matches: [
+        unresolvedMatch({
+          result: 'LOSE',
+          is_sync_anchor: true,
+        }),
+      ],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 400,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 400,
+          isProtectedZeroLpLoss: true,
+        },
+      ],
+    });
+    expect(result).toEqual({
+      applied: false,
+      resolvedMatches: 0,
+      remainingUnresolved: true,
+      reason: 'Protected zero-LP loss resolution for match match-1 requires observation evidence',
+    });
+  });
 });

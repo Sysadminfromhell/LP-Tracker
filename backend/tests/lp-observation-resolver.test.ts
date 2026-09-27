@@ -367,4 +367,69 @@ describe('resolveLpObservationDeltas', () => {
     });
     expect(result[0]).not.toHaveProperty('isRemake');
   });
+  it('resolves a protected zero-LP loss at a tier floor from independent observations', () => {
+    const result = resolveLpObservationDeltas(
+      400,
+      [match('warwick-match', '2026-09-25T20:11:28.000Z', 1961, 'LOSE')],
+      [
+        {
+          id: 11745,
+          rankScore: 400,
+          observedAt: '2026-09-25T20:13:37.000Z',
+          source: 'provider_history',
+        },
+        {
+          id: 11739,
+          rankScore: 400,
+          observedAt: '2026-09-25T20:13:43.204Z',
+          source: 'profile_refresh',
+        },
+      ],
+    );
+    expect(result).toEqual([
+      {
+        matchId: 'warwick-match',
+        lpDelta: 0,
+        rankScoreAfter: 400,
+        observationId: 11745,
+        isProtectedZeroLpLoss: true,
+      },
+    ]);
+  });
+  it('does not resolve a zero-LP loss at a tier floor from only one observation source', () => {
+    const result = resolveLpObservationDeltas(
+      400,
+      [match('match-1', '2026-09-25T20:11:28.000Z', 1961, 'LOSE')],
+      [
+        {
+          id: 11745,
+          rankScore: 400,
+          observedAt: '2026-09-25T20:13:37.000Z',
+          source: 'provider_history',
+        },
+      ],
+    );
+    expect(result).toEqual([]);
+  });
+  it('does not resolve an unchanged normal loss away from a tier floor', () => {
+    const result = resolveLpObservationDeltas(
+      450,
+      [match('match-1', '2026-09-25T20:11:28.000Z', 1961, 'LOSE')],
+      [
+        {
+          id: 11745,
+          rankScore: 450,
+          observedAt: '2026-09-25T20:13:37.000Z',
+          source: 'provider_history',
+        },
+        {
+          id: 11739,
+          rankScore: 450,
+          observedAt: '2026-09-25T20:13:43.204Z',
+          source: 'profile_refresh',
+        },
+      ],
+    );
+    expect(result).toEqual([]);
+  });
 });
