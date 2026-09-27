@@ -562,6 +562,10 @@ h1 {
 .match-loss {
   color: #ed7182;
 }
+.match-remake,
+.remake {
+  color: #aeb6c9;
+}
 .match-position {
   color: #747a90;
   font-size: 9px;
@@ -3134,6 +3138,9 @@ a.social-link.twitch:hover {
 }
 .player-details-match-loss {
   border-left-color: rgba(223, 113, 128, 0.7);
+}
+.player-details-match-remake {
+  border-left-color: rgba(174, 182, 201, 0.7);
 }
 .player-details-match-win:hover {
   background: linear-gradient(

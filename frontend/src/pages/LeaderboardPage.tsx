@@ -317,12 +317,14 @@ function PodiumCard({
                       <div className="podium-match-header">
                         <span
                           className={
-                            match.result === 'WIN'
-                              ? 'match-result match-win'
-                              : 'match-result match-loss'
+                            match.isRemake
+                              ? 'match-result match-remake'
+                              : match.result === 'WIN'
+                                ? 'match-result match-win'
+                                : 'match-result match-loss'
                           }
                         >
-                          {match.result === 'WIN' ? 'W' : 'L'}
+                          {match.isRemake ? 'R' : match.result === 'WIN' ? 'W' : 'L'}
                         </span>
                         <span className="podium-match-position">
                           {formatPosition(match.position)}
@@ -333,11 +335,13 @@ function PodiumCard({
                       </strong>
                       <span
                         className={`match-lp ${
-                          match.lpDelta === null
-                            ? 'unknown'
-                            : match.lpDelta >= 0
-                              ? 'positive'
-                              : 'negative'
+                          match.isRemake
+                            ? 'remake'
+                            : match.lpDelta === null
+                              ? 'unknown'
+                              : match.lpDelta >= 0
+                                ? 'positive'
+                                : 'negative'
                         }`}
                       >
                         {match.lpDelta === null
@@ -1161,12 +1165,14 @@ function LeaderboardPage() {
                               </div>
                               <span
                                 className={
-                                  match.result === 'WIN'
-                                    ? 'match-result match-win'
-                                    : 'match-result match-loss'
+                                  match.isRemake
+                                    ? 'match-result match-remake'
+                                    : match.result === 'WIN'
+                                      ? 'match-result match-win'
+                                      : 'match-result match-loss'
                                 }
                               >
-                                {match.result === 'WIN' ? 'W' : 'L'}
+                                {match.isRemake ? 'R' : match.result === 'WIN' ? 'W' : 'L'}
                               </span>
                               <span className="match-position">
                                 {formatPosition(match.position)}
@@ -1176,16 +1182,20 @@ function LeaderboardPage() {
                               </span>
                               <span
                                 className={`match-lp ${
-                                  match.lpDelta === null
-                                    ? 'unknown'
-                                    : match.lpDelta >= 0
-                                      ? 'positive'
-                                      : 'negative'
+                                  match.isRemake
+                                    ? 'remake'
+                                    : match.lpDelta === null
+                                      ? 'unknown'
+                                      : match.lpDelta >= 0
+                                        ? 'positive'
+                                        : 'negative'
                                 }`}
                               >
-                                {match.lpDelta === null
-                                  ? '— LP'
-                                  : `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta} LP`}
+                                {match.isRemake
+                                  ? '0 LP'
+                                  : match.lpDelta === null
+                                    ? '— LP'
+                                    : `${match.lpDelta >= 0 ? '+' : ''}${match.lpDelta} LP`}
                               </span>
                             </div>
                           );
