@@ -15,6 +15,7 @@ export interface LpRankObservation {
   eventParticipantId: number;
   rankScore: number;
   observedAt: string;
+  source: 'profile_refresh' | 'provider_history';
 }
 export interface LpProviderHistoryObservation {
   rankScore: number;
@@ -48,6 +49,7 @@ export interface LpReconciliationResolution {
   providerMatchId: string;
   lpDelta: number;
   rankScoreAfter: number;
+  observationId?: number;
 }
 export interface ApplyLpReconciliationRequest {
   eventParticipantId: number;
@@ -88,6 +90,7 @@ interface LpRankObservationRow {
   event_participant_id: string;
   rank_score: number;
   observed_at: Date;
+  source: 'profile_refresh' | 'provider_history';
 }
 interface LpReconciliationQueueRow {
   event_participant_id: string;
@@ -757,7 +760,19 @@ export async function applyLpReconciliationResolutions(
           applied: false,
           resolvedMatches: 0,
           remainingUnresolved: true,
-          reason: `Invalid LP resolution for match ` + `${resolution.providerMatchId}`,
+          reason: `Invalid LP resolution for match ${resolution.providerMatchId}`,
+        };
+      }
+      if (
+        resolution.observationId !== undefined &&
+        (!Number.isInteger(resolution.observationId) || resolution.observationId <= 0)
+      ) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason: `Invalid LP observation evidence for match ${resolution.providerMatchId}`,
         };
       }
       const directionValid =
@@ -795,14 +810,14 @@ export async function applyLpReconciliationResolutions(
       actualRightRankScore = rightBoundary.rank_score_after - rightBoundary.lp_delta;
       actualRightBoundaryAt = rightBoundary.game_created_at.toISOString();
     }
-    if (resolvesEntireBlock) {
+    if (resolvesEntireBlock && rightBoundary !== null) {
       if (expectedRightRankScore === null || expectedRightBoundaryAt === null) {
         await client.query('COMMIT');
         return {
           applied: false,
           resolvedMatches: 0,
           remainingUnresolved: true,
-          reason: 'Complete unresolved block requires a stable ' + 'right rank anchor',
+          reason: 'Complete unresolved block requires a stable right rank anchor',
         };
       }
       if (
@@ -830,28 +845,72 @@ export async function applyLpReconciliationResolutions(
         };
       }
     }
+    for (let index = 0; index < resolutions.length; index++) {
+      const resolution = resolutions[index];
+
+      if (resolution.observationId !== undefined) {
+        continue;
+      }
+      const usesRightBoundary =
+        resolvesEntireBlock && rightBoundary !== null && index === resolutions.length - 1;
+      if (!usesRightBoundary) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason: `LP resolution for match ${resolution.providerMatchId} has no evidence`,
+        };
+      }
+    }
     for (let index = 0; index < targetMatches.length; index++) {
       const match = targetMatches[index];
       const resolution = resolutions[index];
+      const observationId = resolution.observationId ?? null;
+      const rankScoreBefore = resolution.rankScoreAfter - resolution.lpDelta;
+
       const updateResult = await client.query(
         `
-          UPDATE event_matches
-
-          SET
-            lp_delta = $2,
-            rank_score_after = $3,
-            lp_delta_status = 'resolved',
-            updated_at = NOW()
-
-          WHERE
-            id = $1
-            AND event_participant_id = $4
-            AND lp_delta_status IN (
-              'pending',
-              'unknown'
-            )
-        `,
-        [match.id, resolution.lpDelta, resolution.rankScoreAfter, eventParticipantId],
+            UPDATE event_matches
+            SET
+              lp_delta = $2,
+              rank_score_before = $3,
+              rank_score_after = $4,
+              lp_resolution_method = CASE
+                WHEN $5::BIGINT IS NULL THEN 'right_boundary'
+                ELSE 'observation'
+              END,
+              lp_resolution_observation_id = $5,
+              lp_resolved_at = NOW(),
+              lp_delta_status = 'resolved',
+              updated_at = NOW()
+            WHERE
+              id = $1
+              AND event_participant_id = $6
+              AND lp_delta_status IN (
+                'pending',
+                'unknown'
+              )
+              AND (
+                $5::BIGINT IS NULL
+                OR EXISTS (
+                  SELECT 1
+                  FROM lp_rank_observations observation
+                  WHERE
+                    observation.id = $5
+                    AND observation.event_participant_id = $6
+                    AND observation.rank_score = $4
+                )
+              )
+          `,
+        [
+          match.id,
+          resolution.lpDelta,
+          rankScoreBefore,
+          resolution.rankScoreAfter,
+          observationId,
+          eventParticipantId,
+        ],
       );
       if (updateResult.rowCount !== 1) {
         throw new Error(`Could not apply LP reconciliation for match ` + `${match.id}`);
@@ -1034,7 +1093,8 @@ export async function getLpRankObservations(
         id,
         event_participant_id,
         rank_score,
-        observed_at
+        observed_at,
+        source
       FROM lp_rank_observations
       WHERE event_participant_id = $1
       ORDER BY observed_at ASC, id ASC
@@ -1046,5 +1106,6 @@ export async function getLpRankObservations(
     eventParticipantId: Number(row.event_participant_id),
     rankScore: row.rank_score,
     observedAt: row.observed_at.toISOString(),
+    source: row.source,
   }));
 }

@@ -203,4 +203,58 @@ describe('resolveLpObservationDeltas', () => {
     });
     expect(result).toEqual([]);
   });
+  it('resolves the latest match from a later rank observation', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN')],
+      [observation('2026-09-10T10:35:00.000Z', 2218)],
+    );
+    expect(result).toEqual([
+      {
+        matchId: 'match-1',
+        lpDelta: 18,
+        rankScoreAfter: 2218,
+      },
+    ]);
+  });
+  it('keeps the latest match unresolved when later observations conflict', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN')],
+      [
+        observation('2026-09-10T10:35:00.000Z', 2218),
+        observation('2026-09-10T10:40:00.000Z', 2225),
+      ],
+    );
+    expect(result).toEqual([]);
+  });
+  it('returns the observation used to resolve the latest match', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN')],
+      [
+        {
+          id: 471,
+          rankScore: 2218,
+          observedAt: '2026-09-10T10:35:00.000Z',
+        },
+      ],
+    );
+    expect(result).toEqual([
+      {
+        matchId: 'match-1',
+        lpDelta: 18,
+        rankScoreAfter: 2218,
+        observationId: 471,
+      },
+    ]);
+  });
+  it('keeps the latest match unresolved when the observed delta contradicts the result', () => {
+    const result = resolveLpObservationDeltas(
+      2200,
+      [match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN')],
+      [observation('2026-09-10T10:35:00.000Z', 2182)],
+    );
+    expect(result).toEqual([]);
+  });
 });

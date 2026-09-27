@@ -6,6 +6,7 @@ export interface LpObservationMatchReference {
 }
 
 export interface LpRankObservationReference {
+  id?: number;
   rankScore: number;
   observedAt: string;
 }
@@ -17,6 +18,7 @@ export interface ResolvedObservationLpDelta {
   matchId: string;
   lpDelta: number;
   rankScoreAfter: number;
+  observationId?: number;
 }
 interface TimedMatch {
   id: string;
@@ -25,6 +27,7 @@ interface TimedMatch {
   result: 'WIN' | 'LOSE';
 }
 interface TimedObservation {
+  id: number | null;
   rankScore: number;
   observedAt: number;
 }
@@ -83,8 +86,14 @@ export function resolveLpObservationDeltas(
       if (!Number.isFinite(observation.rankScore)) {
         throw new Error(`Invalid observation rank score: ${observation.rankScore}`);
       }
-
+      if (
+        observation.id !== undefined &&
+        (!Number.isInteger(observation.id) || observation.id <= 0)
+      ) {
+        throw new Error(`Invalid observation id: ${observation.id}`);
+      }
       return {
+        id: observation.id ?? null,
         rankScore: observation.rankScore,
         observedAt: parseTimestamp(observation.observedAt, 'observation timestamp'),
       };
@@ -101,18 +110,16 @@ export function resolveLpObservationDeltas(
     if (match.endAt === null || match.endAt >= nextMatch.createdAt) {
       break;
     }
-    const scores = new Set(
-      timedObservations
-        .filter(
-          (observation) =>
-            observation.observedAt > match.endAt! && observation.observedAt < nextMatch.createdAt,
-        )
-        .map((observation) => observation.rankScore),
+    const matchingObservations = timedObservations.filter(
+      (observation) =>
+        observation.observedAt > match.endAt! && observation.observedAt < nextMatch.createdAt,
     );
+    const scores = new Set(matchingObservations.map((observation) => observation.rankScore));
     if (scores.size !== 1) {
       break;
     }
     const rankScoreAfter = [...scores][0];
+    const evidenceObservation = matchingObservations[0];
     if (rankScoreAfter === previousScore) {
       break;
     }
@@ -124,18 +131,47 @@ export function resolveLpObservationDeltas(
       matchId: match.id,
       lpDelta,
       rankScoreAfter,
+      ...(evidenceObservation.id !== null ? { observationId: evidenceObservation.id } : {}),
     });
     previousScore = rankScoreAfter;
   }
-  if (
-    resolutions.length !== timedMatches.length - 1 ||
-    rightRankScore === null ||
-    rightBoundaryAt === null
-  ) {
+  if (resolutions.length !== timedMatches.length - 1) {
     return resolutions;
   }
   const finalMatch = timedMatches.at(-1);
-  if (!finalMatch || finalMatch.endAt === null || finalMatch.endAt >= rightBoundaryAt) {
+  if (!finalMatch || finalMatch.endAt === null) {
+    return resolutions;
+  }
+  const finalObservations = timedObservations.filter(
+    (observation) =>
+      observation.observedAt > finalMatch.endAt! &&
+      (rightBoundaryAt === null || observation.observedAt < rightBoundaryAt),
+  );
+  const finalObservationScores = new Set(
+    finalObservations.map((observation) => observation.rankScore),
+  );
+  if (finalObservationScores.size > 1) {
+    return resolutions;
+  }
+  if (finalObservationScores.size === 1) {
+    const rankScoreAfter = [...finalObservationScores][0];
+    const evidenceObservation = finalObservations[0];
+    if (rankScoreAfter === previousScore) {
+      return resolutions;
+    }
+    const lpDelta = rankScoreAfter - previousScore;
+    if (!isValidDelta(finalMatch.result, lpDelta)) {
+      return resolutions;
+    }
+    resolutions.push({
+      matchId: finalMatch.id,
+      lpDelta,
+      rankScoreAfter,
+      ...(evidenceObservation.id !== null ? { observationId: evidenceObservation.id } : {}),
+    });
+    return resolutions;
+  }
+  if (rightRankScore === null || rightBoundaryAt === null || finalMatch.endAt >= rightBoundaryAt) {
     return resolutions;
   }
   const lpDelta = rightRankScore - previousScore;

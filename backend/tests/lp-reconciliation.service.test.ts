@@ -155,8 +155,9 @@ describe('LP reconciliation service', () => {
       ],
       [
         {
-          rankScore: 2254,
+          id: 1,
           observedAt: '2026-09-08T18:40:00.000Z',
+          rankScore: 2254,
         },
       ],
       {

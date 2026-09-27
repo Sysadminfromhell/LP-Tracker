@@ -57,6 +57,7 @@ export async function reconcileLpParticipant(
         result: match.result,
       })),
       context.rankObservations.map((observation) => ({
+        id: observation.id,
         rankScore: observation.rankScore,
         observedAt: observation.observedAt,
       })),
@@ -78,6 +79,9 @@ export async function reconcileLpParticipant(
         providerMatchId: resolution.matchId,
         lpDelta: resolution.lpDelta,
         rankScoreAfter: resolution.rankScoreAfter,
+        ...(resolution.observationId !== undefined
+          ? { observationId: resolution.observationId }
+          : {}),
       })),
     });
     if (!result.applied) {
