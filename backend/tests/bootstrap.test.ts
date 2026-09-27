@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   deleteAllAdminSessions: vi.fn(),
   loadLeaderboardFromDatabase: vi.fn(),
   getLeaderboardMeta: vi.fn(),
+  bootstrapDatabase: vi.fn(),
 }));
 
 vi.mock('../src/db/client', () => ({
@@ -25,11 +26,18 @@ vi.mock('../src/services/leaderboard.service', () => ({
   loadLeaderboardFromDatabase: mocks.loadLeaderboardFromDatabase,
   getLeaderboardMeta: mocks.getLeaderboardMeta,
 }));
+vi.mock('../src/db/bootstrap', () => ({
+  bootstrapDatabase: mocks.bootstrapDatabase,
+}));
 
 import { bootstrapApplication } from '../src/runtime/bootstrap';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.bootstrapDatabase.mockResolvedValue({
+    databaseCreated: true,
+    userCreated: false,
+  });
   mocks.testDatabaseConnection.mockResolvedValue(undefined);
   mocks.runMigrations.mockResolvedValue(undefined);
   mocks.ensureInitialAdmin.mockResolvedValue(undefined);
@@ -47,8 +55,44 @@ beforeEach(() => {
 });
 
 describe('application bootstrap', () => {
+  it('does not bootstrap for non-missing-database connection errors', async () => {
+    const authenticationError = Object.assign(
+      new Error('password authentication failed for user "lp_tracker"'),
+      {
+        code: '28P01',
+      },
+    );
+    mocks.testDatabaseConnection.mockRejectedValueOnce(authenticationError);
+    await expect(bootstrapApplication()).rejects.toThrow(
+      'password authentication failed for user "lp_tracker"',
+    );
+    expect(mocks.bootstrapDatabase).not.toHaveBeenCalled();
+    expect(mocks.runMigrations).not.toHaveBeenCalled();
+    expect(mocks.ensureInitialAdmin).not.toHaveBeenCalled();
+    expect(mocks.deleteAllAdminSessions).not.toHaveBeenCalled();
+    expect(mocks.loadLeaderboardFromDatabase).not.toHaveBeenCalled();
+  });
+  it('bootstraps a missing application database before running migrations', async () => {
+    const missingDatabaseError = Object.assign(new Error('database "lp_tracker" does not exist'), {
+      code: '3D000',
+    });
+    mocks.testDatabaseConnection
+      .mockRejectedValueOnce(missingDatabaseError)
+      .mockResolvedValueOnce(undefined);
+    await bootstrapApplication();
+    expect(mocks.bootstrapDatabase).toHaveBeenCalledTimes(1);
+    expect(mocks.testDatabaseConnection).toHaveBeenCalledTimes(2);
+    expect(mocks.runMigrations).toHaveBeenCalledTimes(1);
+    expect(mocks.bootstrapDatabase.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.testDatabaseConnection.mock.invocationCallOrder[1],
+    );
+    expect(mocks.testDatabaseConnection.mock.invocationCallOrder[1]).toBeLessThan(
+      mocks.runMigrations.mock.invocationCallOrder[0],
+    );
+  });
   it('initializes the application in the required order', async () => {
     await bootstrapApplication();
+    expect(mocks.bootstrapDatabase).not.toHaveBeenCalled();
     expect(mocks.testDatabaseConnection).toHaveBeenCalledTimes(1);
     expect(mocks.runMigrations).toHaveBeenCalledTimes(1);
     expect(mocks.ensureInitialAdmin).toHaveBeenCalledTimes(1);

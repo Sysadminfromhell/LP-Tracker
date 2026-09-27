@@ -166,7 +166,7 @@ describe('LP reconciliation apply', () => {
       applied: false,
       resolvedMatches: 0,
       remainingUnresolved: true,
-      reason: 'Right rank anchor changed during reconciliation',
+      reason: 'LP resolution for match match-1 has no evidence',
     });
     expect(
       mocks.clientQuery.mock.calls.some(([sql]) => String(sql).includes('UPDATE event_matches')),
@@ -191,6 +191,7 @@ describe('LP reconciliation apply', () => {
           providerMatchId: 'match-1',
           lpDelta: 20,
           rankScoreAfter: 1520,
+          observationId: 471,
         },
       ],
     });
@@ -277,6 +278,7 @@ describe('LP reconciliation apply', () => {
           providerMatchId: 'match-1',
           lpDelta: 20,
           rankScoreAfter: 1520,
+          observationId: 471,
         },
       ],
     });
@@ -289,7 +291,7 @@ describe('LP reconciliation apply', () => {
     const matchUpdate = mocks.clientQuery.mock.calls.find(([sql]) =>
       String(sql).includes('UPDATE event_matches'),
     );
-    expect(matchUpdate?.[1]).toEqual(['101', 20, 1520, 50]);
+    expect(matchUpdate?.[1]).toEqual(['101', 20, 1500, 1520, 471, 50]);
     const participantUpdate = mocks.clientQuery.mock.calls.find(([sql]) =>
       String(sql).includes('UPDATE event_participants'),
     );
@@ -356,6 +358,7 @@ describe('LP reconciliation apply', () => {
           providerMatchId: 'match-1',
           lpDelta: 20,
           rankScoreAfter: 1520,
+          observationId: 471,
         },
       ],
     });
@@ -459,11 +462,83 @@ describe('LP reconciliation apply', () => {
             providerMatchId: 'match-1',
             lpDelta: 20,
             rankScoreAfter: 1520,
+            observationId: 471,
           },
         ],
       }),
     ).rejects.toThrow('Could not apply LP reconciliation for match 101');
     expect(mocks.clientQuery).toHaveBeenCalledWith('ROLLBACK');
     expect(mocks.release).toHaveBeenCalledTimes(1);
+  });
+  it('applies a complete latest match when backed by rank observation evidence', async () => {
+    mockApplyScenario({
+      matches: [
+        unresolvedMatch({
+          is_sync_anchor: true,
+        }),
+      ],
+      remainingUnresolved: false,
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 1500,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 20,
+          rankScoreAfter: 1520,
+          observationId: 471,
+        },
+      ],
+    });
+    expect(result).toEqual({
+      applied: true,
+      resolvedMatches: 1,
+      remainingUnresolved: false,
+      reason: null,
+    });
+  });
+  it.each([
+    {
+      label: 'LP delta',
+      lpDelta: 20.5,
+      rankScoreAfter: 1520,
+    },
+    {
+      label: 'rank score',
+      lpDelta: 20,
+      rankScoreAfter: 1520.5,
+    },
+  ])('rejects a non-integer $label before writing matches', async ({ lpDelta, rankScoreAfter }) => {
+    mockApplyScenario({
+      matches: [unresolvedMatch()],
+    });
+    const result = await applyLpReconciliationResolutions({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 1500,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta,
+          rankScoreAfter,
+          observationId: 471,
+        },
+      ],
+    });
+    expect(result).toEqual({
+      applied: false,
+      resolvedMatches: 0,
+      remainingUnresolved: true,
+      reason: 'Invalid LP resolution for match match-1',
+    });
+    expect(
+      mocks.clientQuery.mock.calls.some(([sql]) => String(sql).includes('UPDATE event_matches')),
+    ).toBe(false);
   });
 });
