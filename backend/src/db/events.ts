@@ -520,7 +520,6 @@ export async function createEventMatch(input: CreateEventMatchInput): Promise<Db
         assists,
         cs,
         result,
-        is_remake,
         lp_delta,
         lp_delta_status
       )

@@ -912,7 +912,7 @@ export async function applyLpReconciliationResolutions(
                   FROM lp_rank_observations observation
                   WHERE
                     observation.id = $5
-                    AND observation.event_participant_id = $6
+                    AND observation.event_participant_id = $7
                     AND observation.rank_score = $4
                 )
               )
