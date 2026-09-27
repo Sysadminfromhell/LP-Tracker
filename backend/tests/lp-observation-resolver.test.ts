@@ -51,7 +51,7 @@ describe('resolveLpObservationDeltas', () => {
         match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN'),
         match('match-2', '2026-09-10T10:40:00.000Z', 1800, 'LOSE'),
       ],
-      [observation('2026-09-10T10:35:00.000Z', 2220)],
+      [observation('2026-09-10T10:05:00.000Z', 2220)],
       {
         rightRankScore: 2205,
         rightBoundaryAt: '2026-09-10T11:30:00.000Z',
@@ -78,8 +78,8 @@ describe('resolveLpObservationDeltas', () => {
         match('match-2', '2026-09-10T10:50:00.000Z', 1800, 'LOSE'),
       ],
       [
-        observation('2026-09-10T10:35:00.000Z', 2220),
-        observation('2026-09-10T10:40:00.000Z', 2220),
+        observation('2026-09-10T10:05:00.000Z', 2220),
+        observation('2026-09-10T10:10:00.000Z', 2220),
       ],
       {
         rightRankScore: 2205,
@@ -101,8 +101,8 @@ describe('resolveLpObservationDeltas', () => {
         match('match-2', '2026-09-10T10:50:00.000Z', 1800, 'LOSE'),
       ],
       [
-        observation('2026-09-10T10:35:00.000Z', 2220),
-        observation('2026-09-10T10:40:00.000Z', 2230),
+        observation('2026-09-10T10:05:00.000Z', 2220),
+        observation('2026-09-10T10:10:00.000Z', 2230),
       ],
       {
         rightRankScore: 2205,
@@ -118,7 +118,7 @@ describe('resolveLpObservationDeltas', () => {
         match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN'),
         match('match-2', '2026-09-10T10:50:00.000Z', 1800, 'LOSE'),
       ],
-      [observation('2026-09-10T10:35:00.000Z', 2200)],
+      [observation('2026-09-10T10:05:00.000Z', 2200)],
       {
         rightRankScore: 2205,
         rightBoundaryAt: '2026-09-10T11:30:00.000Z',
@@ -133,7 +133,7 @@ describe('resolveLpObservationDeltas', () => {
         match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN'),
         match('match-2', '2026-09-10T10:40:00.000Z', 1800, 'LOSE'),
       ],
-      [observation('2026-09-10T10:50:00.000Z', 2220)],
+      [observation('2026-09-10T10:20:00.000Z', 2220)],
       {
         rightRankScore: 2205,
         rightBoundaryAt: '2026-09-10T11:30:00.000Z',
@@ -153,14 +153,14 @@ describe('resolveLpObservationDeltas', () => {
     );
     expect(result).toEqual([]);
   });
-  it('does not resolve through a match with unknown duration', () => {
+  it('does not resolve when the next match start cannot be determined', () => {
     const result = resolveLpObservationDeltas(
       2200,
       [
-        match('match-1', '2026-09-10T10:00:00.000Z', null, 'WIN'),
-        match('match-2', '2026-09-10T10:50:00.000Z', 1800, 'LOSE'),
+        match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN'),
+        match('match-2', '2026-09-10T10:50:00.000Z', null, 'LOSE'),
       ],
-      [observation('2026-09-10T10:35:00.000Z', 2220)],
+      [observation('2026-09-10T10:05:00.000Z', 2220)],
       {
         rightRankScore: 2205,
         rightBoundaryAt: '2026-09-10T11:30:00.000Z',
@@ -175,7 +175,7 @@ describe('resolveLpObservationDeltas', () => {
         match('match-1', '2026-09-10T10:00:00.000Z', 1800, 'WIN'),
         match('match-2', '2026-09-10T10:50:00.000Z', 1800, 'LOSE'),
       ],
-      [observation('2026-09-10T10:35:00.000Z', 2220)],
+      [observation('2026-09-10T10:05:00.000Z', 2220)],
       {
         rightRankScore: 2205,
       },
@@ -256,5 +256,50 @@ describe('resolveLpObservationDeltas', () => {
       [observation('2026-09-10T10:35:00.000Z', 2182)],
     );
     expect(result).toEqual([]);
+  });
+  it('resolves OP.GG end timestamps while ignoring stale unchanged observations', () => {
+    const result = resolveLpObservationDeltas(
+      563,
+      [
+        match('match-1', '2026-09-24T18:16:17.000Z', 2089, 'WIN'),
+        match('match-2', '2026-09-24T19:04:17.000Z', 2584, 'LOSE'),
+      ],
+      [
+        {
+          id: 5619,
+          rankScore: 581,
+          observedAt: '2026-09-24T18:18:27.000Z',
+        },
+        {
+          id: 5615,
+          rankScore: 563,
+          observedAt: '2026-09-24T18:18:33.632Z',
+        },
+        {
+          id: 5620,
+          rankScore: 581,
+          observedAt: '2026-09-24T18:19:40.321Z',
+        },
+        {
+          id: 5807,
+          rankScore: 559,
+          observedAt: '2026-09-24T19:08:38.817Z',
+        },
+      ],
+    );
+    expect(result).toEqual([
+      {
+        matchId: 'match-1',
+        lpDelta: 18,
+        rankScoreAfter: 581,
+        observationId: 5619,
+      },
+      {
+        matchId: 'match-2',
+        lpDelta: -22,
+        rankScoreAfter: 559,
+        observationId: 5807,
+      },
+    ]);
   });
 });
