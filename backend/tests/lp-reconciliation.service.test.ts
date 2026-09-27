@@ -42,6 +42,7 @@ const baseContext = {
       eventParticipantId: 50,
       rankScore: 2254,
       observedAt: '2026-09-08T18:40:00.000Z',
+      source: 'provider_history' as const,
     },
   ],
   unresolvedMatches: [
@@ -158,6 +159,7 @@ describe('LP reconciliation service', () => {
           id: 1,
           observedAt: '2026-09-08T18:40:00.000Z',
           rankScore: 2254,
+          source: 'provider_history',
         },
       ],
       expect.objectContaining({
@@ -380,6 +382,56 @@ describe('LP reconciliation service', () => {
           rankScoreAfter: 2235,
           observationId: 471,
           isRemake: true,
+        },
+      ],
+    });
+  });
+  it('passes protected zero-LP loss resolutions to the apply layer', async () => {
+    mocks.resolveLpObservationDeltas.mockReturnValue([
+      {
+        matchId: 'match-1',
+        lpDelta: 0,
+        rankScoreAfter: 400,
+        observationId: 11745,
+        isProtectedZeroLpLoss: true,
+      },
+    ]);
+    mocks.getLpReconciliationContext.mockResolvedValue({
+      ...baseContext,
+      leftRankScore: 400,
+      unresolvedMatches: [
+        {
+          id: 101,
+          providerMatchId: 'match-1',
+          gameCreatedAt: '2026-09-25T20:11:28.000Z',
+          durationSeconds: 1961,
+          result: 'LOSE' as const,
+          lpDeltaStatus: 'pending' as const,
+        },
+      ],
+      rightRankScore: null,
+      rightBoundaryAt: null,
+    });
+    mocks.applyLpReconciliationResolutions.mockResolvedValue({
+      applied: true,
+      resolvedMatches: 1,
+      remainingUnresolved: false,
+      reason: null,
+    });
+    await reconcileLpParticipant(50, 4);
+    expect(mocks.applyLpReconciliationResolutions).toHaveBeenCalledWith({
+      eventParticipantId: 50,
+      attemptCount: 4,
+      expectedLeftRankScore: 400,
+      expectedRightRankScore: null,
+      expectedRightBoundaryAt: null,
+      resolutions: [
+        {
+          providerMatchId: 'match-1',
+          lpDelta: 0,
+          rankScoreAfter: 400,
+          observationId: 11745,
+          isProtectedZeroLpLoss: true,
         },
       ],
     });

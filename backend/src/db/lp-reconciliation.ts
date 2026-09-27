@@ -51,6 +51,7 @@ export interface LpReconciliationResolution {
   rankScoreAfter: number;
   observationId?: number;
   isRemake?: boolean;
+  isProtectedZeroLpLoss?: boolean;
 }
 export interface ApplyLpReconciliationRequest {
   eventParticipantId: number;
@@ -142,6 +143,10 @@ function mapQueueItem(row: LpReconciliationQueueRow): LpReconciliationQueueItem 
     updatedAt: row.updated_at.toISOString(),
   };
 }
+function isTierFourZeroLpBoundary(rankScore: number): boolean {
+  return rankScore >= 0 && rankScore <= 2400 && rankScore % 400 === 0;
+}
+
 export async function enqueueLpReconciliation(eventParticipantId: number): Promise<void> {
   await db.query(
     `
@@ -787,10 +792,37 @@ export async function applyLpReconciliationResolutions(
             `requires observation evidence`,
         };
       }
+      const rankScoreBefore = resolution.rankScoreAfter - resolution.lpDelta;
+      const protectedZeroLpLossValid =
+        resolution.isProtectedZeroLpLoss === true &&
+        resolution.isRemake !== true &&
+        match.result === 'LOSE' &&
+        resolution.lpDelta === 0 &&
+        resolution.rankScoreAfter === rankScoreBefore &&
+        isTierFourZeroLpBoundary(rankScoreBefore) &&
+        resolution.observationId !== undefined;
       const directionValid =
         (resolution.isRemake === true && resolution.lpDelta === 0) ||
-        (resolution.isRemake !== true && match.result === 'WIN' && resolution.lpDelta > 0) ||
-        (resolution.isRemake !== true && match.result === 'LOSE' && resolution.lpDelta < 0);
+        protectedZeroLpLossValid ||
+        (resolution.isRemake !== true &&
+          resolution.isProtectedZeroLpLoss !== true &&
+          match.result === 'WIN' &&
+          resolution.lpDelta > 0) ||
+        (resolution.isRemake !== true &&
+          resolution.isProtectedZeroLpLoss !== true &&
+          match.result === 'LOSE' &&
+          resolution.lpDelta < 0);
+      if (resolution.isProtectedZeroLpLoss === true && resolution.observationId === undefined) {
+        await client.query('COMMIT');
+        return {
+          applied: false,
+          resolvedMatches: 0,
+          remainingUnresolved: true,
+          reason:
+            `Protected zero-LP loss resolution for match ` +
+            `${resolution.providerMatchId} requires observation evidence`,
+        };
+      }
       if (!directionValid) {
         await client.query('COMMIT');
         return {

@@ -62,6 +62,7 @@ export async function reconcileLpParticipant(
         id: observation.id,
         rankScore: observation.rankScore,
         observedAt: observation.observedAt,
+        source: observation.source,
       })),
       {
         rightRankScore: context.rightRankScore,
@@ -92,6 +93,7 @@ export async function reconcileLpParticipant(
           ? { observationId: resolution.observationId }
           : {}),
         ...(resolution.isRemake === true ? { isRemake: true } : {}),
+        ...(resolution.isProtectedZeroLpLoss === true ? { isProtectedZeroLpLoss: true } : {}),
       })),
     });
     if (!result.applied) {
