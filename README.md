@@ -620,8 +620,8 @@ Before updating a production deployment:
 Pull the current images:
 
 ```bash
-docker pull safhdev/lp-tracker:lptracker-backend
-docker pull safhdev/lp-tracker:lptracker-frontend
+docker pull safhdev/lp-tracker:backend
+docker pull safhdev/lp-tracker:frontend
 ```
 
 Redeploy the services using your Docker Compose, Docker Swarm, Portainer or other container orchestration configuration.
