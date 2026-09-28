@@ -1,7 +1,11 @@
 when:
   - event: pull_request
   - event: push
-    branch: main
+    branch:
+     include:
+        - main
+        - staging
+        - release/*
   - event: manual
 
 steps:
