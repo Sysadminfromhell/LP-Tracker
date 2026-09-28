@@ -36,7 +36,7 @@ steps:
         - linux/amd64
       tags:
         - lptracker-backend-next
-        - lptracker-backend-next-${CI_COMMIT_SHA:0:8}
+        - lptracker-backend-next-${CI_COMMIT_SHA:0:8}-${CI_PIPELINE_NUMBER}
       pull_image: true
       provenance: mode=max
       sbom: true
@@ -47,7 +47,7 @@ steps:
       labels:
         - org.opencontainers.image.source=${CI_REPO_URL}
         - org.opencontainers.image.revision=${CI_COMMIT_SHA}
-        - org.opencontainers.image.version=staging-${CI_PIPELINE_NUMBER}
+        - org.opencontainers.image.version=next-${CI_PIPELINE_NUMBER}
     when:
       - event: daily
         branch: staging
