@@ -4,6 +4,8 @@ WORKDIR /app/backend
 
 COPY contracts ../contracts
 COPY backend/package.json backend/package-lock.json ./
+RUN apk upgrade --no-cache \
+    && rm -rf /var/cache/apk/* /var/lib/cache/* /var/lib/log/* /var/log/*
 RUN npm ci
 
 COPY backend/tsconfig.json backend/tsconfig.build.json ./
@@ -22,6 +24,8 @@ ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 COPY contracts ../contracts
 COPY backend/package.json backend/package-lock.json ./
+RUN apk upgrade --no-cache \
+    && rm -rf /var/cache/apk/* /var/lib/cache/* /var/lib/log/* /var/log/*
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/backend/dist ./dist
