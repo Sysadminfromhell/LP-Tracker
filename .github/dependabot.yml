@@ -6,6 +6,7 @@ updates:
   # package.json / package-lock.json are located in /backend
   # ============================================================
   - package-ecosystem: 'npm'
+    target-branch: 'staging'
     directory: '/backend'
 
     schedule:
@@ -32,6 +33,7 @@ updates:
   # package.json / package-lock.json are located in /frontend
   # ============================================================
   - package-ecosystem: 'npm'
+    target-branch: 'staging'
     directory: '/frontend'
 
     schedule:
@@ -58,6 +60,7 @@ updates:
   # Dockerfiles located in repository root
   # ============================================================
   - package-ecosystem: 'docker'
+    target-branch: 'staging'
     directory: '/'
 
     schedule:
@@ -76,6 +79,7 @@ updates:
   # .github/workflows/*
   # ============================================================
   - package-ecosystem: 'github-actions'
+    target-branch: 'staging'
     directory: '/'
 
     schedule:
