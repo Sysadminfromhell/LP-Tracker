@@ -13,5 +13,5 @@ This file describes the next Roadmap milestones and feature sets currently plann
 | ~~v2.4.1~~ | ~~Add CLI/Diagnostic Tools~~ | Yes (09/22/2026) |
 | ~~v2.4.2~~ | ~~Add "Dangerzone" in Admin Page for advanced Database manipulation and pruning~~ | Yes (09/23/2026) |
 | ~~v2.5.0~~ | ~~Add serveral Privacy Policy Pages and subpages to comply with German/EU Data protection rights~~ | Yes (09/24/2026) |
-| v2.6.0 | Add manual LP correction and audit log | No |
-| v2.7.0 | Add Prometheus metrics and performance monitoring | No |
+| ~~v2.5.2~~ | ~~Minor bugfixes; Handling Remakes and LP Loss protected matches~~ | Yes (09/28/2026) |
+| v2.6.0 | Add Prometheus metrics and performance monitoring | No |
