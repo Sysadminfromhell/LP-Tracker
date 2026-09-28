@@ -49,8 +49,9 @@ steps:
         - org.opencontainers.image.revision=${CI_COMMIT_SHA}
         - org.opencontainers.image.version=next-${CI_PIPELINE_NUMBER}
     when:
-      - event: daily
+      - event: cron
         branch: staging
+        cron: Daily
 
   - name: docker-build-staging
     image: woodpeckerci/plugin-docker-buildx:latest
@@ -186,3 +187,4 @@ steps:
         - org.opencontainers.image.version=${CI_COMMIT_TAG##v}
     when:
       - event: tag
+        ref: refs/tags/v*

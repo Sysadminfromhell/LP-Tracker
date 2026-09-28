@@ -2,11 +2,16 @@ when:
   - event: pull_request
   - event: push
     branch:
-     include:
+      include:
         - main
         - staging
         - release/*
   - event: manual
+    branch:
+      include:
+        - main
+        - staging
+        - release/*
 
 steps:
   - name: frontend-checks
