@@ -35,8 +35,8 @@ steps:
       platforms:
         - linux/amd64
       tags:
-        - lptracker-backend-next
-        - lptracker-backend-next-${CI_COMMIT_SHA:0:8}-${CI_PIPELINE_NUMBER}
+        - backend-next
+        - backend-next-${CI_COMMIT_SHA:0:8}-${CI_PIPELINE_NUMBER}
       pull_image: true
       provenance: mode=max
       sbom: true
@@ -70,8 +70,8 @@ steps:
       platforms:
         - linux/amd64
       tags:
-        - lptracker-backend-staging
-        - lptracker-backend-staging-${CI_COMMIT_SHA:0:8}
+        - backend-staging
+        - backend-staging-${CI_COMMIT_SHA:0:8}
       pull_image: true
       provenance: mode=max
       sbom: true
@@ -104,8 +104,8 @@ steps:
       platforms:
         - linux/amd64
       tags:
-        - lptracker-backend-${CI_COMMIT_BRANCH##release/}-rc
-        - lptracker-backend-${CI_COMMIT_BRANCH##release/}-rc-${CI_COMMIT_SHA:0:8}
+        - backend-${CI_COMMIT_BRANCH##release/}-rc
+        - backend-${CI_COMMIT_BRANCH##release/}-rc-${CI_COMMIT_SHA:0:8}
       pull_image: true
       provenance: mode=max
       sbom: true
@@ -138,8 +138,8 @@ steps:
       platforms:
         - linux/amd64
       tags:
-        - lptracker-backend-main
-        - lptracker-backend-main-${CI_COMMIT_SHA:0:8}
+        - backend-main
+        - backend-main-${CI_COMMIT_SHA:0:8}
       pull_image: true
       provenance: mode=max
       sbom: true
@@ -172,8 +172,8 @@ steps:
       platforms:
         - linux/amd64
       tags:
-        - lptracker-backend
-        - lptracker-backend-${CI_COMMIT_TAG##v}
+        - backend
+        - backend-${CI_COMMIT_TAG##v}
       pull_image: true
       provenance: mode=max
       sbom: true
