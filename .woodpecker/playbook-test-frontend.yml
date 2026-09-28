@@ -1,14 +1,23 @@
 when:
   - event: pull_request
   - event: push
-    branch: main
+    branch:
+      include:
+        - main
+        - staging
+        - release/*
   - event: manual
+    branch:
+      include:
+        - main
+        - staging
+        - release/*
 
 steps:
   - name: frontend-checks
     image: node:26-alpine
     commands:
       - npm ci --prefix frontend
+      - npm --prefix frontend run lint
       - npm --prefix frontend run test
       - npm --prefix frontend run build
-      - npm --prefix frontend run lint
