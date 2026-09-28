@@ -9,8 +9,6 @@ RUN apk upgrade --no-cache \
 RUN npm ci
 
 COPY frontend ./
-RUN apk upgrade --no-cache \
-    && rm -rf /var/cache/apk/* /var/lib/cache/* /var/lib/log/* /var/log/*
 RUN npm run build
 
 FROM nginx:1.31-alpine AS runtime
