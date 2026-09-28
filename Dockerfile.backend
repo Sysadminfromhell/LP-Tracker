@@ -4,10 +4,7 @@ WORKDIR /app/backend
 
 COPY contracts ../contracts
 COPY backend/package.json backend/package-lock.json ./
-RUN apk update \
-    && apk upgrade \
-    && apk add --repository http://dl-3.alpinelinux.org/alpine/edge/testing corosync \
-    && apk add openssh-server supervisor \
+RUN apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* /var/lib/cache/* /var/lib/log/* /var/log/*
 RUN npm ci
 
@@ -27,10 +24,7 @@ ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 COPY contracts ../contracts
 COPY backend/package.json backend/package-lock.json ./
-RUN apk update \
-    && apk upgrade \
-    && apk add --repository http://dl-3.alpinelinux.org/alpine/edge/testing corosync \
-    && apk add openssh-server supervisor \
+RUN apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* /var/lib/cache/* /var/lib/log/* /var/log/*
 RUN npm ci --omit=dev && npm cache clean --force
 
