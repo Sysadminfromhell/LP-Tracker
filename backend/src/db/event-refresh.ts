@@ -2,6 +2,9 @@ import type { PoolClient } from 'pg';
 import { db } from './client';
 import { syncRecentEventMatchDetails } from './event-match-details';
 import type { SummonerMatch } from '../providers/league-data.types';
+import { log } from '../utils/logging';
+
+let caller = 'EVENT';
 
 interface ParticipantState {
   id: string;
@@ -78,11 +81,9 @@ export async function updateEventAfterPlayerRefresh(
       `,
       [eventParticipantId],
     );
-
     if (participantResult.rows.length === 0) {
       throw new Error(`Event participant ${eventParticipantId} not found`);
     }
-
     const eventStart = new Date(eventStartsAt).getTime();
     const eventEnd = eventEndsAt === null ? null : new Date(eventEndsAt).getTime();
     const rankedMatches = recentMatches
@@ -212,10 +213,8 @@ export async function updateEventAfterPlayerRefresh(
       await syncRecentEventMatchDetails(client, eventParticipantId, recentMatches);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(
-        `[EVENT] Participant ${eventParticipantId}: ` +
-          `could not sync rich match details: ${message}`,
-      );
+      log(caller, 'warn', `Participant ${eventParticipantId}: `);
+      log(caller, 'warn', `could not sync rich match details: ${message}`);
     }
     return refreshResult;
   } catch (error) {

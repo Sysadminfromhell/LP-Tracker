@@ -1,19 +1,22 @@
 import { closeDatabase } from './client';
 import { ensureInitialAdmin } from './admins';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN';
 
 async function main(): Promise<void> {
   const admin = await ensureInitialAdmin();
   if (admin) {
-    console.log(`[ADMIN] Bootstrap complete: "${admin.username}"`);
+    log(caller, 'info', `Bootstrap complete: "${admin.username}"`);
   } else {
-    console.log('[ADMIN] Bootstrap not required');
+    log(caller, 'info', `Bootstrap not required`);
   }
 }
 main()
   .catch((error) => {
-    console.error();
-    console.error('[ADMIN] Bootstrap failed:');
-    console.error(error instanceof Error ? error.message : error);
+    log(caller,'error','');
+    log(caller,'error','Bootstrap failed:');
+    log(caller,'error',error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
   .finally(async () => {

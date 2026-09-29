@@ -27,6 +27,7 @@ import {
   recordLpProviderHistoryObservations,
   recordLpRankObservation,
 } from '../db/lp-reconciliation';
+import { log } from '../utils/logging';
 
 interface RefreshPlayerOptions {
   updateLeaderboard?: boolean;
@@ -44,7 +45,7 @@ export async function refreshPlayer(
   const startedAt = Date.now();
   const updateLeaderboard = options.updateLeaderboard ?? true;
   const requireCompleteMatchSync = options.requireCompleteMatchSync ?? false;
-  console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine}`);
+  log('PLAYER REFRESH', 'info', `${player.gameName}#${player.tagLine}`);
   recordPlayerRefreshAttempt();
   try {
     await markPlayerFetchAttempt(player.id);
@@ -95,9 +96,10 @@ export async function refreshPlayer(
           const observedAt = new Date(entry.createdAt);
           const observedAtMs = observedAt.getTime();
           if (!Number.isFinite(observedAtMs)) {
-            console.warn(
-              `[LP HISTORY] ${player.gameName}#${player.tagLine}: ` +
-                `ignoring provider history entry with invalid timestamp: ${entry.createdAt}`,
+            log(
+              'LP HISTORY',
+              'warn',
+              `${player.gameName}#${player.tagLine}: ignoring provider history entry with invalid timestamp: ${entry.createdAt}`,
             );
             return [];
           }
@@ -117,10 +119,10 @@ export async function refreshPlayer(
             return [{ rankScore: historyRankScore, observedAt }];
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.warn(
-              `[LP HISTORY] ${player.gameName}#${player.tagLine}: ` +
-                `ignoring invalid provider history entry ` +
-                `(${entry.tier} ${entry.division ?? ''} ${entry.lp} LP): ${message}`,
+            log(
+              'LP HISTORY',
+              'warn',
+              `${player.gameName}#${player.tagLine}: ignoring invalid provider history entry `,
             );
             return [];
           }
@@ -138,9 +140,10 @@ export async function refreshPlayer(
           provider.maxRecentMatches,
         );
         if (matchSync.requestedLimit > 5) {
-          console.log(
-            `[MATCH SYNC] ${player.gameName}#${player.tagLine}: ` +
-              `backfill expanded to ${matchSync.requestedLimit} matches`,
+          log(
+            'MATCH SYNC',
+            'info',
+            `${player.gameName}#${player.tagLine}: backfill expanded to ${matchSync.requestedLimit} matches`,
           );
         }
         if (!matchSync.anchorReached) {
@@ -150,8 +153,10 @@ export async function refreshPlayer(
           if (requireCompleteMatchSync) {
             throw new Error(message);
           }
-          console.warn(
-            `[MATCH SYNC] ${player.gameName}#${player.tagLine}: ` +
+          log(
+            'MATCH SYNC',
+            'warn',
+            `${player.gameName}#${player.tagLine}: ` +
               `${message}; storing discovered matches as pending`,
           );
         }
@@ -173,8 +178,10 @@ export async function refreshPlayer(
         );
         refreshedEventId = event.id;
         if (matchResult.newMatches > 0) {
-          console.log(
-            `[EVENT] ${player.gameName}#${player.tagLine}: ` + `${matchResult.newMatches} new`,
+          log(
+            'EVENT',
+            'info',
+            `${player.gameName}#${player.tagLine}: ` + `${matchResult.newMatches} new`,
           );
         }
       }
@@ -188,8 +195,10 @@ export async function refreshPlayer(
     }
     const cached = updateLeaderboard ? getLeaderboardPlayer(player.id) : null;
     if (cached) {
-      console.log(
-        `[PLAYER REFRESH] ${player.gameName}#${player.tagLine}: ` +
+      log(
+        'PLAYER REFRESH',
+        'info',
+        `${player.gameName}#${player.tagLine}: ` +
           `${cached.current.tier} ` +
           `${cached.current.division ?? ''} ` +
           `${cached.current.lp} LP | ` +
@@ -198,7 +207,7 @@ export async function refreshPlayer(
           `${cached.record.wins}W/${cached.record.losses}L ✓`,
       );
     } else {
-      console.log(`[PLAYER REFRESH] ${player.gameName}#${player.tagLine} updated ✓`);
+      log('PLAYER REFRESH', 'info', `${player.gameName}#${player.tagLine} successfully updated`);
     }
     const completedAt = Date.now();
     recordPlayerRefreshDuration((completedAt - startedAt) / 1000);
@@ -209,9 +218,9 @@ export async function refreshPlayer(
     const message = error instanceof Error ? error.message : String(error);
     recordPlayerRefreshDuration((Date.now() - startedAt) / 1000);
     recordPlayerRefreshFailure();
-    console.error(`[REFRESH] ${player.gameName}#${player.tagLine} failed: ${message}`);
+    log('PLAYER REFRESH', 'error', `${player.gameName}#${player.tagLine} failed: ${message}`);
     await savePlayerCacheError(player.id, message).catch((dbError) => {
-      console.error('[DB] Could not persist player refresh error:', dbError);
+      log('DB', 'error', `Could not persist player refresh error:', ${dbError}`);
     });
     setLeaderboardPlayerError(player.id, message);
     return false;

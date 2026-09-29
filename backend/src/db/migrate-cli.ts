@@ -1,5 +1,8 @@
 import { closeDatabase, testDatabaseConnection } from './client';
 import { runMigrations } from './migrations';
+import { log } from '../utils/logging';
+
+let caller = 'DB';
 
 async function main(): Promise<void> {
   await testDatabaseConnection();
@@ -8,13 +11,12 @@ async function main(): Promise<void> {
 
 main()
   .then(() => {
-    console.log('[DB] Migration complete ✓');
+    log(caller, 'info', `Migration complete`);
   })
   .catch((error) => {
-    console.error();
-    console.error('[DB] Migration failed:');
-    console.error(error instanceof Error ? error.message : error);
-
+    log(caller, 'error', ``);
+    log(caller, 'error', `Migration failed:`);
+    log(caller, 'error', error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
   .finally(async () => {

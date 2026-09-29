@@ -2,6 +2,9 @@ import 'dotenv/config';
 import { OpggClient } from './opgg/client';
 import { RiotClient } from './riot/client';
 import type { LeagueDataProvider } from './league-data.provider';
+import { log } from '../utils/logging';
+
+let srv="PROVIDER-FACTORY";
 
 const DEFAULT_PROVIDER = 'opgg';
 
@@ -15,13 +18,12 @@ export function createLeagueDataProvider(
 ): LeagueDataProvider {
   const providerName = (process.env.LEAGUE_DATA_PROVIDER ?? DEFAULT_PROVIDER).trim().toLowerCase();
   const caller = options.caller ?? 'runtime';
-  const logger = options.logger ?? console.log;
   switch (providerName) {
     case 'opgg':
-      logger(`[PROVIDER-FACTORY] [${caller}] Selected OP.GG provider`);
+      log(srv,'info',`[${caller}] Selected OP.GG provider`);
       return new OpggClient();
     case 'riot':
-      logger(`[PROVIDER-FACTORY] [${caller}] Selected Riot API provider`);
+      log(srv,'info',`[${caller}] Selected Riot API provider`);
       return new RiotClient();
     default:
       throw new Error(

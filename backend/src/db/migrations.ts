@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { db } from './client';
+import { log } from '../utils/logging';
+
+let caller = 'DB';
 
 interface AppliedMigration {
   name: string;
@@ -30,29 +33,23 @@ async function getAppliedMigrations(): Promise<Set<string>> {
 }
 
 export async function runMigrations(): Promise<void> {
-  console.log('[DB] Checking migrations...');
-
+  log(caller, 'info', `Checking migrations...`);
   if (!fs.existsSync(MIGRATIONS_DIR)) {
     throw new Error(`Migration directory does not exist: ${MIGRATIONS_DIR}`);
   }
-
   await ensureMigrationTable();
-
   const applied = await getAppliedMigrations();
-
   const migrationFiles = fs
     .readdirSync(MIGRATIONS_DIR)
     .filter((file) => file.endsWith('.sql'))
     .sort();
-
   let appliedCount = 0;
-
   for (const file of migrationFiles) {
     if (applied.has(file)) {
-      console.log(`[DB] ${file} already applied ✓`);
+      log(caller, 'info', `${file} already applied`);
       continue;
     }
-    console.log(`[DB] Applying ${file}...`);
+    log(caller, 'info', `Applying ${file}...`);
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
     const client = await db.connect();
     try {
@@ -67,10 +64,9 @@ export async function runMigrations(): Promise<void> {
                 `,
         [file],
       );
-
       await client.query('COMMIT');
       appliedCount++;
-      console.log(`[DB] ${file} applied ✓`);
+      log(caller, 'info', `${file} successfully applied`);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -80,8 +76,12 @@ export async function runMigrations(): Promise<void> {
   }
 
   if (appliedCount === 0) {
-    console.log('[DB] Schema up to date ✓');
+    log(caller, 'info', `Schema up to date`);
   } else {
-    console.log(`[DB] Applied ${appliedCount} migration(s) ✓`);
+    if (appliedCount == 1) {
+      log(caller, 'info', `Applied ${appliedCount} migration`);
+    } else {
+      log(caller, 'info', `Applied ${appliedCount} migrations`);
+    }
   }
 }

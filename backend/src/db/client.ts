@@ -1,13 +1,14 @@
 import 'dotenv/config';
 import { Pool } from 'pg';
+import { log } from '../utils/logging';
+
+let caller = 'DB';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-
   if (!value) {
     throw new Error(`Missing environment variable: ${name}`);
   }
-
   return value;
 }
 
@@ -29,12 +30,11 @@ export const db = new Pool({
 });
 
 db.on('error', (error) => {
-  console.error('[DB] Unexpected pool error:', error);
+  log(caller,'error', `Unexpected pool error: ${error}`);
 });
 
 export async function testDatabaseConnection(): Promise<void> {
   const client = await db.connect();
-
   try {
     const result = await client.query<{
       current_database: string;
@@ -46,15 +46,12 @@ export async function testDatabaseConnection(): Promise<void> {
                     current_user
                 `,
     );
-
     const row = result.rows[0];
-
-    console.log(`[DB] Connected as "${row.current_user}" to "${row.current_database}" ✓`);
+    log(caller,'info',`Connected as "${row.current_user}" to "${row.current_database}"`);
   } finally {
     client.release();
   }
 }
-
 export async function closeDatabase(): Promise<void> {
   await db.end();
 }

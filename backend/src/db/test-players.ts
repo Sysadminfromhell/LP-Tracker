@@ -1,8 +1,11 @@
 import { closeDatabase } from './client';
 import { createPlayer, getPlayers } from './players';
+import { log } from '../utils/logging';
+
+let caller = 'CACHE';
 
 async function main(): Promise<void> {
-  console.log('[DB] Creating test player...');
+  log(caller,'info',`Creating test player...`);
   const player = await createPlayer({
     gameName: 'FourK',
     tagLine: '1337',
@@ -10,14 +13,15 @@ async function main(): Promise<void> {
     twitchUsername: null,
     twitterUsername: null,
   });
-
-  console.log(`[DB] Player ready: ${player.gameName}#${player.tagLine} (${player.region})`);
-  console.log(`[DB] Player ID: ${player.id}`);
+  log(caller, 'info', `Player ready: ${player.gameName}#${player.tagLine} (${player.region})`);
+  log(caller, 'info', `Player ID: ${player.id}`);
   const players = await getPlayers();
-  console.log();
-  console.log(`[DB] Players in database: ${players.length}`);
+  log(caller, 'info', ``);
+  log(caller, 'info', `Players in database: ${players.length}`);
   for (const current of players) {
-    console.log(
+    log(
+      caller,
+      'info',
       ` - ${current.id}: ${current.gameName}#${current.tagLine} | ${current.region} | enabled=${current.enabled}`,
     );
   }
@@ -25,9 +29,9 @@ async function main(): Promise<void> {
 }
 
 main().catch(async (error) => {
-  console.error();
-  console.error('[DB] Player test failed:');
-  console.error(error);
+  log(caller, 'error', ``);
+  log(caller, 'error', `Player test failed:`);
+  log(caller, 'error', error);
   await closeDatabase().catch(() => {});
   process.exit(1);
 });

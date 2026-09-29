@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import type { AdminDatabaseDeletePlayerResponse } from '@lp-tracker/contracts';
 import { db } from './client';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN DATABASE';
 
 type DatabasePool = Pick<Pool, 'connect'>;
 
@@ -79,7 +82,7 @@ export async function deleteAdminDatabasePlayer(
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('[ADMIN DATABASE] Player delete rollback failed:', rollbackError);
+      log(caller, 'error', 'Player delete rollback failed:' + rollbackError);
     }
     throw error;
   } finally {

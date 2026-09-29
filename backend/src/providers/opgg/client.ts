@@ -2,6 +2,9 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { parseGameDetailParticipants, parseRecentMatches, parseSummonerProfile } from './parser';
 import type { SummonerMatch, SummonerProfile } from '../league-data.types';
 import type { LeagueDataProvider } from '../league-data.provider';
+import { log } from '../../utils/logging';
+
+let caller = 'OP.GG';
 
 const MCP_URL = 'https://mcp-api.op.gg/mcp';
 const MAX_MATCH_DETAIL_CACHE_SIZE = 500;
@@ -117,7 +120,7 @@ export class OpggClient implements LeagueDataProvider {
           });
           const detailTextBlock = detailResult.content.find((block) => block.type === 'text');
           if (!detailTextBlock || detailTextBlock.type !== 'text') {
-            console.warn(`[OP.GG] Match ${match.id}: ` + 'game detail did not contain text');
+            log(caller, 'warn', `Match ${match.id}: game detail did not contain text`);
             return;
           }
           const participants = parseGameDetailParticipants(detailTextBlock.text, gameName, tagLine);
@@ -125,15 +128,17 @@ export class OpggClient implements LeagueDataProvider {
           this.cacheMatchDetails(cacheKey, participants);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          console.warn(`[OP.GG] Match ${match.id}: ` + `could not load rich details: ${message}`);
+          log(caller, 'warn', `${match.id}: ` + `could not load rich details: ${message}`);
         }
       }),
     );
-    console.log(`[OP.GG] ${gameName}#${tagLine}: ` + `${recentMatches.length} match(es) | `);
+    log(caller, 'info', `${gameName}#${tagLine}: ` + `${recentMatches.length} match(es) | `);
     for (const match of recentMatches) {
       const matchDate = new Date(match.createdAt);
-      console.log(
-        `[OP.GG] Match ${match.id} | ` +
+      log(
+        caller,
+        'info',
+        `Match ${match.id} | ` +
           `${matchDate.toISOString()} | ` +
           `${match.gameType} | ` +
           `${match.champion} ${match.position} | ` +
@@ -143,12 +148,13 @@ export class OpggClient implements LeagueDataProvider {
     }
     if (recentMatches.length === 0) {
       const rawGameCount = (textBlock.text.match(/GameHistory\(/g) ?? []).length;
-      console.warn(
-        `[OP.GG] ${gameName}#${tagLine}: parser returned 0 matches, ` +
-          `raw response contains ${rawGameCount} GameHistory record(s)`,
+      log(
+        caller,
+        'warn',
+        `${gameName}#${tagLine}: parser returned 0 matches, raw response contains ${rawGameCount} GameHistory record(s)`,
       );
       if (rawGameCount > 0) {
-        console.warn(`[OP.GG] Parser likely does not match the current OP.GG response format`);
+        log(caller,'warn',`Parser likely does not match the current OP.GG response format`);
       }
     }
     return recentMatches;
@@ -186,7 +192,7 @@ export class OpggClient implements LeagueDataProvider {
       throw new Error('OP.GG did not return a text response');
     }
     const profile = parseSummonerProfile(textBlock.text);
-    console.log(`[OP.GG] ${gameName}#${tagLine}: ${profile.lpHistory.length} LP history entries`);
+    log(caller,'info',`${gameName}#${tagLine}: ${profile.lpHistory.length} LP history entries`);
     return profile;
   }
 }

@@ -27,6 +27,9 @@ import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { jobCoordinator } from '../runtime/job-coordinator';
 import { calculateRankScore } from '../rank';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN';
 
 export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
   const typedApp = app.withTypeProvider<JsonSchemaToTsProvider>();
@@ -89,9 +92,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
             error: 'Player not found',
           });
         }
-        console.log(
-          `[ADMIN] ${admin.username} requested manual refresh for ` +
-            `${player.gameName}#${player.tagLine}`,
+        log(
+          caller,
+          'info',
+          `${admin.username} requested manual refresh for ${player.gameName}#${player.tagLine}`,
         );
         const refreshed = await jobCoordinator.enqueue(
           {
@@ -113,7 +117,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[ADMIN] Manual player refresh failed: ${message}`);
+        log(caller, 'error', `Manual player refresh failed: ${message}`);
         return reply.code(500).send({
           error: 'Could not refresh player',
         });
@@ -150,9 +154,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
             error: 'No enabled players found',
           });
         }
-        console.log(
-          `[ADMIN] ${admin.username} requested manual refresh for all ` +
-            `${players.length} enabled player(s)`,
+        log(
+          caller,
+          'info',
+          `${admin.username} requested manual refresh for all ${players.length} enabled player(s)`,
         );
         const failedPlayers = await jobCoordinator.enqueue(
           {
@@ -162,9 +167,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           async () => {
             const failed: Player[] = [];
             for (const [index, player] of players.entries()) {
-              console.log(
-                `[ADMIN] Refresh all ${index + 1}/${players.length}: ` +
-                  `${player.gameName}#${player.tagLine}`,
+              log(
+                caller,
+                'info',
+                `Refresh all ${index + 1}/${players.length}: ${player.gameName}#${player.tagLine}`,
               );
               const refreshed = await refreshPlayer(player);
               if (!refreshed) {
@@ -187,7 +193,11 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
             players: adminPlayers,
           });
         }
-        console.log(`[ADMIN] Refreshed all ${players.length} enabled player(s) ✓`);
+        if (players.length >= 1) {
+          log(caller, 'info', `Refreshed all ${players.length} enabled player`);
+        } else {
+          log(caller, 'info', `Refreshed all ${players.length} enabled players`);
+        }
         return {
           ok: true,
           refreshed: players.length,
@@ -196,7 +206,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[ADMIN] Manual refresh all failed: ${message}`);
+        log(caller, 'error', `Manual refresh all failed: ${message}`);
         return reply.code(500).send({
           error: 'Could not refresh players',
         });
@@ -231,13 +241,16 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
       try {
         const provider = await getLeagueDataProvider();
         const profile = await provider.getSummonerProfile(gameName, tagLine, region);
-        console.log(
-          `[ADMIN] Validating new Riot profile ${profile.gameName}#${profile.tagLine} (${region}) | ` +
-            `queues=${profile.queues.length}`,
+        log(
+          caller,
+          'info',
+          `Validating new Riot profile ${profile.gameName}#${profile.tagLine} (${region}) | queues=${profile.queues.length}`,
         );
         for (const queue of profile.queues) {
-          console.log(
-            `[PROVIDER] Queue ${queue.gameType} | ` +
+          log(
+            'PROVIDER',
+            'info',
+            `Queue ${queue.gameType} | ` +
               `tier=${queue.tier ?? 'null'} | ` +
               `division=${queue.division ?? 'null'} | ` +
               `lp=${queue.lp ?? 'null'} | ` +
@@ -247,9 +260,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         }
         const solo = profile.queues.find((queue) => queue.gameType === 'SOLORANKED');
         if (!solo) {
-          console.warn(
-            `[ADMIN] Cannot add ${profile.gameName}#${profile.tagLine}: ` +
-              `league data provider returned no SOLORANKED queue`,
+          log(
+            caller,
+            'warn',
+            `Cannot add ${profile.gameName}#${profile.tagLine}: league data provider returned no SOLORANKED queue`,
           );
           return reply.code(400).send({
             error: 'No Solo Queue information returned by league data provider',
@@ -269,8 +283,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           missingFields.push('losses');
         }
         if (missingFields.length > 0) {
-          console.warn(
-            `[ADMIN] Cannot add ${profile.gameName}#${profile.tagLine}: ` +
+          log(
+            caller,
+            'warn',
+            `Cannot add ${profile.gameName}#${profile.tagLine}: ` +
               `incomplete SOLORANKED data | ` +
               `missing=${missingFields.join(',')} | ` +
               `tier=${solo.tier ?? 'null'} | ` +
@@ -313,16 +329,19 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           if (!joinedEvent) {
             throw new Error('Could not create event participant snapshot');
           }
-          console.log(
-            `[ADMIN] ${player.gameName}#${player.tagLine} ` + `joined active event "${event.name}"`,
+          log(
+            caller,
+            'info',
+            `${player.gameName}#${player.tagLine} ` + `joined active event "${event.name}"`,
           );
         }
         await loadLeaderboardFromDatabase();
         const players = await getAdminPlayers();
         const createdPlayer = players.find((entry) => entry.id === player.id) ?? player;
-        console.log(
-          `[ADMIN] ${admin.username} created player ` +
-            `${createdPlayer.gameName}#${createdPlayer.tagLine} (${createdPlayer.region})`,
+        log(
+          caller,
+          'info',
+          `${admin.username} created player ${createdPlayer.gameName}#${createdPlayer.tagLine} (${createdPlayer.region})`,
         );
         return reply.code(201).send({
           ok: true,
@@ -340,7 +359,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           });
         }
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[ADMIN] Could not create player: ${message}`);
+        log(caller, 'error', `Could not create player: ${message}`);
         return reply.code(400).send({
           error: `Could not validate Riot account: ${message}`,
         });
@@ -491,8 +510,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           );
         }
         if (changes.length > 0) {
-          console.log(
-            `[ADMIN] ${admin.username} updated player ` +
+          log(
+            caller,
+            'info',
+            `${admin.username} updated player ` +
               `${updatedPlayer.gameName}#${updatedPlayer.tagLine} | ` +
               changes.join(' | '),
           );
@@ -534,7 +555,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
           });
         }
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[ADMIN] Could not update player ${playerId}: ${message}`);
+        log(caller, 'error', `Could not update player ${playerId}: ${message}`);
         return reply.code(500).send({
           error: 'Could not update player',
         });
@@ -569,8 +590,10 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         request.body.twitchUsername ?? null,
         request.body.twitterUsername ?? null,
       );
-      console.log(
-        `[ADMIN] ${admin.username} updated socials for ` +
+      log(
+        caller,
+        'info',
+        `${admin.username} updated socials for ` +
           `${updatedPlayer.gameName}#${updatedPlayer.tagLine} | ` +
           `twitch=${updatedPlayer.twitchUsername ?? 'none'} | ` +
           `twitter=${updatedPlayer.twitterUsername ?? 'none'}`,

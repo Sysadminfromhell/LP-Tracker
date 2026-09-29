@@ -1,6 +1,9 @@
 import { claimLpReconciliationJobs } from '../db/lp-reconciliation';
 import { jobCoordinator } from '../runtime/job-coordinator';
 import { reconcileLpParticipant } from '../services/lp-reconciliation.service';
+import { log } from '../utils/logging';
+
+let caller = 'LP RECONCILIATION';
 
 const INTERVAL_MS = 30_000;
 const MAX_JOBS_PER_TICK = 5;
@@ -16,15 +19,14 @@ async function processDueJobs(): Promise<void> {
       return;
     }
     const result = await reconcileLpParticipant(job.eventParticipantId, job.attemptCount);
-    console.log(
-      `[LP RECONCILIATION] Participant ${job.eventParticipantId}: ` +
+    log(
+      caller,
+      'info',
+      `Participant ${job.eventParticipantId}: ` +
         `${result.status} | ${result.resolvedMatches} resolved | ${result.message}`,
     );
     if (result.details) {
-      console.log(
-        `[LP RECONCILIATION] Participant ${job.eventParticipantId}: ` +
-          `reason | ${result.details}`,
-      );
+      log(caller, 'info', `Participant ${job.eventParticipantId}: ` + `reason | ${result.details}`);
     }
   }
 }
@@ -42,7 +44,7 @@ async function workerTick(): Promise<void> {
     );
   } catch (error) {
     if (!stopped) {
-      console.error('[LP RECONCILIATION] Worker failed:', error);
+      log(caller,'error',`Worker failed: ${error}`);
     }
   } finally {
     if (!stopped) {
