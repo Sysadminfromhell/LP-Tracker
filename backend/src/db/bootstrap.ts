@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Client } from 'pg';
+import { Client, escapeIdentifier, escapeLiteral } from 'pg';
 import { log } from '../utils/logging';
 
 let caller = 'DB';
@@ -18,12 +18,6 @@ function getPort(): number {
     throw new Error(`Invalid DATABASE_PORT: ${raw}`);
   }
   return port;
-}
-function quoteIdentifier(value: string): string {
-  return '"' + value.replace(/"/g, '""') + '"';
-}
-function quoteLiteral(value: string): string {
-  return "'" + value.replace(/'/g, "''") + "'";
 }
 
 export interface DatabaseBootstrapResult {
@@ -78,10 +72,10 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
       await admin.query(
         `
                 CREATE ROLE
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 WITH
                 LOGIN
-                PASSWORD ${quoteLiteral(databasePassword)}
+                PASSWORD ${escapeLiteral(databasePassword)}
                 `,
       );
       userCreated = true;
@@ -91,10 +85,10 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
       await admin.query(
         `
                 ALTER ROLE
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 WITH
                 LOGIN
-                PASSWORD ${quoteLiteral(databasePassword)}
+                PASSWORD ${escapeLiteral(databasePassword)}
                 `,
       );
     }
@@ -111,9 +105,9 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
       await admin.query(
         `
                 CREATE DATABASE
-                ${quoteIdentifier(databaseName)}
+                ${escapeIdentifier(databaseName)}
                 OWNER
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 `,
       );
       databaseCreated = true;
@@ -123,9 +117,9 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
       await admin.query(
         `
                 ALTER DATABASE
-                ${quoteIdentifier(databaseName)}
+                ${escapeIdentifier(databaseName)}
                 OWNER TO
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 `,
       );
     }

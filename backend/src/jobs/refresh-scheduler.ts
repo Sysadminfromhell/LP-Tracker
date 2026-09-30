@@ -81,7 +81,7 @@ async function schedulerTick(): Promise<void> {
       },
     );
   } catch (error) {
-    log(caller,'error',`Refresh failed: ${error}`);
+    log(caller, 'error', `Refresh failed: ${error}`);
   } finally {
     scheduleNextRefresh();
   }
@@ -93,7 +93,6 @@ export function stopRefreshScheduler(): void {
   if (!schedulerTimer) {
     return;
   }
-
   clearTimeout(schedulerTimer);
   schedulerTimer = null;
 }
