@@ -4,24 +4,27 @@ import { createShutdownHandler } from './runtime/shutdown';
 import { startRefreshScheduler } from './jobs/refresh-scheduler';
 import { startEventLifecycle } from './jobs/event-lifecycle';
 import { startLpReconciliationWorker } from './jobs/lp-reconciliation';
+import { log } from './utils/logging';
+
+let caller = "APP";
 
 const fastify = createApplication();
 const shutdown = createShutdownHandler(fastify);
 
 async function main(): Promise<void> {
-  console.log();
-  console.log('LP Tracker');
-  console.log('==========');
-  console.log();
+  log(caller, 'info', ``);
+  log(caller, 'info', `LP Tracker`);
+  log(caller, 'info', `==========`);
+  log(caller, 'info', ``);
   const { event } = await bootstrapApplication();
   await fastify.listen({
     host: '0.0.0.0',
     port: 3000,
   });
-  console.log();
-  console.log('[API] http://localhost:3000 ✓');
-  console.log(`[EVENT] ${event ? `${event.name} (${event.status})` : 'No event available'}`);
-  console.log();
+  log(caller, 'info', ``);
+  log(caller, 'info', `listening on http://localhost:3000`,"API");
+  log(caller, 'info', `${event ? `${event.name} (${event.status})` : 'No event available'}`, "EVENT");
+  log(caller, 'info', ``);
   startRefreshScheduler();
   startEventLifecycle();
   startLpReconciliationWorker();
@@ -33,9 +36,9 @@ process.on('SIGTERM', () => {
   void shutdown().finally(() => process.exit(0));
 });
 main().catch(async (error) => {
-  console.error();
-  console.error('[APP] Fatal startup error:');
-  console.error(error);
+  log(caller, 'info', ``);
+  log(caller, 'info', `Fatal startup error:`);
+  log(caller, 'info', error);
   await shutdown();
   process.exit(1);
 });

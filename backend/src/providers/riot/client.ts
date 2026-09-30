@@ -23,6 +23,9 @@ import {
   recordRiotRequest,
   recordRiotRetry,
 } from '../../runtime/monitoring-state';
+import { log } from '../../utils/logging';
+
+let caller = 'RIOT';
 
 type RiotRegionalRoute = 'americas' | 'asia' | 'europe' | 'sea';
 
@@ -387,7 +390,7 @@ export class RiotClient implements LeagueDataProvider {
       const match = await this.getMatchById(matchId, region);
       const participant = match.info.participants.find((entry) => entry.puuid === account.puuid);
       if (!participant) {
-        console.warn(`[RIOT] ${matchId}: ` + `participant ` + `${account.puuid} ` + `not found`);
+        log(caller, 'warn', `${matchId}: ` + `participant ` + `${account.puuid} ` + `not found`);
         continue;
       }
       const createdAtTimestamp = match.info.gameStartTimestamp ?? match.info.gameCreation;
@@ -474,11 +477,11 @@ export class RiotClient implements LeagueDataProvider {
       const limits = status.buckets
         .map((bucket) => `${bucket.limit} requests / ${bucket.windowSeconds}s`)
         .join(', ');
-      console.warn(
-        `[RIOT] WARNING: Low Riot API rate limit detected (${limits}). ` +
-          'This is typical for Development or Personal API keys. ' +
-          'Large events may experience delayed refreshes or HTTP 429 responses. ' +
-          'A Production API key is recommended.',
+      log(
+        caller,
+        'warn',
+        `Low Riot API rate limit detected (${limits}). This is typical for Development or Personal API keys. ` +
+          `Large events may experience delayed refreshes or HTTP 429 responses. A Production API key is recommended.`,
       );
     }
   }
@@ -529,10 +532,10 @@ export class RiotClient implements LeagueDataProvider {
     ) {
       this.rateLimiter.blockFor(retryAfterSeconds);
       recordRiotRetry();
-      console.warn(
-        `[RIOT] HTTP 429 rate limit reached. ` +
-          `Retrying after ${retryAfterSeconds}s ` +
-          `(${retryCount + 1}/${MAX_RATE_LIMIT_RETRIES}).`,
+      log(
+        caller,
+        'warn',
+        `HTTP 429 rate limit reached. Retrying after ${retryAfterSeconds}s (${retryCount + 1}/${MAX_RATE_LIMIT_RETRIES}).`,
       );
       return this.requestWithRetry<T>(route, path, retryCount + 1);
     }

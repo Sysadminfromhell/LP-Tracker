@@ -6,6 +6,9 @@ import { disconnectLeagueDataProvider } from '../services/league-data.service';
 import { closeLiveUpdateClients } from '../services/live-update.service';
 import { jobCoordinator } from './job-coordinator';
 import { stopLpReconciliationWorker } from '../jobs/lp-reconciliation';
+import { log } from '../utils/logging';
+
+let caller = "APP";
 
 export function createShutdownHandler(app: FastifyInstance): () => Promise<void> {
   let shuttingDown = false;
@@ -14,8 +17,8 @@ export function createShutdownHandler(app: FastifyInstance): () => Promise<void>
       return;
     }
     shuttingDown = true;
-    console.log();
-    console.log('[APP] Shutting down...');
+    log(caller, 'info', ``);
+    log(caller, 'info', `Shutting down...`);
     stopRefreshScheduler();
     stopEventLifecycle();
     jobCoordinator.stopAcceptingJobs();
@@ -25,6 +28,6 @@ export function createShutdownHandler(app: FastifyInstance): () => Promise<void>
     await disconnectLeagueDataProvider().catch(() => {});
     await app.close().catch(() => {});
     await closeDatabase().catch(() => {});
-    console.log('[APP] Shutdown complete ✓');
+    log(caller, 'info', `Shutdown complete`);
   };
 }

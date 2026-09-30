@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import type { AdminDatabaseDeleteEndedEventResponse } from '@lp-tracker/contracts';
 import { db } from './client';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN DATABASE';
 
 type DatabasePool = Pick<Pool, 'connect'>;
 
@@ -62,7 +65,7 @@ export async function deleteAdminDatabaseEndedEvent(
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('[ADMIN DATABASE] Ended event delete rollback failed:', rollbackError);
+      log(caller,'error','Ended event delete rollback failed:' + rollbackError);
     }
     throw error;
   } finally {

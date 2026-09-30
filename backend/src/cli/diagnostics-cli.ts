@@ -1,62 +1,62 @@
 import type { DiagnosticCheck, DiagnosticReport } from '../diagnostics/types';
+import { log, logTable } from '../utils/logging';
 
+let caller = 'DIAG';
 let databaseLoaded = false;
 
+
 function printHelp(): void {
-  console.log(`
-LP Tracker Diagnostics
-
-Usage:
-  diagnose <command> [options]
-
-Commands:
-  summary             Run top-level diagnostics
-  db                  Check database and migrations
-  event               Check event integrity
-  player <id>         Inspect one player
-  player --id <id>    Inspect one player
-  queue               Inspect LP reconciliation queue
-  provider            Check league data provider
-
-Options:
-  --json      Output machine-readable JSON
-  --help      Show this help
-`);
+  log(caller, 'info', `LP Tracker Diagnostics`);
+  log(caller, 'info', `Usage:`);
+  log(caller, 'info', `diagnose <command> [options]`);
+  log(caller, 'info', ``);
+  log(caller, 'info', `Commands:`);
+  log(caller, 'info', `  summary             Run top-level diagnostics`);
+  log(caller, 'info', `  db                  Check database and migrations`);
+  log(caller, 'info', `  event               Check event integrity`);
+  log(caller, 'info', `  player <id>         Inspect one player`);
+  log(caller, 'info', `  player --id <id>    Inspect one player`);
+  log(caller, 'info', `  queue               Inspect LP reconciliation queue`);
+  log(caller, 'info', `  provider            Check league data provider`);
+  log(caller, 'info', ``);
+  log(caller, 'info', `Options:`);
+  log(caller, 'info', `  --json      Output machine-readable JSON`);
+  log(caller, 'info', `  --help      Show this help`);
 }
 
 function printCheck(check: DiagnosticCheck): void {
   const label = check.status === 'error' ? 'FAIL' : check.status === 'warning' ? 'WARN' : 'OK';
-  console.log(`[${label}] ${check.code}: ${check.message}`);
+  log(caller, 'info', `[${label}] ${check.code}: ${check.message}`);
   if (check.details === undefined) {
     return;
   }
   if (Array.isArray(check.details)) {
     if (check.details.length > 0) {
-      console.table(check.details);
+      logTable(caller,'info',check.details);
     }
     return;
   }
-  console.table([check.details]);
+  logTable(caller,'info',[check.details])
 }
 
 function printReport(report: DiagnosticReport): void {
-  console.log();
-  console.log(`LP Tracker Diagnostics · ${report.scope}`);
-  console.log('================================');
-  console.log();
+  log(caller, 'info', '');
+  log(caller, 'info', `LP Tracker Diagnostics · ${report.scope}`);
+  log(caller, 'info', '================================');
+  log(caller, 'info', '');
   for (const check of report.checks) {
     printCheck(check);
   }
-  console.log();
+  log(caller, 'info', '');
   if (report.status === 'error') {
-    console.error('[FAIL] Diagnostics completed with errors');
+    log(caller, 'error', 'Diagnostics completed with errors');
     return;
   }
   if (report.status === 'warning') {
-    console.warn('[WARN] Diagnostics completed with warnings');
+    log(caller, 'warn', 'Diagnostics completed with errors');
     return;
   }
-  console.log('[OK] Diagnostics completed successfully');
+  log(caller, 'info', 'Diagnostics completed successfully');
 }
 
 async function main(): Promise<void> {
@@ -91,11 +91,11 @@ async function main(): Promise<void> {
     case 'player': {
       const playerId = getPlayerId(args);
       if (playerId === null) {
-        console.error('Player diagnostics require a valid player id');
-        console.error();
-        console.error('Usage:');
-        console.error('  diagnose player <id>');
-        console.error('  diagnose player --id <id>');
+        log(caller, 'error', 'Player diagnostics require a valid player id');
+        log(caller, 'error', '');
+        log(caller, 'error', 'Usage:');
+        log(caller, 'error', '  diagnose player <id>');
+        log(caller, 'error', '  diagnose player --id <id>');
         process.exitCode = 2;
         return;
       }
@@ -116,14 +116,14 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.error(`Unknown diagnostic command: ${command}`);
-      console.error();
+      log(caller, 'error', `Unknown diagnostic command: ${command}`);
+      log(caller, 'error', '');
       printHelp();
       process.exitCode = 2;
       return;
   }
   if (json) {
-    console.log(JSON.stringify(report, null, 2));
+    log(caller,'info',JSON.stringify(report, null, 2));
   } else {
     printReport(report);
   }
@@ -154,8 +154,8 @@ function getPlayerId(args: string[]): number | null {
 }
 main()
   .catch((error) => {
-    console.error('[DIAGNOSTICS] Command failed:');
-    console.error(error);
+    log(caller, 'error', `Command failed:`);
+    log(caller, 'error', error);
     process.exitCode = 2;
   })
   .finally(async () => {

@@ -30,6 +30,9 @@ import {
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
 import { jobCoordinator } from '../runtime/job-coordinator';
+import { log } from '../utils/logging';
+
+let caller = "ADMIN";
 
 function parseEventId(value: string): number | null {
   const eventId = Number(value);
@@ -197,9 +200,10 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
           reason: request.body.reason ?? null,
         });
         await loadLeaderboardFromDatabase();
-        console.log(
-          `[ADMIN] LP penalty for player ${playerId} in event ${eventId} ` +
-            `set to ${participant.lpPenalty}`,
+        log(
+          caller,
+          'info',
+          `LP penalty for player ${playerId} in event ${eventId} set to ${participant.lpPenalty}`,
         );
         return {
           ok: true,
@@ -222,9 +226,10 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             error: 'Player is not a participant of the active event',
           });
         }
-        console.error(
-          `[ADMIN] Could not update LP penalty for player ${playerId} ` +
-            `in event ${eventId}: ${message}`,
+        log(
+          caller,
+          'error',
+          `Could not update LP penalty for player ${playerId} in event ${eventId}: ${message}`,
         );
         return reply.code(500).send({
           error: 'Could not update LP penalty',
@@ -272,14 +277,14 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         }
         await loadLeaderboardFromDatabase();
         broadcastLiveUpdate('events-changed');
-        console.log(`[ADMIN] Event ${eventId} renamed to "${event.name}"`);
+        log(caller, 'info', `Event ${eventId} renamed to "${event.name}"`);
         return {
           ok: true,
           event,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[ADMIN] Could not rename event ${eventId}: ${message}`);
+        log(caller, 'error', `Could not rename event ${eventId}: ${message}`);
         return reply.code(500).send({
           error: 'Could not update event',
         });
@@ -340,9 +345,10 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         });
         await loadLeaderboardFromDatabase();
         broadcastLiveUpdate('events-changed');
-        console.log(
-          `[ADMIN] Scheduled event "${event.name}" updated: ` +
-            `${event.startsAt} -> ${event.endsAt}`,
+        log(
+          caller,
+          'info',
+          `Scheduled event "${event.name}" updated: ${event.startsAt} -> ${event.endsAt}`,
         );
         return {
           ok: true,
@@ -390,7 +396,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             error: 'One or more selected participants are not available',
           });
         }
-        console.error(`[ADMIN] Could not update scheduled event ${eventId}: ${message}`);
+        log(caller, 'error', `Could not update scheduled event ${eventId}: ${message}`);
         return reply.code(500).send({
           error: 'Could not update scheduled event',
         });
@@ -437,7 +443,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         await cancelScheduledEvent(eventId);
         await loadLeaderboardFromDatabase();
         broadcastLiveUpdate('events-changed');
-        console.log(`[ADMIN] Scheduled event "${currentEvent.name}" canceled`);
+        log(caller, 'info', `Scheduled event "${currentEvent.name}" canceled`);
         return {
           ok: true,
         };
@@ -448,7 +454,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             error: 'The event is no longer scheduled',
           });
         }
-        console.error(`[ADMIN] Could not cancel scheduled event ${eventId}: ${message}`);
+        log(caller, 'error', `Could not cancel scheduled event ${eventId}: ${message}`);
         return reply.code(500).send({
           error: 'Could not cancel scheduled event',
         });
@@ -490,8 +496,10 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
         });
         await loadLeaderboardFromDatabase();
         broadcastLiveUpdate('events-changed');
-        console.log(
-          `[ADMIN] Event "${event.name}" scheduled from ${event.startsAt} to ${event.endsAt}`,
+        log(
+          caller,
+          'info',
+          `Event "${event.name}" scheduled from ${event.startsAt} to ${event.endsAt}`,
         );
         return reply.code(201).send({
           ok: true,
@@ -534,7 +542,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             error: 'One or more selected participants are not available',
           });
         }
-        console.error(`[ADMIN] Could not schedule event: ${message}`);
+        log(caller, 'error', `Could not schedule event: ${message}`);
         return reply.code(500).send({
           error: 'Could not schedule event',
         });
@@ -598,15 +606,17 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
                 error: 'Not every event participant could be loaded',
               });
             }
-            console.log(
-              `[ADMIN] Refreshing ${eventPlayers.length} participant(s) ` +
-                `before ending "${event.name}"...`,
+            log(
+              caller,
+              'info',
+              `Refreshing ${eventPlayers.length} participant(s) before ending "${event.name}"...`,
             );
             const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
             if (failedPlayers.length > 0) {
-              console.error(
-                `[ADMIN] Could not end "${event.name}": ` +
-                  `${failedPlayers.length} player refresh(es) failed`,
+              log(
+                caller,
+                'error',
+                `Could not end "${event.name}": ${failedPlayers.length} player refresh(es) failed`,
               );
               return reply.code(502).send({
                 error: 'Could not refresh every participant before ending the event',
@@ -615,9 +625,10 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             const endedEvent = await endAdminEvent(event.id);
             await loadLeaderboardFromDatabase();
             broadcastLiveUpdate('events-changed');
-            console.log(
-              `[ADMIN] Event "${endedEvent.name}" ended with ` +
-                `${endedEvent.participantCount} participant(s)`,
+            log(
+              caller,
+              'info',
+              `Event "${endedEvent.name}" ended with ${endedEvent.participantCount} participant(s)`,
             );
             return {
               ok: true,
@@ -637,7 +648,7 @@ export async function adminEventRoutes(app: FastifyInstance): Promise<void> {
             error: 'Could not create a final snapshot for every participant',
           });
         }
-        console.error(`[ADMIN] Could not end event: ${message}`);
+        log(caller, 'error', `Could not end event: ${message}`);
         return reply.code(500).send({
           error: 'Could not end event',
         });

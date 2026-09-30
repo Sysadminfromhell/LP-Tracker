@@ -1,9 +1,16 @@
 import { closeDatabase } from './client';
 import { getLeaderboardPlayersFromDb } from './leaderboard';
+import { log } from '../utils/logging';
+
+let caller = 'DB';
 
 async function main(): Promise<void> {
   const players = await getLeaderboardPlayersFromDb();
-  console.log(`[DB] Loaded ${players.length} leaderboard player(s)`);
+  if (players.length == 1) {
+    log(caller, 'info', `Loaded ${players.length} leaderboard player`);
+  } else {
+    log(caller, 'info', `Loaded ${players.length} leaderboard players`);
+  }
   for (const player of players) {
     const lpGain =
       player.currentRankScore !== null && player.startRankScore !== null
@@ -17,24 +24,21 @@ async function main(): Promise<void> {
       player.seasonLosses !== null && player.startLosses !== null
         ? player.seasonLosses - player.startLosses
         : null;
-    console.log();
-    console.log(`${player.gameName}#${player.tagLine}`);
-
-    console.log(
-      `Current: ${player.currentTier ?? 'Unranked'} ${player.currentDivision ?? ''} - ${player.currentLp ?? 0} LP`,
-    );
-    console.log(`LP Gain: ${lpGain === null ? 'n/a' : `${lpGain >= 0 ? '+' : ''}${lpGain}`}`);
-    console.log(`Event W/L: ${eventWins ?? 'n/a'} / ${eventLosses ?? 'n/a'}`);
-    console.log(`Last fetch: ${player.lastSuccessfulFetchAt}`);
-    console.log(`Event: ${player.eventStatus ?? 'none'} | ${player.eventStartsAt ?? 'n/a'}`);
+    log(caller, 'info', ``);
+    log(caller, 'info', `${player.gameName}#${player.tagLine}`);
+    log(caller, 'info', `Current: ${player.currentTier ?? 'Unranked'} ${player.currentDivision ?? ''} - ${player.currentLp ?? 0} LP`);
+    log(caller, 'info', `LP Gain: ${lpGain === null ? 'n/a' : `${lpGain >= 0 ? '+' : ''}${lpGain}`}`);
+    log(caller, 'info', `Event W/L: ${eventWins ?? 'n/a'} / ${eventLosses ?? 'n/a'}`);
+    log(caller, 'info', `Last fetch: ${player.lastSuccessfulFetchAt}`);
+    log(caller, 'info', `Event: ${player.eventStatus ?? 'none'} | ${player.eventStartsAt ?? 'n/a'}`);
   }
 }
 
 main()
   .catch((error) => {
-    console.error();
-    console.error('[DB] Leaderboard test failed:');
-    console.error(error);
+    log(caller,'error',``);
+    log(caller,'error',`Leaderboard test failed:`);
+    log(caller,'error',error);
     process.exitCode = 1;
   })
   .finally(async () => {
