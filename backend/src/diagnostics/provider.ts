@@ -7,7 +7,6 @@ type ProviderFactory = () => LeagueDataProvider;
 const createDiagnosticProvider: ProviderFactory = () =>
   createLeagueDataProvider({
     caller: 'diagnostics',
-    logger: console.error,
   });
 
 function getReportStatus(checks: DiagnosticCheck[]): DiagnosticStatus {

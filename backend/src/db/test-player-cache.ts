@@ -11,6 +11,9 @@ import {
   getLeagueDataProvider,
 } from '../services/league-data.service';
 import { calculateRankScore } from '../rank';
+import { log } from '../utils/logging';
+
+let caller = 'CACHE';
 
 async function main(): Promise<void> {
   const player = await findPlayerByRiotId('FourK', '1337', 'EUW');
@@ -18,24 +21,27 @@ async function main(): Promise<void> {
   if (!player) {
     throw new Error('FourK#1337 is not in the database');
   }
-  console.log(`[DB] Player: ${player.gameName}#${player.tagLine}`);
+  log(caller, 'info', `Player: ${player.gameName}#${player.tagLine}`);
   const existingCache = await getPlayerCache(player.id);
-  console.log();
+  log(caller, 'info', ``);
   if (existingCache) {
-    console.log('[CACHE] Existing cache found ✓');
-    console.log(
-      `[CACHE] Rank: ${existingCache.tier} ${existingCache.division ?? ''} - ${existingCache.lp ?? 0} LP`,
+    log(caller, 'info', `Existing cache found`);
+    log(
+      caller,
+      'info',
+      `Rank: ${existingCache.tier} ${existingCache.division ?? ''} - ${existingCache.lp ?? 0} LP`,
     );
-    console.log(`[CACHE] Last successful fetch: ${existingCache.lastSuccessfulFetchAt}`);
+    log(caller, 'info', `Last successful fetch: ${existingCache.lastSuccessfulFetchAt}`);
+    log(caller, 'info', ``);
   } else {
-    console.log('[CACHE] No existing cache yet');
+    log(caller, 'info', `No existing cache yet`);
   }
-  console.log();
-  console.log('[PROVIDER] Connecting...');
+  log(caller, 'info', ``);
+  log(caller, 'info', `Connecting...`);
   const provider = await getLeagueDataProvider();
   try {
     await markPlayerFetchAttempt(player.id);
-    console.log('[PROVIDER] Fetching profile...');
+    log(caller, 'info', `Fetching profile...`);
     const profile = await provider.getSummonerProfile(
       player.gameName,
       player.tagLine,
@@ -62,12 +68,12 @@ async function main(): Promise<void> {
       seasonWins: solo.wins,
       seasonLosses: solo.losses,
     });
-    console.log();
-    console.log('[CACHE] Saved successfully ✓');
-    console.log(`[CACHE] Rank: ${cache.tier} ${cache.division ?? ''} - ${cache.lp} LP`);
-    console.log(`[CACHE] Rank Score: ${cache.rankScore}`);
-    console.log(`[CACHE] Season: ${cache.seasonWins}W / ${cache.seasonLosses}L`);
-    console.log(`[CACHE] Last successful fetch: ${cache.lastSuccessfulFetchAt}`);
+    log(caller, 'info', ``);
+    log(caller, 'info', `Saved successfully`);
+    log(caller, 'info', `Rank: ${cache.tier} ${cache.division ?? ''} - ${cache.lp} LP`);
+    log(caller, 'info', `Rank Score: ${cache.rankScore}`);
+    log(caller, 'info', `Season: ${cache.seasonWins}W / ${cache.seasonLosses}L`);
+    log(caller, 'info', `Last successful fetch: ${cache.lastSuccessfulFetchAt}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await savePlayerCacheError(player.id, message);
@@ -78,9 +84,9 @@ async function main(): Promise<void> {
 }
 main()
   .catch((error) => {
-    console.error();
-    console.error('[CACHE] Test failed:');
-    console.error(error);
+    log(caller,'error',``);
+    log(caller,'error',`Test failed:`);
+    log(caller,'error',error);
     process.exitCode = 1;
   })
   .finally(async () => {

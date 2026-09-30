@@ -127,9 +127,11 @@ beforeEach(() => {
   mocks.getDueScheduledEvent.mockResolvedValue(dueScheduledEvent);
   mocks.activateScheduledEvent.mockResolvedValue(activatedEvent);
   mocks.loadLeaderboardFromDatabase.mockResolvedValue(undefined);
-  vi.spyOn(console, 'log').mockImplementation(() => {});
-  vi.spyOn(console, 'error').mockImplementation(() => {});
-  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  process.env.LOG_LEVEL = 'dbg';
+  vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+  vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 afterEach(() => {
   stopEventLifecycle();

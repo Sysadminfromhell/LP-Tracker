@@ -5,6 +5,9 @@ import type {
   LeagueDataRateLimitStatus,
 } from '../providers/league-data.provider';
 import { broadcastLiveUpdate } from './live-update.service';
+import { log } from '../utils/logging';
+
+let caller = "PROVIDER";
 
 let provider: LeagueDataProvider | null = null;
 let providerConnected = false;
@@ -58,14 +61,14 @@ export function broadcastLeagueDataProviderHealth(): void {
       provider: getLeagueDataProviderHealth(),
     });
   } catch (error) {
-    console.warn('[PROVIDER] Could not broadcast provider health:', error);
+    log(caller,'warn', `Could not broadcast provider health: ${error}`);
   }
 }
 
 async function connectLeagueDataProvider(): Promise<LeagueDataProvider> {
   const nextProvider = createLeagueDataProvider();
   try {
-    console.log(`[PROVIDER] Connecting ${nextProvider.name}...`);
+    log(caller,'info', `Connecting ${nextProvider.name}...`);
     await nextProvider.connect();
   } catch (error) {
     await nextProvider.disconnect().catch(() => {});
@@ -77,7 +80,7 @@ async function connectLeagueDataProvider(): Promise<LeagueDataProvider> {
   provider = nextProvider;
   providerConnected = true;
   broadcastLeagueDataProviderHealth();
-  console.log(`[PROVIDER] ${nextProvider.name} connected ✓`);
+  log(caller,'info', 'successfully connected');
   return nextProvider;
 }
 export async function getLeagueDataProvider(): Promise<LeagueDataProvider> {

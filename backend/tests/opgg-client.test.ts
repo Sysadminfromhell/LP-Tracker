@@ -258,7 +258,9 @@ describe('OpggClient', () => {
       position: 'TOP',
       isTrackedPlayer: true,
     });
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Match match-3'));
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('match-3: could not load rich details'),
+    );
     expect(matches.find((match) => match.id === 'match-1')?.participants).toBeUndefined();
     mcp.callTool.mockClear();
     const cachedMatches = await client.getRecentMatches('FourK', 'EUW', 'EUW', 20);

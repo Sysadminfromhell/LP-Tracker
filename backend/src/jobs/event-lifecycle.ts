@@ -11,6 +11,9 @@ import {
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { refreshPlayersForSnapshot } from '../services/player-refresh.service';
 import { jobCoordinator } from '../runtime/job-coordinator';
+import { log } from '../utils/logging';
+
+let caller = 'EVENT';
 
 const EVENT_LIFECYCLE_INTERVAL_MS = 5_000;
 let lifecycleTimer: NodeJS.Timeout | null = null;
@@ -32,14 +35,15 @@ async function eventLifecycleTick(): Promise<void> {
   try {
     const activeEvent = await getActiveEvent();
     if (activeEvent && activeEvent.endsAt && new Date(activeEvent.endsAt).getTime() <= Date.now()) {
-      console.log(`[EVENT] "${activeEvent.name}" reached its scheduled end time`);
+      log(caller, 'info', `"${activeEvent.name}" reached its scheduled end time`);
       const participantIds = new Set(await getEventParticipantPlayerIds(activeEvent.id));
       const allPlayers = await getPlayers(false);
       const eventPlayers = allPlayers.filter((player) => participantIds.has(player.id));
       if (eventPlayers.length !== participantIds.size) {
-        console.error(
-          `[EVENT] Cannot finalize "${activeEvent.name}": ` +
-            `not every participant could be loaded`,
+        log(
+          caller,
+          'error',
+          `Cannot finalize "${activeEvent.name}": not every participant could be loaded`,
         );
         return;
       }
@@ -51,8 +55,10 @@ async function eventLifecycleTick(): Promise<void> {
         async () => {
           const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
           if (failedPlayers.length > 0) {
-            console.warn(
-              `[EVENT] Final refresh for "${activeEvent.name}" failed for ` +
+            log(
+              caller,
+              'warn',
+              `Final refresh for "${activeEvent.name}" failed for ` +
                 `${failedPlayers.length} player(s). ` +
                 `Using their last successful cached state for the final snapshot.`,
             );
@@ -60,8 +66,10 @@ async function eventLifecycleTick(): Promise<void> {
           const endedEvent = await endAdminEvent(activeEvent.id, activeEvent.endsAt);
           await loadLeaderboardFromDatabase();
           broadcastLiveUpdate('events-changed');
-          console.log(
-            `[EVENT] "${endedEvent.name}" is now ENDED with ` +
+          log(
+            caller,
+            'info',
+            `"${endedEvent.name}" is now ENDED with ` +
               `${endedEvent.participantCount} participant(s)`,
           );
         },
@@ -69,10 +77,9 @@ async function eventLifecycleTick(): Promise<void> {
     }
     const scheduledEvent = await getDueScheduledEvent();
     if (scheduledEvent) {
-      console.log(`[EVENT] Scheduled event "${scheduledEvent.name}" reached its start time`);
       const selectedPlayerIds = new Set(await getEventSelectedPlayerIds(scheduledEvent.id));
       if (selectedPlayerIds.size === 0) {
-        console.error(`[EVENT] Cannot start "${scheduledEvent.name}": no participants selected`);
+        log(caller, 'error', `Cannot start "${scheduledEvent.name}": no participants selected`);
         return;
       }
       const allPlayers = await getPlayers(false);
@@ -80,8 +87,10 @@ async function eventLifecycleTick(): Promise<void> {
         (player) => player.enabled && selectedPlayerIds.has(player.id),
       );
       if (eventPlayers.length !== selectedPlayerIds.size) {
-        console.error(
-          `[EVENT] Cannot start "${scheduledEvent.name}": ` +
+        log(
+          caller,
+          'error',
+          `Cannot start "${scheduledEvent.name}": ` +
             `not every selected participant is available and enabled`,
         );
         return;
@@ -94,8 +103,10 @@ async function eventLifecycleTick(): Promise<void> {
         async () => {
           const failedPlayers = await refreshPlayersForSnapshot(eventPlayers);
           if (failedPlayers.length > 0) {
-            console.error(
-              `[EVENT] Cannot start "${scheduledEvent.name}": ` +
+            log(
+              caller,
+              'error',
+              `Cannot start "${scheduledEvent.name}": ` +
                 `${failedPlayers.length} player refresh(es) failed`,
             );
             return;
@@ -103,15 +114,17 @@ async function eventLifecycleTick(): Promise<void> {
           const activatedEvent = await activateScheduledEvent(scheduledEvent.id);
           await loadLeaderboardFromDatabase();
           broadcastLiveUpdate('events-changed');
-          console.log(
-            `[EVENT] "${activatedEvent.name}" is now ACTIVE with ` +
+          log(
+            caller,
+            'error',
+            `"${activatedEvent.name}" is now ACTIVE with ` +
               `${activatedEvent.participantCount} participant(s)`,
           );
         },
       );
     }
   } catch (error) {
-    console.error('[EVENT] Lifecycle check failed:', error);
+    log(caller,'error',`Lifecycle check failed:', ${error}`);
   } finally {
     releaseTransitionLock();
     scheduleNextLifecycleCheck();

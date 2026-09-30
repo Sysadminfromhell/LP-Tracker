@@ -1,34 +1,23 @@
 import 'dotenv/config';
-import { Client } from 'pg';
+import { Client, escapeIdentifier, escapeLiteral } from 'pg';
+import { log } from '../utils/logging';
+
+let caller = 'DB';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-
   if (!value) {
     throw new Error(`Missing environment variable: ${name}`);
   }
-
   return value;
 }
-
 function getPort(): number {
   const raw = process.env.DATABASE_PORT ?? '5432';
-
   const port = Number(raw);
-
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error(`Invalid DATABASE_PORT: ${raw}`);
   }
-
   return port;
-}
-
-function quoteIdentifier(value: string): string {
-  return '"' + value.replace(/"/g, '""') + '"';
-}
-
-function quoteLiteral(value: string): string {
-  return "'" + value.replace(/'/g, "''") + "'";
 }
 
 export interface DatabaseBootstrapResult {
@@ -45,16 +34,13 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
   const adminUser = requireEnv('DATABASE_ADMIN_USER');
   const adminPassword = requireEnv('DATABASE_ADMIN_PASSWORD');
 
-  console.log('[DB] Connecting to PostgreSQL...');
+  log(caller, 'info', `Connecting to PostgreSQL...`);
 
   const admin = new Client({
     host,
     port,
-
     database: 'postgres',
-
     user: adminUser,
-
     password: adminPassword,
   });
 
@@ -62,16 +48,17 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
   let databaseCreated = false;
 
   try {
+    log(
+      caller,
+      'dbg',
+      `Connecting with ${databaseUser} to host ${host} via Port ${port} to Database ${databaseName}`,
+    );
     await admin.connect();
-
-    console.log('[DB] PostgreSQL reachable ✓');
-
+    log(caller, 'info', `Successfully connected to PostgreSQL...`);
     const versionResult = await admin.query<{
       server_version: string;
     }>('SHOW server_version');
-
-    console.log(`[DB] PostgreSQL ${versionResult.rows[0].server_version}`);
-
+    log(caller, 'info', `PostgreSQL ${versionResult.rows[0].server_version}`);
     const roleResult = await admin.query(
       `
                 SELECT 1
@@ -80,37 +67,31 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
                 `,
       [databaseUser],
     );
-
     if (roleResult.rowCount === 0) {
-      console.log(`[DB] Creating user "${databaseUser}"...`);
-
+      log(caller, 'info', `Creating user "${databaseUser}"...`);
       await admin.query(
         `
                 CREATE ROLE
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 WITH
                 LOGIN
-                PASSWORD ${quoteLiteral(databasePassword)}
+                PASSWORD ${escapeLiteral(databasePassword)}
                 `,
       );
-
       userCreated = true;
-
-      console.log(`[DB] User "${databaseUser}" created ✓`);
+      log(caller, 'info', `User "${databaseUser}" created`);
     } else {
-      console.log(`[DB] User "${databaseUser}" already exists ✓`);
-
+      log(caller, 'info', `User "${databaseUser}" already exists`);
       await admin.query(
         `
                 ALTER ROLE
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 WITH
                 LOGIN
-                PASSWORD ${quoteLiteral(databasePassword)}
+                PASSWORD ${escapeLiteral(databasePassword)}
                 `,
       );
     }
-
     const databaseResult = await admin.query(
       `
                 SELECT 1
@@ -119,37 +100,30 @@ export async function bootstrapDatabase(): Promise<DatabaseBootstrapResult> {
                 `,
       [databaseName],
     );
-
     if (databaseResult.rowCount === 0) {
-      console.log(`[DB] Creating database "${databaseName}"...`);
-
+      log(caller, 'info', `Creating database "${databaseName}"...`);
       await admin.query(
         `
                 CREATE DATABASE
-                ${quoteIdentifier(databaseName)}
+                ${escapeIdentifier(databaseName)}
                 OWNER
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 `,
       );
-
       databaseCreated = true;
-
-      console.log(`[DB] Database "${databaseName}" created ✓`);
+      log(caller, 'info', `Database "${databaseName}" created`);
     } else {
-      console.log(`[DB] Database "${databaseName}" already exists ✓`);
-
+      log(caller, 'info', `Database "${databaseName}" already exists`);
       await admin.query(
         `
                 ALTER DATABASE
-                ${quoteIdentifier(databaseName)}
+                ${escapeIdentifier(databaseName)}
                 OWNER TO
-                ${quoteIdentifier(databaseUser)}
+                ${escapeIdentifier(databaseUser)}
                 `,
       );
     }
-
-    console.log('[DB] Bootstrap complete ✓');
-
+    log(caller, 'info', `Bootstrap complete`);
     return {
       databaseCreated,
       userCreated,

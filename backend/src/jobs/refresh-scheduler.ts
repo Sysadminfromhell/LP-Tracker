@@ -4,6 +4,9 @@ import { getEventParticipantPlayerIds } from '../db/admin-events';
 import { refreshPlayer } from '../services/player-refresh.service';
 import { loadLeaderboardFromDatabase } from '../services/leaderboard.service';
 import { jobCoordinator } from '../runtime/job-coordinator';
+import { log } from '../utils/logging';
+
+let caller = 'SCHEDULER';
 
 const TARGET_REFRESH_MS = 10_000;
 const MIN_REFRESH_SPACING_MS = 5_000;
@@ -37,15 +40,13 @@ async function schedulerTick(): Promise<void> {
     if (!activeEvent) {
       currentRefreshSpacingMs = TARGET_REFRESH_MS;
       if (!schedulerIdleLogged) {
-        console.log('[SCHEDULER] No active event - automatic player refresh paused');
+        log(caller, 'info', `No active event - automatic player refresh paused`);
         schedulerIdleLogged = true;
       }
       return;
     }
     if (schedulerIdleLogged) {
-      console.log(
-        `[SCHEDULER] Event "${activeEvent.name}" active - automatic player refresh resumed`,
-      );
+      log(caller, 'info', `"${activeEvent.name}" active - automatic player refresh resumed`);
       schedulerIdleLogged = false;
     }
     const participantIds = new Set(await getEventParticipantPlayerIds(activeEvent.id));
@@ -80,7 +81,7 @@ async function schedulerTick(): Promise<void> {
       },
     );
   } catch (error) {
-    console.error('[SCHEDULER] Refresh failed:', error);
+    log(caller, 'error', `Refresh failed: ${error}`);
   } finally {
     scheduleNextRefresh();
   }
@@ -92,7 +93,6 @@ export function stopRefreshScheduler(): void {
   if (!schedulerTimer) {
     return;
   }
-
   clearTimeout(schedulerTimer);
   schedulerTimer = null;
 }

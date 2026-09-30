@@ -1,5 +1,8 @@
 import * as argon2 from 'argon2';
 import { db } from './client';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN';
 
 export interface Admin {
   id: number;
@@ -67,7 +70,11 @@ export async function findAdminByUsername(username: string): Promise<Admin | nul
 export async function ensureInitialAdmin(): Promise<Admin | null> {
   const adminCount = await getAdminCount();
   if (adminCount > 0) {
-    console.log(`[ADMIN] ${adminCount} admin account(s) found ✓`);
+    if (adminCount == 1) {
+      log(caller, 'info', `${adminCount} admin account found`);
+    } else {
+      log(caller, 'info', `${adminCount} admin accounts found`);
+    }
     return null;
   }
   const username = process.env.ADMIN_USERNAME?.trim();
@@ -84,7 +91,7 @@ export async function ensureInitialAdmin(): Promise<Admin | null> {
   if (password.length < 12) {
     throw new Error('ADMIN_PASSWORD must contain at least 12 characters');
   }
-  console.log(`[ADMIN] Creating initial admin "${username}"...`);
+  log(caller, 'info', `Creating initial admin "${username}"...`);
   const passwordHash = await argon2.hash(password, {
     type: argon2.argon2id,
   });
@@ -109,7 +116,7 @@ export async function ensureInitialAdmin(): Promise<Admin | null> {
     [username, passwordHash],
   );
   const admin = mapAdmin(result.rows[0]);
-  console.log(`[ADMIN] Initial admin "${admin.username}" created ✓`);
+  log(caller, 'info', `Initial admin "${admin.username}" created`);
   return admin;
 }
 
@@ -134,23 +141,17 @@ export async function authenticateAdmin(username: string, password: string): Pro
       `,
     [username.trim()],
   );
-
   if (result.rows.length === 0) {
     return null;
   }
-
   const row = result.rows[0];
-
   if (!row.enabled) {
     return null;
   }
-
   const valid = await argon2.verify(row.password_hash, password);
-
   if (!valid) {
     return null;
   }
-
   await db.query(
     `
     UPDATE admins
@@ -160,7 +161,6 @@ export async function authenticateAdmin(username: string, password: string): Pro
     `,
     [row.id],
   );
-
   return mapAdmin({
     ...row,
     last_login_at: new Date(),

@@ -6,6 +6,9 @@ import type {
 import { db } from './client';
 import { runAdminDatabaseMaintenance } from './admin-database-maintenance';
 import { getAdminDatabaseTableDefinitions } from './admin-database-registry';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN DATABASE';
 
 type QueryClient = Pick<Pool, 'query'>;
 
@@ -24,7 +27,7 @@ export async function runAdminDatabaseMaintenanceAll(
         error: result === null ? 'Maintenance operation not allowed' : null,
       });
     } catch (error) {
-      console.error(`[ADMIN DATABASE] ${operation} failed for ${table.name}:`, error);
+      log(caller, 'error', `${operation} failed for ${table.name}:` + error);
       results.push({
         tableName: table.name,
         completed: false,

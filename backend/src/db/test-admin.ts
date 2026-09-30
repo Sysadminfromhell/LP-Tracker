@@ -1,18 +1,21 @@
 import 'dotenv/config';
 import { closeDatabase } from './client';
 import { ensureInitialAdmin, getAdminCount } from './admins';
+import { log } from '../utils/logging';
+
+let caller = "ADMIN";
 
 async function main(): Promise<void> {
   await ensureInitialAdmin();
   const count = await getAdminCount();
-  console.log(`[ADMIN] Admins in database: ${count}`);
+  log(caller,'info', `Admins in database: ${count}`);
 }
 
 main()
   .catch((error) => {
-    console.error();
-    console.error('[ADMIN] Test failed:');
-    console.error(error);
+    log(caller,'error', ``);
+    log(caller,'error', `Test failed:`);
+    log(caller,'error', error);
     process.exitCode = 1;
   })
   .finally(async () => {

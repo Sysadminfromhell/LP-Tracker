@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import type { AdminDatabaseMatchDetailsPruneResponse } from '@lp-tracker/contracts';
 import { db } from './client';
+import { log } from '../utils/logging';
+
+let caller = 'ADMIN DATABASE';
 
 type DatabasePool = Pick<Pool, 'connect'>;
 
@@ -100,10 +103,11 @@ export async function pruneAdminDatabaseMatchDetails(
       completedAt: new Date().toISOString(),
     };
   } catch (error) {
+    log(caller, 'error', `Error occoured, try to rollback...`);
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('[ADMIN DATABASE] Match details prune rollback failed:', rollbackError);
+      log(caller, 'error', `Match details prune rollback failed:` + rollbackError);
     }
     throw error;
   } finally {
