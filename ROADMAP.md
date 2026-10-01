@@ -14,16 +14,17 @@ This file describes the next Roadmap milestones and feature sets currently plann
 | ~~v2.4.2~~ | ~~Add "Dangerzone" in Admin Page for advanced Database manipulation and pruning~~ | Yes (09/23/2026) |
 | ~~v2.5.0~~ | ~~Add serveral Privacy Policy Pages and subpages to comply with German/EU Data protection rights~~ | Yes (09/24/2026) |
 | ~~v2.5.2~~ | ~~Minor bugfixes; Handling Remakes and LP Loss protected matches~~ | Yes (09/28/2026) |
-| v2.5.5 | Backend cleanup: remove legacy `src/db/leaderboard.ts` after verifying all runtime, test, CLI and CI references | No |
-|  | Remove obsolete `src/db/test*.ts` utility/test files after verifying they are no longer used | No |
-|  | Move workflow/business logic from `src/db/event-refresh.ts` into the service layer and keep DB modules persistence-focused | No |
-|  | Split `src/db/lp-reconciliation.ts` into smaller, clearly scoped persistence modules | No |
-|  | Replace reconciliation retry/error string matching with typed reason codes/constants | No |
-|  | Reduce business logic inside `admin-player.routes.ts`, `admin-event.routes.ts` and `admin-database.routes.ts` | No |
-|  | Establish a consistent backend dependency flow: `routes -> services -> db/providers` | No |
-|  | Standardize logging callers and replace mutable `let caller = ...` patterns with a consistent logger/context approach | No |
-|  | Rename Riot rate-limit modules to clearly distinguish parsing from throttling responsibilities | No |
-|  | Consolidate duplicated DB/domain/API type definitions and establish a consistent `DB Row -> Domain Model -> API Contract` mapping | No |
-|  | Review remaining backend modules for legacy V1/V2 architecture patterns and align them with the current structure and conventions | No |
-|  | Run backend tests, typecheck, build and diagnostics after every cleanup group to prevent regressions | No |
+| v2.5.5 | Cleanup, consistency review, dead code removal and technical debt cleanup | No |
+| v2.5.6 | Penetration testing and security hardening of authentication, sessions, APIs, reverse proxy handling, CSP, metrics and public diagnostics | No |
 | v2.6.0 | Extend Prometheus metrics and performance monitoring | No |
+| v2.7.0 | Extend event rules and scoring configuration | No |
+| v2.8.0 | Add advanced player history, event analytics and LP timelines | No |
+| v2.9.0 | Add live event feed and player milestones | No |
+| v2.10.0 | Improve overlays and stream integrations | No |
+| v2.11.0 | Add reusable event templates and improve setup workflows | No |
+| v2.12.0 | Add player/event comparisons and performance insights | No |
+| v2.13.0 | Expand administration and event management capabilities | No |
+| v2.13.5 | Add Log insights in Admin Panel for analytic purposes | No |
+| v3.0.0 | Generalize LP-Tracker into a modular and extensible event platform | No |
+| v3.1.0 | Add team entities, team events, team scoring, standings and team-aware overlays | No |
+| v3.1.5 | Remoddel team-aware overlays for highlighting streamer | No |
