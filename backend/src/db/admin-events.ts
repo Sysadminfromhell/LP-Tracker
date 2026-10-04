@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 import { db } from './client';
 
-export type AdminEventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
+type AdminEventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
 export interface AdminEvent {
   id: number;
   name: string;
@@ -494,44 +494,6 @@ export async function getEventSelectedPlayerIds(eventId: number): Promise<number
     [eventId],
   );
   return result.rows.map((row) => Number(row.player_id));
-}
-export async function setScheduledEventPlayerIds(
-  eventId: number,
-  playerIds: number[],
-): Promise<number[]> {
-  const client = await db.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    const eventResult = await client.query(
-      `
-      SELECT id
-      FROM events
-      WHERE
-        id = $1
-        AND status = 'scheduled'
-      LIMIT 1
-      FOR UPDATE
-      `,
-      [eventId],
-    );
-
-    if (eventResult.rows.length === 0) {
-      throw new Error('SCHEDULED_EVENT_NOT_FOUND');
-    }
-
-    const selectedPlayerIds = await replaceEventPlayerSelections(client, eventId, playerIds);
-
-    await client.query('COMMIT');
-
-    return selectedPlayerIds;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
 }
 export async function activateScheduledEvent(eventId: number): Promise<AdminEvent> {
   const client = await db.connect();

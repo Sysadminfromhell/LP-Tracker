@@ -220,7 +220,7 @@ export async function refreshPlayer(
     recordPlayerRefreshFailure();
     log('PLAYER REFRESH', 'error', `${player.gameName}#${player.tagLine} failed: ${message}`);
     await savePlayerCacheError(player.id, message).catch((dbError) => {
-      log('DB', 'error', `Could not persist player refresh error:', ${dbError}`);
+      log('DB', 'error', `Could not persist player refresh error: ${dbError}`);
     });
     setLeaderboardPlayerError(player.id, message);
     return false;

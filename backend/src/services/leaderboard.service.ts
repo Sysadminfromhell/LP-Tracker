@@ -80,7 +80,7 @@ interface BuiltLeaderboardPlayer {
   player: LeaderboardPlayer;
   stats: EventPlayerStats;
 }
-export interface LeaderboardHighlight {
+interface LeaderboardHighlight {
   player: {
     id: number;
     gameName: string;

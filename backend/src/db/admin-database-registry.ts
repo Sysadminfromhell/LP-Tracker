@@ -1,4 +1,4 @@
-export const ADMIN_DATABASE_TABLES = {
+const ADMIN_DATABASE_TABLES = {
   players: {
     label: 'Players',
     group: 'core',
@@ -85,8 +85,7 @@ export const ADMIN_DATABASE_TABLES = {
   },
 } as const;
 export type AdminDatabaseTableName = keyof typeof ADMIN_DATABASE_TABLES;
-export type AdminDatabaseTableGroup =
-  (typeof ADMIN_DATABASE_TABLES)[AdminDatabaseTableName]['group'];
+type AdminDatabaseTableGroup = (typeof ADMIN_DATABASE_TABLES)[AdminDatabaseTableName]['group'];
 export interface AdminDatabaseTableDefinition {
   name: AdminDatabaseTableName;
   schema: 'public';

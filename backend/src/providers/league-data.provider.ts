@@ -1,6 +1,6 @@
 import type { SummonerMatch, SummonerProfile } from './league-data.types';
 
-export interface LeagueDataRateLimitBucket {
+interface LeagueDataRateLimitBucket {
   limit: number;
   count: number | null;
   windowSeconds: number;

@@ -1,6 +1,5 @@
-import type { LeagueDataRateLimitBucket, LeagueDataRateLimitStatus } from '../league-data.provider';
+import type { LeagueDataRateLimitStatus } from '../league-data.provider';
 
-export type RiotRateLimitBucket = LeagueDataRateLimitBucket;
 export type RiotRateLimitStatus = LeagueDataRateLimitStatus;
 interface ParsedRateLimitValue {
   value: number;
