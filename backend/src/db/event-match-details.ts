@@ -7,7 +7,7 @@ import type {
 
 type QueryClient = Pick<PoolClient, 'query'>;
 
-export interface EventMatchDetailParticipant {
+interface EventMatchDetailParticipant {
   side: MatchParticipantSide;
   position: MatchParticipantPosition;
   championId: number;
@@ -173,34 +173,6 @@ export async function replaceEventMatchDetails(
       trackedPlayer.assists,
       trackedPlayer.cs,
     ],
-  );
-}
-export async function pruneEventMatchDetails(
-  client: QueryClient,
-  eventParticipantId: number,
-  keepMatches = 3,
-): Promise<void> {
-  if (!Number.isInteger(keepMatches) || keepMatches < 0) {
-    throw new Error(`keepMatches must be a non-negative integer, got ${keepMatches}`);
-  }
-  await client.query(
-    `
-      DELETE FROM event_match_details AS details
-      USING event_matches AS match
-      WHERE
-        details.event_match_id = match.id
-        AND match.event_participant_id = $1
-        AND match.id NOT IN (
-          SELECT recent_match.id
-          FROM event_matches AS recent_match
-          WHERE recent_match.event_participant_id = $1
-          ORDER BY
-            recent_match.game_created_at DESC,
-            recent_match.id DESC
-          LIMIT $2
-        )
-    `,
-    [eventParticipantId, keepMatches],
   );
 }
 interface EventMatchIdRow {

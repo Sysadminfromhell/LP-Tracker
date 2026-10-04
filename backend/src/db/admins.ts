@@ -12,7 +12,6 @@ export interface Admin {
   updatedAt: string;
   lastLoginAt: string | null;
 }
-
 interface AdminRow {
   id: string;
   username: string;
@@ -32,8 +31,7 @@ function mapAdmin(row: AdminRow): Admin {
     lastLoginAt: row.last_login_at?.toISOString() ?? null,
   };
 }
-
-export async function getAdminCount(): Promise<number> {
+async function getAdminCount(): Promise<number> {
   const result = await db.query<{
     count: string;
   }>(
@@ -44,29 +42,6 @@ export async function getAdminCount(): Promise<number> {
   );
   return Number(result.rows[0].count);
 }
-
-export async function findAdminByUsername(username: string): Promise<Admin | null> {
-  const result = await db.query<AdminRow>(
-    `
-      SELECT
-        id,
-        username,
-        enabled,
-        created_at,
-        updated_at,
-        last_login_at
-      FROM admins
-      WHERE LOWER(username) = LOWER($1)
-      LIMIT 1
-      `,
-    [username],
-  );
-  if (result.rows.length === 0) {
-    return null;
-  }
-  return mapAdmin(result.rows[0]);
-}
-
 export async function ensureInitialAdmin(): Promise<Admin | null> {
   const adminCount = await getAdminCount();
   if (adminCount > 0) {

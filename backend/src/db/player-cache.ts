@@ -14,7 +14,6 @@ export interface PlayerCache {
   lastError: string | null;
   updatedAt: string;
 }
-
 export interface SavePlayerCacheInput {
   playerId: number;
   profileImageUrl: string | null;
@@ -25,7 +24,6 @@ export interface SavePlayerCacheInput {
   seasonWins: number | null;
   seasonLosses: number | null;
 }
-
 interface PlayerCacheRow {
   player_id: string;
   profile_image_url: string | null;
@@ -57,43 +55,6 @@ function mapPlayerCache(row: PlayerCacheRow): PlayerCache {
     updatedAt: row.updated_at.toISOString(),
   };
 }
-
-export async function getPlayerCache(playerId: number): Promise<PlayerCache | null> {
-  const result = await db.query<PlayerCacheRow>(
-    `
-      SELECT
-        player_id,
-
-        profile_image_url,
-
-        tier,
-        division,
-        lp,
-        rank_score,
-
-        season_wins,
-        season_losses,
-
-        last_successful_fetch_at,
-        last_fetch_attempt_at,
-
-        last_error,
-
-        updated_at
-      FROM player_cache
-      WHERE player_id = $1
-      LIMIT 1
-      `,
-    [playerId],
-  );
-
-  if (result.rows.length === 0) {
-    return null;
-  }
-
-  return mapPlayerCache(result.rows[0]);
-}
-
 export async function markPlayerFetchAttempt(playerId: number): Promise<void> {
   await db.query(
     `
@@ -113,7 +74,6 @@ export async function markPlayerFetchAttempt(playerId: number): Promise<void> {
     [playerId],
   );
 }
-
 export async function savePlayerCacheSuccess(input: SavePlayerCacheInput): Promise<PlayerCache> {
   const result = await db.query<PlayerCacheRow>(
     `
@@ -211,7 +171,6 @@ export async function savePlayerCacheSuccess(input: SavePlayerCacheInput): Promi
 
   return mapPlayerCache(result.rows[0]);
 }
-
 export async function savePlayerCacheError(playerId: number, error: string): Promise<void> {
   await db.query(
     `

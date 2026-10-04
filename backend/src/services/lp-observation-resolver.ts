@@ -4,7 +4,7 @@ export interface LpObservationMatchReference {
   durationSeconds: number | null;
   result: 'WIN' | 'LOSE';
 }
-export type LpRankObservationSource = 'profile_refresh' | 'provider_history';
+type LpRankObservationSource = 'profile_refresh' | 'provider_history';
 export interface LpRankObservationReference {
   id?: number;
   rankScore: number;

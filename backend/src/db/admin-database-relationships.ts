@@ -4,7 +4,7 @@ import { isAdminDatabaseTableName, type AdminDatabaseTableName } from './admin-d
 
 type QueryClient = Pick<Pool, 'query'>;
 
-export type AdminDatabaseForeignKeyAction =
+type AdminDatabaseForeignKeyAction =
   | 'NO ACTION'
   | 'RESTRICT'
   | 'CASCADE'

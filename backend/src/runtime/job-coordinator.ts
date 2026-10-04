@@ -1,4 +1,4 @@
-export type JobType =
+type JobType =
   | 'event-start'
   | 'event-end'
   | 'manual-player-refresh'
@@ -6,7 +6,7 @@ export type JobType =
   | 'scheduled-player-refresh'
   | 'lp-reconciliation';
 export type CoordinatorLock = 'event-transition';
-export const JOB_PRIORITIES: Readonly<Record<JobType, number>> = {
+const JOB_PRIORITIES: Readonly<Record<JobType, number>> = {
   'event-end': 110,
   'event-start': 100,
   'manual-refresh-all': 60,

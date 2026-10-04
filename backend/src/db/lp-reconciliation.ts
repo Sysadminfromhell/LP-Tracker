@@ -10,7 +10,7 @@ export interface LpReconciliationQueueItem {
   createdAt: string;
   updatedAt: string;
 }
-export interface LpRankObservation {
+interface LpRankObservation {
   id: number;
   eventParticipantId: number;
   rankScore: number;
@@ -21,7 +21,7 @@ export interface LpProviderHistoryObservation {
   rankScore: number;
   observedAt: Date;
 }
-export interface LpReconciliationMatch {
+interface LpReconciliationMatch {
   id: number;
   providerMatchId: string;
   gameCreatedAt: string;
@@ -45,7 +45,7 @@ export interface LpReconciliationContext {
   rankObservations: LpRankObservation[];
   unresolvedMatches: LpReconciliationMatch[];
 }
-export interface LpReconciliationResolution {
+interface LpReconciliationResolution {
   providerMatchId: string;
   lpDelta: number;
   rankScoreAfter: number;
@@ -147,24 +147,6 @@ function isTierFourZeroLpBoundary(rankScore: number): boolean {
   return rankScore >= 0 && rankScore <= 2400 && rankScore % 400 === 0;
 }
 
-export async function enqueueLpReconciliation(eventParticipantId: number): Promise<void> {
-  await db.query(
-    `
-      INSERT INTO lp_reconciliation_queue (
-        event_participant_id,
-        next_attempt_at
-      )
-      VALUES (
-        $1,
-        NOW()
-      )
-
-      ON CONFLICT (event_participant_id)
-      DO NOTHING
-      `,
-    [eventParticipantId],
-  );
-}
 export async function claimLpReconciliationJobs(
   limit = 5,
   leaseSeconds = 120,
@@ -1131,7 +1113,7 @@ export async function recordLpProviderHistoryObservations(
   );
   return result.rows[0]?.inserted_count ?? 0;
 }
-export async function getLpRankObservations(
+async function getLpRankObservations(
   eventParticipantId: number,
 ): Promise<LpRankObservation[]> {
   const result = await db.query<LpRankObservationRow>(

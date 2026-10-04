@@ -1,5 +1,5 @@
 import { db } from './client';
-export type EventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
+type EventStatus = 'draft' | 'scheduled' | 'active' | 'ended';
 export interface DbEvent {
   id: number;
   name: string;
@@ -202,7 +202,7 @@ export async function getActiveEvent(): Promise<DbEvent | null> {
   }
   return mapEvent(result.rows[0]);
 }
-export async function getEventById(eventId: number): Promise<DbEvent | null> {
+async function getEventById(eventId: number): Promise<DbEvent | null> {
   const result = await db.query<EventRow>(
     `
       SELECT
@@ -262,90 +262,6 @@ export async function getEventParticipant(
   if (result.rows.length === 0) {
     return null;
   }
-  return mapParticipant(result.rows[0]);
-}
-export interface CreateEventParticipantInput {
-  eventId: number;
-  playerId: number;
-  startTier: string;
-  startDivision: number | null;
-  startLp: number;
-  startRankScore: number;
-  startWins: number;
-  startLosses: number;
-  lastResolvedRankScore: number;
-  snapshotCapturedAt: string;
-}
-export async function createEventParticipant(
-  input: CreateEventParticipantInput,
-): Promise<DbEventParticipant> {
-  const result = await db.query<EventParticipantRow>(
-    `
-      INSERT INTO event_participants (
-        event_id,
-        player_id,
-        start_tier,
-        start_division,
-        start_lp,
-        start_rank_score,
-        start_wins,
-        start_losses,
-        last_resolved_rank_score,
-        snapshot_captured_at
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10
-      )
-      ON CONFLICT (
-        event_id,
-        player_id
-      )
-      DO UPDATE SET
-        updated_at = NOW()
-      RETURNING
-        id,
-        event_id,
-        player_id,
-        start_tier,
-        start_division,
-        start_lp,
-        start_rank_score,
-        start_wins,
-        start_losses,
-        last_resolved_rank_score,
-        end_tier,
-        end_division,
-        end_lp,
-        end_rank_score,
-        end_wins,
-        end_losses,
-        snapshot_captured_at,
-        ended_snapshot_at,
-        created_at,
-        updated_at
-      `,
-    [
-      input.eventId,
-      input.playerId,
-      input.startTier,
-      input.startDivision,
-      input.startLp,
-      input.startRankScore,
-      input.startWins,
-      input.startLosses,
-      input.lastResolvedRankScore,
-      input.snapshotCapturedAt,
-    ],
-  );
   return mapParticipant(result.rows[0]);
 }
 export async function getLatestEventMatchCursor(
@@ -488,102 +404,6 @@ export async function getEventMatchStats(eventParticipantId: number): Promise<Db
     longestWinStreak: Number(row.longest_win_streak),
   };
 }
-export interface CreateEventMatchInput {
-  eventParticipantId: number;
-  providerMatchId: string;
-  gameCreatedAt: string;
-  durationSeconds: number | null;
-  championId: number;
-  champion: string;
-  position: string;
-  kills: number;
-  deaths: number;
-  assists: number;
-  cs: number;
-  result: 'WIN' | 'LOSE';
-  lpDelta: number | null;
-  lpDeltaStatus: 'pending' | 'resolved' | 'unknown';
-}
-export async function createEventMatch(input: CreateEventMatchInput): Promise<DbEventMatch> {
-  const result = await db.query<EventMatchRow>(
-    `
-      INSERT INTO event_matches (
-        event_participant_id,
-        provider_match_id,
-        game_created_at,
-        duration_seconds,
-        champion_id,
-        champion,
-        position,
-        kills,
-        deaths,
-        assists,
-        cs,
-        result,
-        lp_delta,
-        lp_delta_status
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11,
-        $12,
-        $13,
-        $14
-      )
-      ON CONFLICT (
-        event_participant_id,
-        provider_match_id
-      )
-      DO UPDATE SET
-        updated_at = NOW()
-      RETURNING
-        id,
-        event_participant_id,
-        provider_match_id,
-        game_created_at,
-        duration_seconds,
-        champion_id,
-        champion,
-        position,
-        kills,
-        deaths,
-        assists,
-        cs,
-        result,
-        is_remake,
-        lp_delta,
-        lp_delta_status,
-        discovered_at,
-        updated_at
-      `,
-    [
-      input.eventParticipantId,
-      input.providerMatchId,
-      input.gameCreatedAt,
-      input.durationSeconds,
-      input.championId,
-      input.champion,
-      input.position,
-      input.kills,
-      input.deaths,
-      input.assists,
-      input.cs,
-      input.result,
-      input.lpDelta,
-      input.lpDeltaStatus,
-    ],
-  );
-  return mapMatch(result.rows[0]);
-}
 export async function getRecentEventMatches(
   eventParticipantId: number,
   limit = 3,
@@ -650,10 +470,8 @@ export async function getDisplayEvent(): Promise<DbEvent | null> {
     LIMIT 1
     `,
   );
-
   if (result.rows.length === 0) {
     return null;
   }
-
   return getEventById(Number(result.rows[0].id));
 }

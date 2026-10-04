@@ -255,7 +255,7 @@ export function parseRecentMatches(text: string): SummonerMatch[] {
   }
   return matches;
 }
-export function parseRankedLpHistory(text: string): RankedLpHistoryEntry[] {
+function parseRankedLpHistory(text: string): RankedLpHistoryEntry[] {
   const lines = text
     .split('\n')
     .map((line) => line.trim())

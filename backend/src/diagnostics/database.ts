@@ -44,7 +44,7 @@ function getReportStatus(checks: DiagnosticCheck[]): DiagnosticStatus {
   }
   return 'ok';
 }
-export function getLocalMigrationFiles(): string[] {
+function getLocalMigrationFiles(): string[] {
   const directory = path.resolve(__dirname, '../../migrations');
   return fs
     .readdirSync(directory)
