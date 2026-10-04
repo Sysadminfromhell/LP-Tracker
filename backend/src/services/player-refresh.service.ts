@@ -122,7 +122,7 @@ export async function refreshPlayer(
             log(
               'LP HISTORY',
               'warn',
-              `${player.gameName}#${player.tagLine}: ignoring invalid provider history entry `,
+              `${player.gameName}#${player.tagLine}: ignoring invalid provider history entry: ${message}`,
             );
             return [];
           }
