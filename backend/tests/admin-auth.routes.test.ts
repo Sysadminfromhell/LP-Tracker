@@ -22,6 +22,7 @@ import { adminAuthRoutes } from '../src/routes/admin-auth.routes';
 import { ADMIN_COOKIE_NAME } from '../src/auth/admin-auth';
 
 const originalNodeEnv = process.env.NODE_ENV;
+const originalTrustProxy = process.env.TRUST_PROXY;
 const admin: Admin = {
   id: 1,
   username: 'admin',
@@ -41,6 +42,7 @@ async function createTestApp(): Promise<FastifyInstance> {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.NODE_ENV = 'development';
+  delete process.env.TRUST_PROXY;
   mocks.authenticateAdmin.mockResolvedValue(null);
   mocks.createAdminSession.mockResolvedValue({
     token: 'session-token',
@@ -55,6 +57,11 @@ afterEach(() => {
     delete process.env.NODE_ENV;
   } else {
     process.env.NODE_ENV = originalNodeEnv;
+  }
+  if (originalTrustProxy === undefined) {
+    delete process.env.TRUST_PROXY;
+  } else {
+    process.env.TRUST_PROXY = originalTrustProxy;
   }
 });
 
@@ -300,6 +307,54 @@ describe('admin auth routes', () => {
       });
       expect(blockedResponse.statusCode).toBe(429);
       expect(mocks.authenticateAdmin).toHaveBeenCalledTimes(5);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rate limits login attempts independently per forwarded client IP', async () => {
+    process.env.TRUST_PROXY = '127.0.0.1';
+    mocks.authenticateAdmin.mockResolvedValue(null);
+    const app = await createTestApp();
+    try {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/admin/login',
+          headers: {
+            'x-forwarded-for': '203.0.113.10',
+          },
+          payload: {
+            username: 'admin',
+            password: 'wrong-password',
+          },
+        });
+        expect(response.statusCode).toBe(401);
+      }
+      const otherClientResponse = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          'x-forwarded-for': '203.0.113.20',
+        },
+        payload: {
+          username: 'admin',
+          password: 'wrong-password',
+        },
+      });
+      expect(otherClientResponse.statusCode).toBe(401);
+      const blockedResponse = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          'x-forwarded-for': '203.0.113.10',
+        },
+        payload: {
+          username: 'admin',
+          password: 'wrong-password',
+        },
+      });
+      expect(blockedResponse.statusCode).toBe(429);
+      expect(mocks.authenticateAdmin).toHaveBeenCalledTimes(6);
     } finally {
       await app.close();
     }

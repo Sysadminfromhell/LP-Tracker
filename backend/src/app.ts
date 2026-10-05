@@ -1,9 +1,23 @@
 import Fastify, { LogController } from 'fastify';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
+import { log } from './utils/logging';
 
 export function createApp() {
+  function getTrustProxySetting(): false | string {
+    const value = process.env.TRUST_PROXY?.trim();
+    if (!value || value.toLowerCase() === 'false') {
+      return false;
+    }
+    if (value.toLowerCase() === 'true') {
+      throw new Error('TRUST_PROXY must contain trusted proxy IPs/CIDRs instead of "true"');
+    }
+    log("APP","info",`A reverse Proxy is configured ${value}`,"BOOTUP");
+    return value;
+  }
+
   const app = Fastify({
+    trustProxy: getTrustProxySetting(),
     ajv: {
       customOptions: {
         coerceTypes: false,
@@ -75,7 +89,7 @@ export function createApp() {
     }
   });
   app.addHook('onResponse', async (request, reply) => {
-    request.log.info(`${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`);
+    log("APP","info",`${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`, "WEB")
   });
   return app;
 }
