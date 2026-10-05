@@ -15,7 +15,7 @@ This file describes the next Roadmap milestones and feature sets currently plann
 | ~~v2.5.0~~ | ~~Add serveral Privacy Policy Pages and subpages to comply with German/EU Data protection rights~~ | Yes (09/24/2026) |
 | ~~v2.5.2~~ | ~~Minor bugfixes; Handling Remakes and LP Loss protected matches~~ | Yes (09/28/2026) |
 | ~~v2.5.5~~ | ~~Cleanup, consistency review, dead code removal and technical debt cleanup~~ | Yes (10/04/2026) |
-| v2.5.6 | Penetration testing and security hardening of authentication, sessions, APIs, reverse proxy handling, CSP, metrics and public diagnostics | No |
+| ~~v2.5.6~~ | ~~Penetration testing and security hardening of authentication, sessions, APIs, reverse proxy handling, CSP, metrics and public diagnostics~~ | Yes (10/05/2026) |
 | v2.6.0 | Extend Prometheus metrics and performance monitoring | No |
 | v2.7.0 | Extend event rules and scoring configuration | No |
 | v2.8.0 | Add advanced player history, event analytics and LP timelines | No |
