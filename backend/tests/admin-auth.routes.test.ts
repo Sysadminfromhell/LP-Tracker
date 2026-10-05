@@ -22,6 +22,7 @@ import { adminAuthRoutes } from '../src/routes/admin-auth.routes';
 import { ADMIN_COOKIE_NAME } from '../src/auth/admin-auth';
 
 const originalNodeEnv = process.env.NODE_ENV;
+const originalTrustProxy = process.env.TRUST_PROXY;
 const admin: Admin = {
   id: 1,
   username: 'admin',
@@ -41,6 +42,7 @@ async function createTestApp(): Promise<FastifyInstance> {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.NODE_ENV = 'development';
+  delete process.env.TRUST_PROXY;
   mocks.authenticateAdmin.mockResolvedValue(null);
   mocks.createAdminSession.mockResolvedValue({
     token: 'session-token',
@@ -56,10 +58,15 @@ afterEach(() => {
   } else {
     process.env.NODE_ENV = originalNodeEnv;
   }
+  if (originalTrustProxy === undefined) {
+    delete process.env.TRUST_PROXY;
+  } else {
+    process.env.TRUST_PROXY = originalTrustProxy;
+  }
 });
 
 describe('admin auth routes', () => {
-  it('rejects login requests without username or password', async () => {
+  it('rejects login requests with missing credentials', async () => {
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -71,7 +78,7 @@ describe('admin auth routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'Username and password are required',
+        error: 'Invalid request',
       });
       expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
     } finally {
@@ -300,6 +307,169 @@ describe('admin auth routes', () => {
       });
       expect(blockedResponse.statusCode).toBe(429);
       expect(mocks.authenticateAdmin).toHaveBeenCalledTimes(5);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rate limits login attempts independently per forwarded client IP', async () => {
+    process.env.TRUST_PROXY = '127.0.0.1';
+    mocks.authenticateAdmin.mockResolvedValue(null);
+    const app = await createTestApp();
+    try {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/admin/login',
+          headers: {
+            'x-forwarded-for': '203.0.113.10',
+          },
+          payload: {
+            username: 'admin',
+            password: 'wrong-password',
+          },
+        });
+        expect(response.statusCode).toBe(401);
+      }
+      const otherClientResponse = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          'x-forwarded-for': '203.0.113.20',
+        },
+        payload: {
+          username: 'admin',
+          password: 'wrong-password',
+        },
+      });
+      expect(otherClientResponse.statusCode).toBe(401);
+      const blockedResponse = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          'x-forwarded-for': '203.0.113.10',
+        },
+        payload: {
+          username: 'admin',
+          password: 'wrong-password',
+        },
+      });
+      expect(blockedResponse.statusCode).toBe(429);
+      expect(mocks.authenticateAdmin).toHaveBeenCalledTimes(6);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long usernames before authentication', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'a'.repeat(129),
+          password: 'password',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long passwords before authentication', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'admin',
+          password: 'a'.repeat(1025),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('sets a secure admin session cookie in production', async () => {
+    process.env.NODE_ENV = 'production';
+    mocks.authenticateAdmin.mockResolvedValue(admin);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          host: 'tracker.example.com',
+          origin: 'https://tracker.example.com',
+        },
+        payload: {
+          username: 'admin',
+          password: 'correct-password',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      const setCookie = String(response.headers['set-cookie']);
+      expect(setCookie).toContain(`${ADMIN_COOKIE_NAME}=session-token`);
+      expect(setCookie).toContain('HttpOnly');
+      expect(setCookie).toContain('Secure');
+      expect(setCookie).toContain('SameSite=Strict');
+      expect(setCookie).toContain('Path=/');
+    } finally {
+      await app.close();
+    }
+  });
+  it('clears an invalid admin session cookie', async () => {
+    mocks.getAdminBySessionToken.mockResolvedValue(null);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/me',
+        headers: {
+          cookie: `${ADMIN_COOKIE_NAME}=invalid-session-token`,
+        },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: 'Authentication required',
+      });
+      expect(mocks.getAdminBySessionToken).toHaveBeenCalledWith('invalid-session-token');
+      const setCookie = response.headers['set-cookie'];
+      expect(setCookie).toBeDefined();
+      expect(String(setCookie)).toContain(`${ADMIN_COOKIE_NAME}=`);
+    } finally {
+      await app.close();
+    }
+  });
+  it('replaces an existing session cookie with a newly created session after login', async () => {
+    mocks.authenticateAdmin.mockResolvedValue(admin);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          cookie: `${ADMIN_COOKIE_NAME}=attacker-controlled-session`,
+        },
+        payload: {
+          username: 'admin',
+          password: 'correct-password',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.createAdminSession).toHaveBeenCalledWith(admin.id);
+      const setCookie = String(response.headers['set-cookie']);
+      expect(setCookie).toContain(`${ADMIN_COOKIE_NAME}=session-token`);
+      expect(setCookie).not.toContain('attacker-controlled-session');
     } finally {
       await app.close();
     }

@@ -86,10 +86,11 @@ Protect at least:
 - `DATABASE_ADMIN_PASSWORD`
 - `ADMIN_PASSWORD`
 - `RIOT_API_KEY`
+- `METRICS_TOKEN`
 
 Prefer Docker secrets, Swarm secrets, Kubernetes Secrets, a secret manager or an equivalent mechanism where available.
 
-The committed `backend/.env.example` file must contain examples/placeholders only.
+The committed `backend/.env.example` file must contain examples/placeholders only. Never commit production metrics tokens, API keys, passwords or other credentials.
 
 ---
 
@@ -128,7 +129,11 @@ The backend exposes Prometheus-compatible metrics at:
 /metrics
 ```
 
-The metrics endpoint is intended for monitoring and should preferably be restricted to an internal monitoring network, Prometheus instance or reverse-proxy allowlist.
+The metrics endpoint is disabled by default.
+
+Setting `METRICS_TOKEN` enables `/metrics`. Every request must then provide the configured token using Bearer authentication.
+
+A strong random token of at least 32 characters is required. Production deployments should additionally restrict the endpoint to the monitoring network or Prometheus instance at the reverse-proxy or network layer.
 
 Avoid exposing operational diagnostics publicly when they are not required.
 

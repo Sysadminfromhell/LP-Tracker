@@ -74,7 +74,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         return;
       }
       const playerId = Number(request.params.id);
-      if (!Number.isInteger(playerId) || playerId <= 0) {
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
         return reply.code(400).send({
           error: 'Invalid player id',
         });
@@ -387,7 +387,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         return;
       }
       const playerId = Number(request.params.id);
-      if (!Number.isInteger(playerId) || playerId <= 0) {
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
         return reply.code(400).send({
           error: 'Invalid player id',
         });
@@ -580,7 +580,7 @@ export async function adminPlayerRoutes(app: FastifyInstance): Promise<void> {
         return;
       }
       const playerId = Number(request.params.id);
-      if (!Number.isInteger(playerId) || playerId <= 0) {
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
         return reply.code(400).send({
           error: 'Invalid player id',
         });

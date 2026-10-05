@@ -2,12 +2,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 
 const originalNodeEnv = process.env.NODE_ENV;
+const originalTrustProxy = process.env.TRUST_PROXY;
 
 afterEach(() => {
   if (originalNodeEnv === undefined) {
     delete process.env.NODE_ENV;
   } else {
     process.env.NODE_ENV = originalNodeEnv;
+  }
+  if (originalTrustProxy === undefined) {
+    delete process.env.TRUST_PROXY;
+  } else {
+    process.env.TRUST_PROXY = originalTrustProxy;
   }
 });
 
@@ -215,5 +221,53 @@ describe('app security headers', () => {
     } finally {
       await app.close();
     }
+  });
+});
+describe('app reverse proxy trust', () => {
+  it('does not trust forwarded client IPs by default', async () => {
+    delete process.env.TRUST_PROXY;
+    const app = createApp();
+    app.get('/test-ip', async (request) => ({
+      ip: request.ip,
+    }));
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/test-ip',
+        headers: {
+          'x-forwarded-for': '203.0.113.42',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().ip).not.toBe('203.0.113.42');
+    } finally {
+      await app.close();
+    }
+  });
+  it('trusts forwarded client IPs from an explicitly trusted proxy', async () => {
+    process.env.TRUST_PROXY = '127.0.0.1';
+    const app = createApp();
+    app.get('/test-ip', async (request) => ({
+      ip: request.ip,
+    }));
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/test-ip',
+        headers: {
+          'x-forwarded-for': '203.0.113.42',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().ip).toBe('203.0.113.42');
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects unrestricted proxy trust configuration', () => {
+    process.env.TRUST_PROXY = 'true';
+    expect(() => createApp()).toThrow(
+      'TRUST_PROXY must contain trusted proxy IPs/CIDRs instead of "true"',
+    );
   });
 });

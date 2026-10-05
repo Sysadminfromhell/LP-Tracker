@@ -2,6 +2,10 @@ export interface BuildInfo {
   version: string;
   gitHead: string;
 }
+export interface PublicHealthResponse {
+  status: 'ok';
+  build: BuildInfo;
+}
 export interface ProviderRateLimitBucket {
   limit: number;
   count: number | null;
