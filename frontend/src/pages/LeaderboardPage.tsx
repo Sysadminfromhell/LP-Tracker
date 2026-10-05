@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type {
-  HealthResponse,
+  PublicHealthResponse,
   LeaderboardHighlight,
   LeaderboardPlayer,
   LeaderboardResponse,
@@ -411,7 +411,7 @@ function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(0);
-  const [buildInfo, setBuildInfo] = useState<HealthResponse['build']>();
+  const [buildInfo, setBuildInfo] = useState<PublicHealthResponse['build']>();
   const previousPlayerDataRef = useRef<Map<number, LeaderboardPlayer>>(new Map());
   const previousPositionsRef = useRef<Map<number, PlayerLayoutPosition>>(new Map());
   const pendingVisualChangesRef = useRef<Map<number, PlayerVisualChange>>(new Map());
@@ -561,7 +561,7 @@ function LeaderboardPage() {
         if (!response.ok) {
           throw new Error(`Health API returned HTTP ${response.status}`);
         }
-        const data = (await response.json()) as HealthResponse;
+        const data = (await response.json()) as PublicHealthResponse;
         setBuildInfo(data.build);
       } catch (err) {
         console.warn('Failed to load build information:', err);

@@ -526,54 +526,7 @@ describe('public routes', () => {
       await app.close();
     }
   });
-  it('returns health information for database, provider, players and scheduler', async () => {
-    mocks.getPlayers.mockResolvedValue([
-      {
-        id: 1,
-      },
-      {
-        id: 2,
-      },
-      {
-        id: 3,
-      },
-    ]);
-    mocks.getLeaderboardMeta.mockReturnValue({
-      event,
-      totalPlayers: 7,
-      cachedPlayers: 5,
-    });
-    mocks.getLeagueDataProviderStatus.mockReturnValue({
-      name: 'riot',
-      connected: true,
-    });
-    mocks.getRefreshSchedulerStatus.mockReturnValue({
-      targetRefreshMs: 10_000,
-      spacingMs: 5_000,
-      spacingSeconds: 5,
-    });
-    mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
-      rateLimit: {
-        buckets: [
-          {
-            limit: 100,
-            count: 17,
-            windowSeconds: 120,
-          },
-          {
-            limit: 20,
-            count: 1,
-            windowSeconds: 1,
-          },
-        ],
-        restricted: true,
-      },
-      warning:
-        'Low Riot API rate limit detected. ' +
-        'This is typical for Development or Personal API keys. ' +
-        'Large events may refresh slowly or receive HTTP 429 responses. ' +
-        'A Production API key is recommended.',
-    });
+  it('returns only public health and build information', async () => {
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -581,75 +534,14 @@ describe('public routes', () => {
         url: '/api/health',
       });
       expect(response.statusCode).toBe(200);
-      expect(mocks.getPlayers).toHaveBeenCalledWith(true);
       expect(response.json()).toEqual({
         status: 'ok',
         build: getBuildInfo(),
-        database: {
-          connected: true,
-        },
-        provider: {
-          name: 'riot',
-          connected: true,
-          rateLimit: {
-            buckets: [
-              {
-                limit: 100,
-                count: 17,
-                windowSeconds: 120,
-              },
-              {
-                limit: 20,
-                count: 1,
-                windowSeconds: 1,
-              },
-            ],
-            restricted: true,
-          },
-          warning:
-            'Low Riot API rate limit detected. ' +
-            'This is typical for Development or Personal API keys. ' +
-            'Large events may refresh slowly or receive HTTP 429 responses. ' +
-            'A Production API key is recommended.',
-        },
-        event: {
-          id: 42,
-          status: 'active',
-        },
-        players: {
-          enabled: 3,
-          event: 7,
-          cached: 5,
-        },
-        scheduler: {
-          targetRefreshMs: 10_000,
-          spacingMs: 5_000,
-          spacingSeconds: 5,
-        },
       });
-      mocks.getLeagueDataProviderDiagnostics.mockReturnValue({
-        rateLimit: {
-          buckets: [
-            {
-              limit: 100,
-              count: 17,
-              windowSeconds: 120,
-            },
-            {
-              limit: 20,
-              count: 1,
-              windowSeconds: 1,
-            },
-          ],
-
-          restricted: true,
-        },
-        warning:
-          'Low Riot API rate limit detected. ' +
-          'This is typical for Development or Personal API keys. ' +
-          'Large events may refresh slowly or receive HTTP 429 responses. ' +
-          'A Production API key is recommended.',
-      });
+      expect(mocks.getPlayers).not.toHaveBeenCalled();
+      expect(mocks.getLeagueDataProviderStatus).not.toHaveBeenCalled();
+      expect(mocks.getLeagueDataProviderDiagnostics).not.toHaveBeenCalled();
+      expect(mocks.getRefreshSchedulerStatus).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

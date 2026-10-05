@@ -87,7 +87,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const loadProviderHealth = useCallback(async () => {
     const generation = ++providerHealthLoadGeneration.current;
     try {
-      const response = await fetch('/api/health', {
+      const response = await fetch('/api/admin/health', {
         cache: 'no-store',
       });
       if (!response.ok) {

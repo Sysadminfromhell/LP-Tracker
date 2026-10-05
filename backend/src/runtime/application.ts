@@ -9,10 +9,12 @@ import { liveUpdateRoutes } from '../routes/live-update.routes';
 import { metricsRoutes } from '../routes/metrics.routes';
 import { legalPageRoutes } from '../routes/legal-page.routes';
 import { publicRoutes } from '../routes/public.routes';
+import { adminHealthRoutes } from '../routes/admin-health.routes';
 
 export function createApplication(): FastifyInstance {
   const app = createApp();
   app.register(adminAuthRoutes);
+  app.register(adminHealthRoutes);
   app.register(adminEventRoutes);
   app.register(adminDatabaseRoutes);
   app.register(adminPlayerRoutes);
