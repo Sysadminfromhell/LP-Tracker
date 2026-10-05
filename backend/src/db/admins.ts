@@ -3,6 +3,8 @@ import { db } from './client';
 import { log } from '../utils/logging';
 
 let caller = 'ADMIN';
+const DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=65536,t=3,p=4$EGvux0QOeO5VeCBKuqwELg$+s7hv6E6Vh4oJwgioFlYw7C6Sm9Q0ZdaKC6ivtNKVHI';
 
 export interface Admin {
   id: number;
@@ -122,15 +124,10 @@ export async function authenticateAdmin(username: string, password: string): Pro
       `,
     [username.trim()],
   );
-  if (result.rows.length === 0) {
-    return null;
-  }
   const row = result.rows[0];
-  if (!row.enabled) {
-    return null;
-  }
-  const valid = await argon2.verify(row.password_hash, password);
-  if (!valid) {
+  const passwordHash = row?.password_hash ?? DUMMY_PASSWORD_HASH;
+  const valid = await argon2.verify(passwordHash, password);
+  if (!row || !row.enabled || !valid) {
     return null;
   }
   await db.query(
