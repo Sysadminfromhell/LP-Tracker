@@ -1,44 +1,40 @@
 export { errorResponseSchema as adminPlayerErrorResponseSchema } from './common.schemas';
+const riotIdPartSchema = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 128,
+} as const;
+const regionSchema = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 32,
+} as const;
+const socialUsernameSchema = {
+  type: ['string', 'null'],
+  maxLength: 64,
+} as const;
 export const createPlayerBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['gameName', 'tagLine', 'region'],
   properties: {
-    gameName: {
-      type: 'string',
-    },
-    tagLine: {
-      type: 'string',
-    },
-    region: {
-      type: 'string',
-    },
-    twitchUsername: {
-      type: ['string', 'null'],
-    },
-    twitterUsername: {
-      type: ['string', 'null'],
-    },
+    gameName: riotIdPartSchema,
+    tagLine: riotIdPartSchema,
+    region: regionSchema,
+    twitchUsername: socialUsernameSchema,
+    twitterUsername: socialUsernameSchema,
   },
 } as const;
 export const updatePlayerBodySchema = {
   type: 'object',
   additionalProperties: false,
+  minProperties: 1,
   properties: {
-    gameName: {
-      type: 'string',
-    },
-    tagLine: {
-      type: 'string',
-    },
-    region: {
-      type: 'string',
-    },
-    twitchUsername: {
-      type: ['string', 'null'],
-    },
-    twitterUsername: {
-      type: ['string', 'null'],
-    },
+    gameName: riotIdPartSchema,
+    tagLine: riotIdPartSchema,
+    region: regionSchema,
+    twitchUsername: socialUsernameSchema,
+    twitterUsername: socialUsernameSchema,
     enabled: {
       type: 'boolean',
     },
@@ -47,13 +43,10 @@ export const updatePlayerBodySchema = {
 export const playerSocialsBodySchema = {
   type: 'object',
   additionalProperties: false,
+  minProperties: 1,
   properties: {
-    twitchUsername: {
-      type: ['string', 'null'],
-    },
-    twitterUsername: {
-      type: ['string', 'null'],
-    },
+    twitchUsername: socialUsernameSchema,
+    twitterUsername: socialUsernameSchema,
   },
 } as const;
 const adminPlayerSchema = {

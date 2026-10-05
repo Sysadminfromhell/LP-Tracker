@@ -165,11 +165,13 @@ backend/.env.example
 ```
 
 For local development:
+
 ```bash
 cp backend/.env.example backend/.env
 ```
 
 On Windows PowerShell:
+
 ```powershell
 Copy-Item backend/.env.example backend/.env
 ```
@@ -270,6 +272,7 @@ Admin -> Privacy and Imprint
 ```
 
 Before enabling Published publicly, replace all deployment-specific placeholders, including values such as:
+
 ```text
 [OPERATOR NAME]
 [FULL LEGAL NAME / COMPANY NAME]
@@ -282,14 +285,14 @@ Before enabling Published publicly, replace all deployment-specific placeholders
 
 The operator should also review and document the actual deployment configuration, including:
 
-* the responsible operator and contact information;
-* the applicable legal basis for processing;
-* hosting and reverse-proxy infrastructure;
-* access, security and application logging;
-* log and data retention periods;
-* the configured League data provider;
-* international data transfers where applicable;
-* any additional statutory imprint information required for the deployment.
+- the responsible operator and contact information;
+- the applicable legal basis for processing;
+- hosting and reverse-proxy infrastructure;
+- access, security and application logging;
+- log and data retention periods;
+- the configured League data provider;
+- international data transfers where applicable;
+- any additional statutory imprint information required for the deployment.
 
 The provided texts are intended as practical templates based on LP-Tracker's functionality and stored data. They are not automatically suitable for every deployment without review.
 
@@ -303,10 +306,10 @@ LP-Tracker supports multiple League of Legends data providers through a common p
 
 Supported provider values:
 
-| Value | Provider | Additional configuration |
-|---|---|---|
-| `opgg` | OP.GG MCP | None |
-| `riot` | Riot Games API | `RIOT_API_KEY` |
+| Value  | Provider       | Additional configuration |
+| ------ | -------------- | ------------------------ |
+| `opgg` | OP.GG MCP      | None                     |
+| `riot` | Riot Games API | `RIOT_API_KEY`           |
 
 If `LEAGUE_DATA_PROVIDER` is not configured, LP-Tracker uses `opgg` by default.
 
@@ -352,7 +355,13 @@ The backend also exposes:
 /metrics
 ```
 
-This endpoint should preferably be available only to your monitoring network or Prometheus instance instead of being exposed publicly.
+The metrics endpoint is disabled unless `METRICS_TOKEN` is configured.
+
+When enabled, requests to `/metrics` must authenticate using:
+
+Authorization: Bearer <METRICS_TOKEN>
+
+The endpoint should additionally be restricted to an internal monitoring network or Prometheus instance where possible.
 
 TLS should terminate at the reverse proxy.
 
@@ -397,6 +406,7 @@ Backend:  http://localhost:3000
 ```
 
 ---
+
 # Usage
 
 ## Leaderboard
@@ -452,6 +462,7 @@ npm --prefix backend run diagnose -- <command>
 ```
 
 ### Available commands
+
 ```text
 summary             Run top-level diagnostics
 db                  Check database and migrations
@@ -499,6 +510,7 @@ docker exec <backend-container> node dist/cli/diagnostics-cli.js summary --json
 #### Examples docker swarm Install
 
 For Docker Swarm, identify the container of the backend service first:
+
 ```bash
 docker ps --filter label=com.docker.swarm.service.name=<backend-service>
 ```
@@ -532,6 +544,7 @@ The existing event integrity command remains available as a compatibility alias:
 ```bash
 npm --prefix backend run check:event
 ```
+
 Diagnostics are read-only. Database manipulation and destructive maintenance operations are intentionally not part of this CLI.
 
 ## OBS overlays
@@ -550,12 +563,18 @@ The version footer is shown on the normal leaderboard and is intentionally not p
 
 # Health and monitoring
 
-## Health endpoint
+## Health endpoints
 
-The backend exposes:
+The public health endpoint exposes only basic application and build information:
 
 ```text
 GET /api/health
+```
+
+Detailed operational health information is available to authenticated administrators:
+
+```text
+GET /api/admin/health
 ```
 
 Example:
@@ -564,17 +583,20 @@ Example:
 curl https://tracker.example.com/api/health
 ```
 
-The response includes runtime information such as:
+The public health response includes:
 
 - Backend status
 - Build version and Git commit
+
+The authenticated admin health endpoint additionally includes:
+
 - Database connectivity
 - Provider status and diagnostics
 - Current event state
 - Player/cache state
 - Refresh scheduler state
 
-This endpoint is useful for deployment verification and lightweight health monitoring.
+The public endpoint is useful for deployment verification and lightweight health monitoring.
 
 ---
 
@@ -593,12 +615,19 @@ Example Prometheus scrape configuration:
 ```yaml
 scrape_configs:
   - job_name: lp-tracker
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/lp_tracker_metrics_token
     static_configs:
       - targets:
           - lp-tracker-backend:3000
 ```
 
-Prefer scraping the backend directly from an internal monitoring network rather than exposing `/metrics` to the public internet.
+The token in credentials_file must match the backend METRICS_TOKEN.
+
+The /metrics endpoint is disabled when METRICS_TOKEN is not configured. When enabled, every scrape request must authenticate using the configured Bearer token.
+
+Prefer scraping the backend directly from an internal monitoring network. Bearer authentication should be used in addition to network or reverse-proxy restrictions, not as a replacement for them.
 
 ---
 
@@ -699,7 +728,7 @@ Do not delete the database volume as a first troubleshooting step.
 
 ## Player data does not refresh
 
-Check backend logs and `/api/health` for provider diagnostics.
+Check backend logs and the authenticated `/api/admin/health` endpoint for provider diagnostics.
 
 For Riot deployments, also inspect rate-limit state and `/metrics`. Development or Personal Riot API keys may substantially reduce refresh throughput.
 

@@ -1,3 +1,27 @@
+export const publicHealthResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'build'],
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['ok'],
+    },
+    build: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['version', 'gitHead'],
+      properties: {
+        version: {
+          type: 'string',
+        },
+        gitHead: {
+          type: 'string',
+        },
+      },
+    },
+  },
+} as const;
 export const healthResponseSchema = {
   type: 'object',
   additionalProperties: false,

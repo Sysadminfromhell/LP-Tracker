@@ -7,10 +7,11 @@ export function sanitizeLegalHtml(value: string): string {
   return sanitizeHtml(value, {
     allowedTags: ['h1', 'h2', 'h3', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'br', 'blockquote', 'a'],
     allowedAttributes: {
-      a: ['href', 'target', 'rel'],
+      a: ['href'],
     },
     allowedSchemes: ['http', 'https', 'mailto'],
     allowProtocolRelative: false,
+    nonBooleanAttributes: ['*'],
   });
 }
 
@@ -25,7 +26,7 @@ function map(row: Row): LegalPage {
   return {
     slug: row.slug,
     title: row.title,
-    contentHtml: row.content_html,
+    contentHtml: sanitizeLegalHtml(row.content_html),
     published: row.published,
     updatedAt: row.updated_at.toISOString(),
   };

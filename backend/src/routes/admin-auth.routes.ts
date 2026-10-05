@@ -13,12 +13,17 @@ import {
 const loginBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['username', 'password'],
   properties: {
     username: {
       type: 'string',
+      minLength: 1,
+      maxLength: 128,
     },
     password: {
       type: 'string',
+      minLength: 1,
+      maxLength: 1024,
     },
   },
 } as const;

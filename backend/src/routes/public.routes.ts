@@ -8,7 +8,7 @@ import {
   playerIdParamsSchema,
 } from './schemas/id.schemas';
 import { errorResponseSchema } from './schemas/common.schemas';
-import { healthResponseSchema } from './schemas/health.schemas';
+import { publicHealthResponseSchema } from './schemas/health.schemas';
 import {
   eventHistoryDetailsResponseSchema,
   eventHistoryResponseSchema,
@@ -27,7 +27,6 @@ import {
   matchDetailsResponseSchema,
 } from './schemas/match-details.schemas';
 import { findEventMatchDetails } from '../db/event-match-details-reader';
-import { getPlayers } from '../db/players';
 import {
   getEventPlayerSnapshot,
   getLeaderboard,
@@ -39,14 +38,9 @@ import {
   getPublicPlayerProfile,
 } from '../services/player-profile.service';
 import {
-  getLeagueDataProviderDiagnostics,
-  getLeagueDataProviderStatus,
-} from '../services/league-data.service';
-import {
   getPublicEventHistory,
   getPublicEventHistoryDetails,
 } from '../services/event-history.service';
-import { getRefreshSchedulerStatus } from '../jobs/refresh-scheduler';
 import { getBuildInfo } from '../runtime/build-info';
 
 export async function publicRoutes(app: FastifyInstance): Promise<void> {
@@ -284,12 +278,12 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       const eventId = Number(request.params.eventId);
       const playerId = Number(request.params.playerId);
       const matchId = request.params.matchId.trim();
-      if (!Number.isInteger(eventId) || eventId <= 0) {
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
         return reply.code(400).send({
           error: 'Invalid event id',
         });
       }
-      if (!Number.isInteger(playerId) || playerId <= 0) {
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
         return reply.code(400).send({
           error: 'Invalid player id',
         });
@@ -317,38 +311,14 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: {
         response: {
-          200: healthResponseSchema,
+          200: publicHealthResponseSchema,
         },
       },
     },
     async () => {
-      const enabledPlayers = await getPlayers(true);
-      const { event, totalPlayers, cachedPlayers } = getLeaderboardMeta();
-      const provider = getLeagueDataProviderStatus();
-      const providerDiagnostics = getLeagueDataProviderDiagnostics();
-
       return {
         status: 'ok' as const,
         build: getBuildInfo(),
-        database: {
-          connected: true,
-        },
-        provider: {
-          name: provider.name,
-          connected: provider.connected,
-          rateLimit: providerDiagnostics.rateLimit,
-          warning: providerDiagnostics.warning,
-        },
-        event: {
-          id: event?.id ?? null,
-          status: event?.status ?? null,
-        },
-        players: {
-          enabled: enabledPlayers.length,
-          event: totalPlayers,
-          cached: cachedPlayers,
-        },
-        scheduler: getRefreshSchedulerStatus(),
       };
     },
   );
