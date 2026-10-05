@@ -70,7 +70,7 @@ export function createApp() {
         : 500;
     if (statusCode >= 500) {
       const message = error instanceof Error ? error.message : String(error);
-      log('APP', 'error', `${request.method} ${request.url} failed: ${message}`,'WEB');
+      log('APP', 'error', `${request.method} ${request.url} failed: ${message}`, 'WEB');
     }
     return reply.code(statusCode).send({
       error: STATUS_CODES[statusCode] ?? 'Request failed',

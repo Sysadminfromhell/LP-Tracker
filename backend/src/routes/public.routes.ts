@@ -278,7 +278,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       const eventId = Number(request.params.eventId);
       const playerId = Number(request.params.playerId);
       const matchId = request.params.matchId.trim();
-      if (!Number.isInteger(eventId) || eventId <= 0) {
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
         return reply.code(400).send({
           error: 'Invalid event id',
         });

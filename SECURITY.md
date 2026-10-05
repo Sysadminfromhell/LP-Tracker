@@ -86,10 +86,11 @@ Protect at least:
 - `DATABASE_ADMIN_PASSWORD`
 - `ADMIN_PASSWORD`
 - `RIOT_API_KEY`
+- `METRICS_TOKEN`
 
 Prefer Docker secrets, Swarm secrets, Kubernetes Secrets, a secret manager or an equivalent mechanism where available.
 
-The committed `backend/.env.example` file must contain examples/placeholders only.
+The committed `backend/.env.example` file must contain examples/placeholders only. Never commit production metrics tokens, API keys, passwords or other credentials.
 
 ---
 
