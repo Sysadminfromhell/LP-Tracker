@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 describe('admin auth routes', () => {
-  it('rejects login requests without username or password', async () => {
+  it('rejects login requests with missing credentials', async () => {
     const app = await createTestApp();
     try {
       const response = await app.inject({
@@ -78,7 +78,7 @@ describe('admin auth routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'Username and password are required',
+        error: 'Invalid request',
       });
       expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
     } finally {
@@ -355,6 +355,46 @@ describe('admin auth routes', () => {
       });
       expect(blockedResponse.statusCode).toBe(429);
       expect(mocks.authenticateAdmin).toHaveBeenCalledTimes(6);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long usernames before authentication', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'a'.repeat(129),
+          password: 'password',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long passwords before authentication', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: {
+          username: 'admin',
+          password: 'a'.repeat(1025),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.authenticateAdmin).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

@@ -63,8 +63,14 @@ export async function ensureInitialAdmin(): Promise<Admin | null> {
   if (username.length < 3) {
     throw new Error('ADMIN_USERNAME must contain at least 3 characters');
   }
+  if (username.length > 128) {
+    throw new Error('ADMIN_USERNAME must not exceed 128 characters');
+  }
   if (password.length < 12) {
     throw new Error('ADMIN_PASSWORD must contain at least 12 characters');
+  }
+  if (password.length > 1024) {
+    throw new Error('ADMIN_PASSWORD must not exceed 1024 characters');
   }
   log(caller, 'info', `Creating initial admin "${username}"...`);
   const passwordHash = await argon2.hash(password, {
