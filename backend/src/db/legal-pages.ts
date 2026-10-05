@@ -1,5 +1,5 @@
 import { db } from './client';
-import type { LegalPage, LegalPageSlug, LegalPageSummary } from '@lp-tracker/contracts';
+import type { LegalPage, LegalPageSlug } from '@lp-tracker/contracts';
 
 import sanitizeHtml from 'sanitize-html';
 
@@ -30,15 +30,6 @@ function map(row: Row): LegalPage {
     updatedAt: row.updated_at.toISOString(),
   };
 }
-function summary(row: Row): LegalPageSummary {
-  const page = map(row);
-  return {
-    slug: page.slug,
-    title: page.title,
-    published: page.published,
-    updatedAt: page.updatedAt,
-  };
-}
 
 export async function getLegalPages(includeUnpublished = false): Promise<LegalPage[]> {
   const result = await db.query<Row>(
@@ -66,4 +57,3 @@ export async function updateLegalPage(
   );
   return result.rows[0] ? map(result.rows[0]) : null;
 }
-export { summary as legalPageSummary };

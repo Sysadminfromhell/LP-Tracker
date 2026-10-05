@@ -26,7 +26,7 @@ export interface RiotApiErrorResponse {
     status_code?: number;
   };
 }
-export interface RiotMatchMetadata {
+interface RiotMatchMetadata {
   matchId: string;
   participants: string[];
 }
@@ -52,7 +52,7 @@ export interface RiotMatchParticipant {
   neutralMinionsKilled: number;
   win: boolean;
 }
-export interface RiotMatchInfo {
+interface RiotMatchInfo {
   gameCreation: number;
   gameStartTimestamp?: number;
   gameDuration: number;
