@@ -352,7 +352,13 @@ The backend also exposes:
 /metrics
 ```
 
-This endpoint should preferably be available only to your monitoring network or Prometheus instance instead of being exposed publicly.
+The metrics endpoint is disabled unless `METRICS_TOKEN` is configured.
+
+When enabled, requests to `/metrics` must authenticate using:
+
+Authorization: Bearer <METRICS_TOKEN>
+
+The endpoint should additionally be restricted to an internal monitoring network or Prometheus instance where possible.
 
 TLS should terminate at the reverse proxy.
 

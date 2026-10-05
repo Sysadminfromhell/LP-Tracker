@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { getPlayers } from '../db/players';
 import { getLeaderboardMeta } from '../services/leaderboard.service';
@@ -18,9 +19,36 @@ function addMetric(lines: string[], name: string, help: string, value: number): 
 function sendMetrics(reply: FastifyReply, lines: string[]) {
   return reply.type('text/plain; version=0.0.4; charset=utf-8').send(`${lines.join('\n')}\n`);
 }
+function hasValidMetricsToken(authorization: string | undefined, expectedToken: string): boolean {
+  if (!authorization) {
+    return false;
+  }
+  const match = /^Bearer (.+)$/i.exec(authorization);
+  if (!match) {
+    return false;
+  }
+  const suppliedToken = Buffer.from(match[1]);
+  const configuredToken = Buffer.from(expectedToken);
+  if (suppliedToken.length !== configuredToken.length) {
+    return false;
+  }
+  return timingSafeEqual(suppliedToken, configuredToken);
+}
 
 export async function metricsRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/metrics', async (_request, reply) => {
+  const metricsToken = process.env.METRICS_TOKEN?.trim();
+  if (!metricsToken) {
+    return;
+  }
+  if (metricsToken.length < 32) {
+    throw new Error('METRICS_TOKEN must be at least 32 characters long');
+  }
+  app.get('/metrics', async (request, reply) => {
+    if (!hasValidMetricsToken(request.headers.authorization, metricsToken)) {
+      return reply.code(401).header('WWW-Authenticate', 'Bearer').send({
+        error: 'Authentication required',
+      });
+    }
     const enabledPlayers = await getPlayers(true);
     const { totalPlayers, cachedPlayers } = getLeaderboardMeta();
     const provider = getLeagueDataProviderStatus();

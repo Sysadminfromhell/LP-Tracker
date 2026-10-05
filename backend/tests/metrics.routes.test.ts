@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+
+const originalMetricsToken = process.env.METRICS_TOKEN;
+const metricsToken = 'test-metrics-token-0123456789abcdef';
 
 const mocks = vi.hoisted(() => ({
   getPlayers: vi.fn(),
@@ -37,6 +40,7 @@ import { metricsRoutes } from '../src/routes/metrics.routes';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.METRICS_TOKEN = metricsToken;
   mocks.getPlayers.mockResolvedValue([{ id: 1 }, { id: 2 }]);
   mocks.getLeaderboardMeta.mockReturnValue({
     event: null,
@@ -88,6 +92,14 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  if (originalMetricsToken === undefined) {
+    delete process.env.METRICS_TOKEN;
+  } else {
+    process.env.METRICS_TOKEN = originalMetricsToken;
+  }
+});
+
 describe('metrics routes', () => {
   it('exposes Prometheus metrics', async () => {
     const app = createApp();
@@ -95,6 +107,9 @@ describe('metrics routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/metrics',
+      headers: {
+        authorization: `Bearer ${metricsToken}`,
+      },
     });
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('text/plain');
@@ -136,10 +151,51 @@ describe('metrics routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/metrics',
+      headers: {
+        authorization: `Bearer ${metricsToken}`,
+      },
     });
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain('lp_tracker_provider_connected{provider="opgg"} 1');
     expect(response.body).not.toContain('lp_tracker_riot_rate_limit{');
+    await app.close();
+  });
+  it('does not expose the metrics route when no token is configured', async () => {
+    delete process.env.METRICS_TOKEN;
+    const app = createApp();
+    await app.register(metricsRoutes);
+    const response = await app.inject({
+      method: 'GET',
+      url: '/metrics',
+    });
+    expect(response.statusCode).toBe(404);
+    expect(mocks.getPlayers).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects metrics requests without authentication', async () => {
+    const app = createApp();
+    await app.register(metricsRoutes);
+    const response = await app.inject({
+      method: 'GET',
+      url: '/metrics',
+    });
+    expect(response.statusCode).toBe(401);
+    expect(response.headers['www-authenticate']).toBe('Bearer');
+    expect(mocks.getPlayers).not.toHaveBeenCalled();
+    await app.close();
+  });
+  it('rejects metrics requests with an invalid token', async () => {
+    const app = createApp();
+    await app.register(metricsRoutes);
+    const response = await app.inject({
+      method: 'GET',
+      url: '/metrics',
+      headers: {
+        authorization: 'Bearer definitely-the-wrong-metrics-token',
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(mocks.getPlayers).not.toHaveBeenCalled();
     await app.close();
   });
 });
