@@ -556,12 +556,18 @@ The version footer is shown on the normal leaderboard and is intentionally not p
 
 # Health and monitoring
 
-## Health endpoint
+## Health endpoints
 
-The backend exposes:
+The public health endpoint exposes only basic application and build information:
 
 ```text
 GET /api/health
+```
+
+Detailed operational health information is available to authenticated administrators:
+
+```text
+GET /api/admin/health
 ```
 
 Example:
@@ -705,7 +711,7 @@ Do not delete the database volume as a first troubleshooting step.
 
 ## Player data does not refresh
 
-Check backend logs and `/api/health` for provider diagnostics.
+Check backend logs and the authenticated `/api/admin/health` endpoint for provider diagnostics.
 
 For Riot deployments, also inspect rate-limit state and `/metrics`. Development or Personal Riot API keys may substantially reduce refresh throughput.
 
