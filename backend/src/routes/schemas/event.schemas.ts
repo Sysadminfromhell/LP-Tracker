@@ -1,41 +1,58 @@
 export const eventNameBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['name'],
   properties: {
     name: {
       type: 'string',
+      minLength: 1,
+      maxLength: 200,
     },
   },
 } as const;
 export const eventPenaltyBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['lpPenalty'],
   properties: {
     lpPenalty: {
-      type: 'number',
+      type: 'integer',
+      minimum: 0,
+      maximum: 2147483647,
     },
     reason: {
       type: ['string', 'null'],
+      maxLength: 1000,
     },
   },
 } as const;
 export const eventScheduleBodySchema = {
   type: 'object',
   additionalProperties: false,
+  required: ['name', 'startsAt', 'endsAt'],
   properties: {
     name: {
       type: 'string',
+      minLength: 1,
+      maxLength: 200,
     },
     startsAt: {
       type: 'string',
+      minLength: 1,
+      maxLength: 64,
     },
     endsAt: {
       type: 'string',
+      minLength: 1,
+      maxLength: 64,
     },
     playerIds: {
       type: 'array',
+      maxItems: 5000,
       items: {
-        type: 'number',
+        type: 'integer',
+        minimum: 1,
+        maximum: 9007199254740991,
       },
     },
   },

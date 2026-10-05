@@ -380,7 +380,7 @@ describe('admin event routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'LP penalty must be a non-negative integer',
+        error: 'Invalid request',
       });
       expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
     } finally {
@@ -922,6 +922,25 @@ describe('admin event routes', () => {
       await app.close();
     }
   });
+  it('rejects excessively long event names before renaming', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/1/name',
+        payload: {
+          name: 'a'.repeat(201),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updateAdminEventName).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
   it.each([
     ['ACTIVE_EVENT_NOT_FOUND', 404, 'No active event found'],
 
@@ -951,4 +970,67 @@ describe('admin event routes', () => {
       }
     },
   );
+  it('rejects excessively long penalty reasons before loading the event', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 15,
+          reason: 'a'.repeat(1001),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getAdminEventById).not.toHaveBeenCalled();
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects LP penalties outside the PostgreSQL integer range', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/events/2/participants/10/penalty',
+        payload: {
+          lpPenalty: 2147483648,
+          reason: 'Penalty',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.setEventParticipantPenalty).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively large event participant selections', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/events',
+        payload: {
+          name: 'September Event',
+          startsAt: scheduledEvent.startsAt,
+          endsAt: scheduledEvent.endsAt,
+          playerIds: Array.from({ length: 5001 }, (_, index) => index + 1),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.scheduleAdminEvent).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
 });
