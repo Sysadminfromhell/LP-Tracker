@@ -335,7 +335,7 @@ describe('admin player routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'Game name, tag line and region are required',
+        error: 'Invalid request',
       });
       expect(mocks.getLeagueDataProvider).not.toHaveBeenCalled();
     } finally {
@@ -705,6 +705,85 @@ describe('admin player routes', () => {
           twitchUsername: 'fourk',
           admin: true,
         },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updatePlayerSocials).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long Riot ID fields before provider validation', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players',
+        payload: {
+          gameName: 'a'.repeat(129),
+          tagLine: 'EUW',
+          region: 'EUW',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getLeagueDataProvider).not.toHaveBeenCalled();
+      expect(mocks.getSummonerProfile).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long player regions before provider validation', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/players',
+        payload: {
+          gameName: 'FourK',
+          tagLine: 'EUW',
+          region: 'a'.repeat(33),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getLeagueDataProvider).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long social usernames', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1/socials',
+        payload: {
+          twitchUsername: 'a'.repeat(65),
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.updatePlayerSocials).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects empty social updates', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/players/1/socials',
+        payload: {},
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
