@@ -1,4 +1,5 @@
 import Fastify, { LogController } from 'fastify';
+import { STATUS_CODES } from 'node:http';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import { log } from './utils/logging';
@@ -12,7 +13,7 @@ export function createApp() {
     if (value.toLowerCase() === 'true') {
       throw new Error('TRUST_PROXY must contain trusted proxy IPs/CIDRs instead of "true"');
     }
-    log("APP","info",`A reverse Proxy is configured ${value}`,"BOOTUP");
+    log('APP', 'info', `A reverse Proxy is configured ${value}`, 'BOOTUP');
     return value;
   }
 
@@ -46,7 +47,7 @@ export function createApp() {
   app.register(helmet, {
     contentSecurityPolicy: false,
   });
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (
       typeof error === 'object' &&
       error !== null &&
@@ -57,7 +58,23 @@ export function createApp() {
         error: 'Invalid request',
       });
     }
-    return reply.send(error);
+    const statusCode =
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number' &&
+      Number.isInteger(error.statusCode) &&
+      error.statusCode >= 400 &&
+      error.statusCode <= 599
+        ? error.statusCode
+        : 500;
+    if (statusCode >= 500) {
+      const message = error instanceof Error ? error.message : String(error);
+      log('APP', 'error', `${request.method} ${request.url} failed: ${message}`,'WEB');
+    }
+    return reply.code(statusCode).send({
+      error: STATUS_CODES[statusCode] ?? 'Request failed',
+    });
   });
   app.addHook('onRequest', async (request, reply) => {
     if (process.env.NODE_ENV !== 'production') {
@@ -89,7 +106,12 @@ export function createApp() {
     }
   });
   app.addHook('onResponse', async (request, reply) => {
-    log("APP","info",`${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`, "WEB")
+    log(
+      'APP',
+      'info',
+      `${request.method} ${request.url} -> ${reply.statusCode} | ${request.ip}`,
+      'WEB',
+    );
   });
   return app;
 }
