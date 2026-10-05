@@ -399,4 +399,79 @@ describe('admin auth routes', () => {
       await app.close();
     }
   });
+  it('sets a secure admin session cookie in production', async () => {
+    process.env.NODE_ENV = 'production';
+    mocks.authenticateAdmin.mockResolvedValue(admin);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          host: 'tracker.example.com',
+          origin: 'https://tracker.example.com',
+        },
+        payload: {
+          username: 'admin',
+          password: 'correct-password',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      const setCookie = String(response.headers['set-cookie']);
+      expect(setCookie).toContain(`${ADMIN_COOKIE_NAME}=session-token`);
+      expect(setCookie).toContain('HttpOnly');
+      expect(setCookie).toContain('Secure');
+      expect(setCookie).toContain('SameSite=Strict');
+      expect(setCookie).toContain('Path=/');
+    } finally {
+      await app.close();
+    }
+  });
+  it('clears an invalid admin session cookie', async () => {
+    mocks.getAdminBySessionToken.mockResolvedValue(null);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/admin/me',
+        headers: {
+          cookie: `${ADMIN_COOKIE_NAME}=invalid-session-token`,
+        },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: 'Authentication required',
+      });
+      expect(mocks.getAdminBySessionToken).toHaveBeenCalledWith('invalid-session-token');
+      const setCookie = response.headers['set-cookie'];
+      expect(setCookie).toBeDefined();
+      expect(String(setCookie)).toContain(`${ADMIN_COOKIE_NAME}=`);
+    } finally {
+      await app.close();
+    }
+  });
+  it('replaces an existing session cookie with a newly created session after login', async () => {
+    mocks.authenticateAdmin.mockResolvedValue(admin);
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        headers: {
+          cookie: `${ADMIN_COOKIE_NAME}=attacker-controlled-session`,
+        },
+        payload: {
+          username: 'admin',
+          password: 'correct-password',
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(mocks.createAdminSession).toHaveBeenCalledWith(admin.id);
+      const setCookie = String(response.headers['set-cookie']);
+      expect(setCookie).toContain(`${ADMIN_COOKIE_NAME}=session-token`);
+      expect(setCookie).not.toContain('attacker-controlled-session');
+    } finally {
+      await app.close();
+    }
+  });
 });
