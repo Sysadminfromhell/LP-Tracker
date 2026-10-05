@@ -1,11 +1,14 @@
+const positiveIdSchema = {
+  type: 'string',
+  pattern: '^[1-9][0-9]*$',
+  maxLength: 16,
+} as const;
 export const eventIdParamsSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['eventId'],
   properties: {
-    eventId: {
-      type: 'string',
-    },
+    eventId: positiveIdSchema,
   },
 } as const;
 export const eventPlayerIdParamsSchema = {
@@ -13,12 +16,8 @@ export const eventPlayerIdParamsSchema = {
   additionalProperties: false,
   required: ['eventId', 'playerId'],
   properties: {
-    eventId: {
-      type: 'string',
-    },
-    playerId: {
-      type: 'string',
-    },
+    eventId: positiveIdSchema,
+    playerId: positiveIdSchema,
   },
 } as const;
 export const playerIdParamsSchema = {
@@ -26,9 +25,7 @@ export const playerIdParamsSchema = {
   additionalProperties: false,
   required: ['id'],
   properties: {
-    id: {
-      type: 'string',
-    },
+    id: positiveIdSchema,
   },
 } as const;
 export const playerEventIdParamsSchema = {
@@ -36,12 +33,8 @@ export const playerEventIdParamsSchema = {
   additionalProperties: false,
   required: ['id', 'eventId'],
   properties: {
-    id: {
-      type: 'string',
-    },
-    eventId: {
-      type: 'string',
-    },
+    id: positiveIdSchema,
+    eventId: positiveIdSchema,
   },
 } as const;
 export const eventPlayerMatchParamsSchema = {
@@ -49,14 +42,12 @@ export const eventPlayerMatchParamsSchema = {
   additionalProperties: false,
   required: ['eventId', 'playerId', 'matchId'],
   properties: {
-    eventId: {
-      type: 'string',
-    },
-    playerId: {
-      type: 'string',
-    },
+    eventId: positiveIdSchema,
+    playerId: positiveIdSchema,
     matchId: {
       type: 'string',
+      minLength: 1,
+      maxLength: 100,
     },
   },
 } as const;

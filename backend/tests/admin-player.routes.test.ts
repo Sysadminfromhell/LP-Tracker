@@ -175,7 +175,7 @@ describe('admin player routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'Invalid player id',
+        error: 'Invalid request',
       });
       expect(mocks.refreshPlayer).not.toHaveBeenCalled();
     } finally {

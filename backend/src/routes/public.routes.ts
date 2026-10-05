@@ -283,7 +283,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
           error: 'Invalid event id',
         });
       }
-      if (!Number.isInteger(playerId) || playerId <= 0) {
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) {
         return reply.code(400).send({
           error: 'Invalid player id',
         });

@@ -396,7 +396,7 @@ describe('admin event routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'Invalid event ID',
+        error: 'Invalid request',
       });
       expect(mocks.getAdminEventById).not.toHaveBeenCalled();
     } finally {

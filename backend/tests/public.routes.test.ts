@@ -280,7 +280,7 @@ describe('public routes', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
-        error: 'Invalid event id',
+        error: 'Invalid request',
       });
       expect(mocks.getPublicEventHistoryDetails).not.toHaveBeenCalled();
     } finally {
@@ -411,7 +411,7 @@ describe('public routes', () => {
       });
       expect(invalidEvent.statusCode).toBe(400);
       expect(invalidEvent.json()).toEqual({
-        error: 'Invalid event id',
+        error: 'Invalid request',
       });
       const invalidPlayer = await app.inject({
         method: 'GET',
@@ -419,7 +419,7 @@ describe('public routes', () => {
       });
       expect(invalidPlayer.statusCode).toBe(400);
       expect(invalidPlayer.json()).toEqual({
-        error: 'Invalid player id',
+        error: 'Invalid request',
       });
       expect(mocks.findEventMatchDetails).not.toHaveBeenCalled();
     } finally {
@@ -596,7 +596,7 @@ describe('public routes', () => {
       });
       expect(invalidEvent.statusCode).toBe(400);
       expect(invalidEvent.json()).toEqual({
-        error: 'Invalid event id',
+        error: 'Invalid request',
       });
       const invalidPlayer = await app.inject({
         method: 'GET',
@@ -604,7 +604,7 @@ describe('public routes', () => {
       });
       expect(invalidPlayer.statusCode).toBe(400);
       expect(invalidPlayer.json()).toEqual({
-        error: 'Invalid player id',
+        error: 'Invalid request',
       });
       expect(mocks.getEventPlayerSnapshot).not.toHaveBeenCalled();
     } finally {
@@ -716,6 +716,35 @@ describe('public routes', () => {
         url: '/api/players/1/events/999',
       });
       expect(eventResponse.statusCode).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively large route ids before executing handlers', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/players/${'9'.repeat(17)}`,
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: 'Invalid request',
+      });
+      expect(mocks.getPublicPlayerProfile).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects excessively long match ids before loading match details', async () => {
+    const app = await createTestApp();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/events/42/players/7/matches/${'a'.repeat(101)}`,
+      });
+      expect(response.statusCode).toBe(414);
+      expect(mocks.findEventMatchDetails).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
