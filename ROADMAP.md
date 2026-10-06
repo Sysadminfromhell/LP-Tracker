@@ -16,15 +16,14 @@ This file describes the next Roadmap milestones and feature sets currently plann
 | ~~v2.5.2~~ | ~~Minor bugfixes; Handling Remakes and LP Loss protected matches~~ | Yes (09/28/2026) |
 | ~~v2.5.5~~ | ~~Cleanup, consistency review, dead code removal and technical debt cleanup~~ | Yes (10/04/2026) |
 | ~~v2.5.6~~ | ~~Penetration testing and security hardening of authentication, sessions, APIs, reverse proxy handling, CSP, metrics and public diagnostics~~ | Yes (10/05/2026) |
-| v2.6.0 | Extend Prometheus metrics and performance monitoring | No |
-| v2.7.0 | Extend event rules and scoring configuration | No |
-| v2.8.0 | Add advanced player history, event analytics and LP timelines | No |
-| v2.9.0 | Add live event feed and player milestones | No |
-| v2.10.0 | Improve overlays and stream integrations | No |
-| v2.11.0 | Add reusable event templates and improve setup workflows | No |
-| v2.12.0 | Add player/event comparisons and performance insights | No |
-| v2.13.0 | Expand administration and event management capabilities | No |
-| v2.13.5 | Add Log insights in Admin Panel for analytic purposes | No |
+| v2.6.0 | Extend event rules and scoring configuration | No |
+| v2.7.0 | Add advanced player history, event analytics and LP timelines | No |
+| v2.8.0 | Add live event feed and player milestones | No |
+| v2.9.0 | Improve overlays and stream integrations | No |
+| v2.10.0 | Add reusable event templates and improve setup workflows | No |
+| v2.11.0 | Add player/event comparisons and performance insights | No |
+| v2.12.0 | Expand administration and event management capabilities | No |
+| v2.13.0 | Add Log insights in Admin Panel for analytic purposes | No |
 | v3.0.0 | Generalize LP-Tracker into a modular and extensible event platform | No |
 | v3.1.0 | Add team entities, team events, team scoring, standings and team-aware overlays | No |
 | v3.1.5 | Remoddel team-aware overlays for highlighting streamer | No |
