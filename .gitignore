@@ -28,3 +28,7 @@ backend/data/
 .vscode
 .vscode/*
 .idea/
+
+# Wiki
+.venv/
+site/
