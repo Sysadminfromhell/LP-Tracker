@@ -6,18 +6,18 @@
 
 A self-hosted platform for competitive LP events, live leaderboards, player history and OBS overlays.
 
-!\[React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react\&logoColor=white)
-!\[TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript\&logoColor=white)
-!\[Fastify](https://img.shields.io/badge/Fastify-Backend-000000?logo=fastify\&logoColor=white)
-!\[PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql\&logoColor=white)
-!\[Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker\&logoColor=white)
-!\[Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg?events=manual,cron)
+![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react\&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript\&logoColor=white)
+![Fastify](https://img.shields.io/badge/Fastify-Backend-000000?logo=fastify\&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql\&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker\&logoColor=white)
+![Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg?events=manual,cron)
 
 [**Documentation**](docs/index.md) **·** [**Installation**](docs/getting-started/installation.md) **·** [**Roadmap**](ROADMAP.md) **·** [**Contributing**](CONTRIBUTING.md)
 
 </div>
 
-\---
+---
 
 ## Overview
 
