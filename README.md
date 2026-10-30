@@ -6,11 +6,11 @@
 
 A self-hosted platform for competitive LP events, live leaderboards, player history and OBS overlays.
 
-![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react\&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript\&logoColor=white)
-![Fastify](https://img.shields.io/badge/Fastify-Backend-000000?logo=fastify\&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql\&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker\&logoColor=white)
+![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Fastify](https://img.shields.io/badge/Fastify-Backend-000000?logo=fastify&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg?events=manual,cron)
 
 [**Documentation**](docs/index.md) **·** [**Installation**](docs/getting-started/installation.md) **·** [**Roadmap**](ROADMAP.md) **·** [**Contributing**](CONTRIBUTING.md)
@@ -47,9 +47,9 @@ flowchart LR
     P --> R[Riot Games API]
 ```
 
-The frontend is served as static files through Nginx; the backend owns API, database and provider access. In production, a reverse proxy normally exposes the frontend and `/api/\*` under the same origin.
+The frontend is served as static files through Nginx; the backend owns API, database and provider access. In production, a reverse proxy normally exposes the frontend and `/api/*` under the same origin.
 
-See [System Architecture](docs/development/architecture.md) and [REST API \& Live Updates](docs/development/api.md).
+See [System Architecture](docs/development/architecture.md) and [REST API & Live Updates](docs/development/api.md).
 
 ## Deployment
 
@@ -74,8 +74,8 @@ Expected service ports and routing:
 
 ```text
 /           -> frontend:80
-/api/\*      -> backend:3000
-/metrics    -> backend:3000  (disabled unless METRICS\_TOKEN is configured)
+/api/*      -> backend:3000
+/metrics    -> backend:3000  (disabled unless METRICS_TOKEN is configured)
 ```
 
 These pull commands download the images; they do not by themselves configure or start a complete deployment. Follow the [Installation Guide](docs/getting-started/installation.md), [Configuration Guide](docs/getting-started/configuration.md) and [Deployment Guide](docs/operations/deployment.md) for database setup, secrets, startup and upgrades.
@@ -89,7 +89,7 @@ docker build -f Dockerfile.backend -t lp-tracker-backend .
 docker build -f Dockerfile.frontend -t lp-tracker-frontend .
 ```
 
-For identifiable backend builds, pass `--build-arg GIT\_COMMIT\_SHA="$(git rev-parse HEAD)"` to the backend Docker build. The CI pipeline supplies the commit SHA automatically; manual builds without it may report `dev`.
+For identifiable backend builds, pass `--build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)"` to the backend Docker build. The CI pipeline supplies the commit SHA automatically; manual builds without it may report `dev`.
 
 ## Local development
 
@@ -127,7 +127,7 @@ The maintained Markdown wiki lives in [`docs/`](docs/index.md) and is built with
 
 Application health is available at `GET /api/health`; detailed administrative health information requires authentication. The optional `GET /metrics` endpoint is protected by a Bearer token. For operational investigation, use the read-only [Diagnostics CLI](docs/operations/diagnostics.md) and [Troubleshooting Guide](docs/operations/troubleshooting.md).
 
-## Project \& community
+## Project & community
 
 * [Roadmap](ROADMAP.md) — shipped milestones and planned features
 * [Contributing](CONTRIBUTING.md) — development workflow and pull requests
