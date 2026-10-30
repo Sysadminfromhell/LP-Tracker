@@ -4,7 +4,7 @@
 
 **Track League of Legends LP progression, events and player performance in one place.**
 
-LP-Tracker combines a React/Vite frontend, a Fastify backend and PostgreSQL to track players, run LP events, display live standings and provide OBS-ready overlays.
+A self-hosted platform for competitive LP events, live leaderboards, player history and OBS overlays.
 
 ![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
@@ -13,763 +13,130 @@ LP-Tracker combines a React/Vite frontend, a Fastify backend and PostgreSQL to t
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![Woodpecker](https://woodpecker.safh.de/api/badges/2/status.svg?events=manual,cron)
 
+[**Documentation**](docs/index.md) **·** [**Installation**](docs/getting-started/installation.md) **·** [**Roadmap**](ROADMAP.md) **·** [**Contributing**](CONTRIBUTING.md)
+
 </div>
 
 ---
 
-## What LP-Tracker does
+## Overview
 
-LP-Tracker is designed for self-hosted League of Legends LP events.
+LP-Tracker tracks League of Legends players across scheduled LP events. It stores player, match and event data in PostgreSQL, calculates LP progression relative to event start snapshots and provides live standings to browsers and stream overlays.
 
-It keeps player and event state in PostgreSQL, periodically refreshes League data through the configured provider and exposes the result through a live leaderboard. Event participants receive a start snapshot when they join an event so LP progression can be calculated relative to their event starting point.
+### Highlights
 
-The application includes:
+* Live event leaderboards with LP gain, rank, win/loss record and recent matches
+* Event scheduling, player management and persistent event history
+* Player details, match observations and event-relative snapshots
+* OP.GG MCP and Riot Games API integrations, including Riot rate-limit handling
+* Server-Sent Events (SSE) for frontend updates
+* OBS-ready player overlays and an overlay generator
+* Admin tools, diagnostics, health checks and optional Prometheus metrics
 
-- Live leaderboard with LP gain, rank, win/loss record and recent matches
-- Scheduled, active and completed events
-- Event participant snapshots and persistent match history
-- Admin interface for player and event management
-- Manual and scheduled player refreshes
-- OP.GG MCP provider
-- Riot Games API provider
-- Riot API rate-limit pacing and HTTP 429 retry handling
-- Server-Sent Events for live frontend updates
-- OBS overlay generator and player overlays
-- Persistent leaderboard cache
-- Prometheus-compatible monitoring metrics
-- Health endpoint with application and build information
-- Docker images for frontend and backend
-
----
-
-## Tested Environment
-
-- **PostgreSQL** V18 (18.6)
-- **Docker Engine (Swarm)** 29.7.2
-
----
+For user-facing instructions, see the [User Guide](docs/user-guide/leaderboard.md) and [Administration Guide](docs/administration/overview.md). For scoring internals, see [Event System](docs/event-system/scoring.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    U[Browser] --> W[React / Vite Frontend]
-    W -->|REST API| A[Fastify API]
-
-    A --> DB[(PostgreSQL)]
-    A --> C[Persistent Cache]
-    A --> P[Player Data Provider]
-
+    U[Browser / OBS] --> F[React / Vite]
+    F -->|REST / SSE| B[Fastify API]
+    B --> D[(PostgreSQL)]
+    B --> P[League data provider]
     P --> O[OP.GG MCP]
     P --> R[Riot Games API]
-
-    A --> E[Events / Participants]
-    A --> M[Matches / Snapshots]
 ```
 
-The frontend is built as static files and served through Nginx. The backend runs as a Node.js/Fastify service and owns all database and provider access.
+The frontend is served as static files through Nginx; the backend owns API, database and provider access. In production, a reverse proxy normally exposes the frontend and `/api/*` under the same origin.
 
-For production deployments, route both services through the same public origin:
+See [System Architecture](docs/development/architecture.md) and [REST API & Live Updates](docs/development/api.md).
+
+## Deployment
+
+**Requirements:** Docker Engine, PostgreSQL with persistent storage, a reverse proxy with HTTPS, and access to a supported data provider.
+
+### Container images
+
+|Environment|Frontend image|Backend image|
+|-|-|-|
+|Release|`safhdev/lp-tracker:frontend`|`safhdev/lp-tracker:backend`|
+|Staging|`safhdev/lp-tracker:frontend-staging`|`safhdev/lp-tracker:backend-staging`|
+|Main branch|`safhdev/lp-tracker:frontend-main`|`safhdev/lp-tracker:backend-main`|
+
+Release image tags are published by the version-tag build in Woodpecker CI. Use matching frontend and backend builds. For reproducible production deployments, pin a release-specific image tag or digest.
+
+```bash
+docker pull safhdev/lp-tracker:frontend
+docker pull safhdev/lp-tracker:backend
+```
+
+Expected service ports and routing:
 
 ```text
 /           -> frontend:80
 /api/*      -> backend:3000
-/metrics    -> backend:3000   # preferably internal only
+/metrics    -> backend:3000  (disabled unless METRICS_TOKEN is configured)
 ```
 
-The frontend expects API requests under `/api`, so a reverse proxy or ingress layer is required when frontend and backend run as separate production containers.
+These pull commands download the images; they do not by themselves configure or start a complete deployment. Follow the [Installation Guide](docs/getting-started/installation.md), [Configuration Guide](docs/getting-started/configuration.md) and [Deployment Guide](docs/operations/deployment.md) for database setup, secrets, startup and upgrades.
 
----
-
-# Deployment
-
-## Requirements
-
-Production deployments require:
-
-- Docker Engine
-- A reverse proxy or ingress layer
-- PostgreSQL
-- Persistent PostgreSQL storage
-- Network access to the selected League data provider
-
-For source-based development you additionally need:
-
-- Node.js
-- npm
-- Git
-
----
-
-## Container images
-
-The CI pipeline publishes frontend and backend images to Docker Hub:
-
-```text
-safhdev/lp-tracker:lptracker-frontend
-safhdev/lp-tracker:lptracker-backend
-```
-
-Pull them with:
-
-```bash
-docker pull safhdev/lp-tracker:lptracker-frontend
-docker pull safhdev/lp-tracker:lptracker-backend
-```
-
-The frontend container listens on port `80`.
-
-The backend container listens on port `3000`.
-
-For reproducible production deployments, pin a known image digest or release-specific tag when available instead of relying indefinitely on a rolling tag.
-
----
-
-## Building from source
-
-Clone the repository:
+### Build from source
 
 ```bash
 git clone https://github.com/Sysadminfromhell/LP-Tracker.git
 cd LP-Tracker
-```
-
-Build both images:
-
-```bash
 docker build -f Dockerfile.backend -t lp-tracker-backend .
 docker build -f Dockerfile.frontend -t lp-tracker-frontend .
 ```
 
-The backend Docker build accepts `GIT_COMMIT_SHA` as build metadata:
+For identifiable backend builds, pass `--build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)"` to the backend Docker build. The CI pipeline supplies the commit SHA automatically; manual builds without it may report `dev`.
 
-```bash
-docker build \
-  -f Dockerfile.backend \
-  --build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)" \
-  -t lp-tracker-backend .
-```
+## Local development
 
-CI injects this automatically. Local builds fall back to `dev` when no commit SHA is supplied.
-
----
-
-# Configuration
-
-## Environment file
-
-An example backend configuration is provided in:
-
-```text
-backend/.env.example
-```
-
-For local development:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-On Windows PowerShell:
-
-```powershell
-Copy-Item backend/.env.example backend/.env
-```
-
-Never commit real passwords, API keys or other credentials.
-
-Docker Compose, Docker Swarm and similar platforms can provide the same values through their environment or secret mechanisms.
-
----
-
-## Application
-
-```env
-NODE_ENV=production
-```
-
-Use `production` for production deployments. Production mode enables production-specific request and cookie security behavior.
-
----
-
-## Database
-
-Required backend settings:
-
-```env
-DATABASE_HOST=postgres.example.internal
-DATABASE_PORT=5432
-DATABASE_NAME=lp_tracker
-DATABASE_USER=lp_tracker
-DATABASE_PASSWORD=change-me
-```
-
-`DATABASE_PORT` defaults to `5432` when omitted.
-
-The normal application user should have access only to the LP-Tracker database it needs.
-
-### Database bootstrap
-
-When running from source, the optional database bootstrap command can create or update the application database and role:
-
-```bash
-npm --prefix backend run db:bootstrap
-```
-
-It additionally requires:
-
-```env
-DATABASE_ADMIN_USER=postgres
-DATABASE_ADMIN_PASSWORD=change-me
-```
-
-Administrative PostgreSQL credentials are not required for normal application runtime when the database and application role already exist.
-
-### Database migrations
-
-Database migrations run automatically during backend startup before the application begins serving traffic.
-
-Database migrations also install the default legal-page templates on new installations. Existing edited legal pages are not overwritten by later application starts.
-
-Back up the database before upgrading a production deployment.
-
----
-
-## Initial admin account
-
-When no administrator exists yet, LP-Tracker can bootstrap the first account from:
-
-```env
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change-me
-```
-
-These values do not overwrite an administrator that already exists in the database.
-
-Use a strong, unique password in production.
-
-Existing admin sessions are invalidated when the backend restarts, requiring administrators to sign in again.
-
----
-
-## Legal and privacy pages
-
-LP-Tracker includes editable public legal pages for:
-
-- Privacy Policy
-- Processed Data
-- Your Rights
-- Imprint
-
-New installations receive pre-filled templates that describe the data processing performed by LP-Tracker as far as it can be determined from the application itself.
-
-The templates are created as **unpublished** by default and must be reviewed before they are made publicly available.
-
-Open the admin interface and review:
-
-```text
-Admin -> Privacy and Imprint
-```
-
-Before enabling Published publicly, replace all deployment-specific placeholders, including values such as:
-
-```text
-[OPERATOR NAME]
-[FULL LEGAL NAME / COMPANY NAME]
-[PRIVACY CONTACT EMAIL]
-[CONTACT EMAIL]
-[STREET / HOUSE NUMBER]
-[POSTCODE / CITY]
-[COUNTRY]
-```
-
-The operator should also review and document the actual deployment configuration, including:
-
-- the responsible operator and contact information;
-- the applicable legal basis for processing;
-- hosting and reverse-proxy infrastructure;
-- access, security and application logging;
-- log and data retention periods;
-- the configured League data provider;
-- international data transfers where applicable;
-- any additional statutory imprint information required for the deployment.
-
-The provided texts are intended as practical templates based on LP-Tracker's functionality and stored data. They are not automatically suitable for every deployment without review.
-
-Changing the configured League data provider, hosting environment, logging configuration or retention policy may require the legal pages to be updated as well.
-
----
-
-# League data providers
-
-LP-Tracker supports multiple League of Legends data providers through a common provider interface.
-
-Supported provider values:
-
-| Value  | Provider       | Additional configuration |
-| ------ | -------------- | ------------------------ |
-| `opgg` | OP.GG MCP      | None                     |
-| `riot` | Riot Games API | `RIOT_API_KEY`           |
-
-If `LEAGUE_DATA_PROVIDER` is not configured, LP-Tracker uses `opgg` by default.
-
-## OP.GG
-
-No provider-specific configuration is required:
-
-```env
-# LEAGUE_DATA_PROVIDER=opgg
-```
-
-## Riot Games API
-
-Enable the Riot provider with:
-
-```env
-LEAGUE_DATA_PROVIDER=riot
-RIOT_API_KEY=your-api-key
-```
-
-Personal and Development API keys have restrictive rate limits. Larger events may therefore refresh more slowly or encounter HTTP `429` rate-limit responses.
-
-A Riot Production API key is strongly recommended for production deployments and larger events.
-
-The Riot provider includes application-rate-limit detection, request pacing and automatic retry handling for HTTP `429` responses.
-
----
-
-# Reverse proxy
-
-LP-Tracker expects frontend and API traffic to be available through the same origin.
-
-A production reverse proxy should route:
-
-```text
-https://tracker.example.com/          -> frontend:80
-https://tracker.example.com/api/*     -> backend:3000
-```
-
-The backend also exposes:
-
-```text
-/metrics
-```
-
-The metrics endpoint is disabled unless `METRICS_TOKEN` is configured.
-
-When enabled, requests to `/metrics` must authenticate using:
-
-Authorization: Bearer <METRICS_TOKEN>
-
-The endpoint should additionally be restricted to an internal monitoring network or Prometheus instance where possible.
-
-TLS should terminate at the reverse proxy.
-
-LP-Tracker works with reverse proxies such as Traefik, Nginx, HAProxy or equivalent ingress solutions.
-
----
-
-# Local development
-
-Install dependencies:
+Install dependencies and configure the backend environment:
 
 ```bash
 npm --prefix backend ci
 npm --prefix frontend ci
-```
-
-Configure the backend:
-
-```bash
 cp backend/.env.example backend/.env
 ```
 
-Start the backend:
+On Windows PowerShell, use `Copy-Item backend/.env.example backend/.env` instead. Set up PostgreSQL and the required variables from [`backend/.env.example`](backend/.env.example), then run these in separate terminals:
 
 ```bash
 npm --prefix backend run dev
-```
-
-Start the frontend in another terminal:
-
-```bash
 npm --prefix frontend run dev
 ```
 
-The Vite development server proxies `/api` requests to the local backend on port `3000`.
+The Vite dev server normally uses `http://localhost:5173` and proxies `/api` to the backend at `http://localhost:3000`.
 
-Typical local URLs:
+See [Local Development](docs/development/local-development.md) for details and quality checks.
 
-```text
-Frontend: http://localhost:5173
-Backend:  http://localhost:3000
-```
+## Documentation
 
----
+The maintained Markdown wiki lives in [`docs/`](docs/index.md) and is built with Zensical. Key sections:
 
-# Usage
+|Topic|Guide|
+|-|-|
+|Installation and configuration|[Getting Started](docs/getting-started/installation.md)|
+|Leaderboards, history and overlays|[User Guide](docs/user-guide/leaderboard.md)|
+|Events and administration|[Administration](docs/administration/overview.md)|
+|Scoring, snapshots and reconciliation|[Event System](docs/event-system/scoring.md)|
+|Architecture, API and contributions|[Development](docs/development/architecture.md)|
+|Providers, monitoring, diagnostics and recovery|[Operations](docs/operations/deployment.md)|
 
-## Leaderboard
+Application health is available at `GET /api/health`; detailed administrative health information requires authentication. The optional `GET /metrics` endpoint is protected by a Bearer token. For operational investigation, use the read-only [Diagnostics CLI](docs/operations/diagnostics.md) and [Troubleshooting Guide](docs/operations/troubleshooting.md).
 
-Open the application root to view the current event leaderboard.
+## Project & community
 
-The leaderboard displays event standings, LP gain, current rank, win/loss record, recent matches, event highlights and update state.
+* [Roadmap](ROADMAP.md) — shipped milestones and planned features
+* [Contributing](CONTRIBUTING.md) — development workflow and pull requests
+* [Security Policy](SECURITY.md) — vulnerability reporting and deployment security
+* [Issues](https://github.com/Sysadminfromhell/LP-Tracker/issues) — bugs and feature requests
 
-The footer also shows the frontend version, backend version and the Git commit used for the deployed backend build. Production commit SHAs link back to the corresponding LP-Tracker commit on GitHub.
-
----
-
-## Admin interface
-
-Open:
-
-```text
-https://tracker.example.com/admin
-```
-
-The admin interface is used to manage players and events, update social profiles and trigger manual refreshes.
-
-### Players
-
-Administrators can add and manage League accounts. A player must expose usable Solo Queue data through the configured provider before the account can be tracked as ranked data.
-
-When a player is added during an active event, LP-Tracker adds that player to the active event and records the required event state.
-
-### Events
-
-Events move through three states:
-
-```text
-draft -> active -> ended
-```
-
-A scheduled event remains in `draft` until its configured start time.
-
-While an event is active, LP-Tracker tracks participant LP and match changes relative to event snapshots.
-
-Before an event is ended, participant data is refreshed so the final event state can be stored consistently.
-
----
-
-## Diagnostics CLI
-
-LP-Tracker includes a read-only diagnostics CLI for inspecting application state without modifying the database.
-
-Run diagnostics from the repository root:
-
-```bash
-npm --prefix backend run diagnose -- <command>
-```
-
-### Available commands
-
-```text
-summary             Run top-level diagnostics
-db                  Check database and migrations
-event               Check event integrity
-player <id>         Inspect one player
-player --id <id>    Inspect one player
-queue               Inspect LP reconciliation queue
-provider             Check league data provider
-```
-
-#### Examples standalone Install
-
-```bash
-npm --prefix backend run diagnose -- summary
-npm --prefix backend run diagnose -- db
-npm --prefix backend run diagnose -- event
-npm --prefix backend run diagnose -- player 7
-npm --prefix backend run diagnose -- queue
-npm --prefix backend run diagnose -- provider
-```
-
-Machine-readable JSON output is available with --json
-
-```bash
-npm --silent --prefix backend run diagnose -- summary --json
-```
-
-#### Examples docker Install
-
-```bash
-docker exec <backend-container> node dist/cli/diagnostics-cli.js summary
-docker exec <backend-container> node dist/cli/diagnostics-cli.js db
-docker exec <backend-container> node dist/cli/diagnostics-cli.js event
-docker exec <backend-container> node dist/cli/diagnostics-cli.js player 7
-docker exec <backend-container> node dist/cli/diagnostics-cli.js queue
-docker exec <backend-container> node dist/cli/diagnostics-cli.js provider
-```
-
-Machine-readable JSON output is available with --json
-
-```bash
-docker exec <backend-container> node dist/cli/diagnostics-cli.js summary --json
-```
-
-#### Examples docker swarm Install
-
-For Docker Swarm, identify the container of the backend service first:
-
-```bash
-docker ps --filter label=com.docker.swarm.service.name=<backend-service>
-```
-
-```bash
-docker exec <container-id> node dist/cli/diagnostics-cli.js summary
-docker exec <container-id> node dist/cli/diagnostics-cli.js db
-docker exec <container-id> node dist/cli/diagnostics-cli.js event
-docker exec <container-id> node dist/cli/diagnostics-cli.js player 7
-docker exec <container-id> node dist/cli/diagnostics-cli.js queue
-docker exec <container-id> node dist/cli/diagnostics-cli.js provider
-```
-
-Machine-readable JSON output is available with --json
-
-```bash
-docker exec <container-id> node dist/cli/diagnostics-cli.js summary --json
-```
-
-### The diagnosics CLI uses the folliwng exit codes
-
-```text
-0  Diagnostics completed successfully or with warnings
-1  Diagnostic integrity errors were detected
-2  CLI usage error or diagnostic tool failure
-```
-
-Warnings intentionally return exit code 0. They represent conditions worth inspecting but do not necessarily indicate broken application state.
-The existing event integrity command remains available as a compatibility alias:
-
-```bash
-npm --prefix backend run check:event
-```
-
-Diagnostics are read-only. Database manipulation and destructive maintenance operations are intentionally not part of this CLI.
-
-## OBS overlays
-
-The leaderboard provides access to the OBS overlay generator:
-
-```text
-https://tracker.example.com/overlay_generator
-```
-
-Use the generator to create the player overlay URL required for your scene, then add that URL as a Browser Source in OBS.
-
-The version footer is shown on the normal leaderboard and is intentionally not part of the OBS overlay pages.
-
----
-
-# Health and monitoring
-
-## Health endpoints
-
-The public health endpoint exposes only basic application and build information:
-
-```text
-GET /api/health
-```
-
-Detailed operational health information is available to authenticated administrators:
-
-```text
-GET /api/admin/health
-```
-
-Example:
-
-```bash
-curl https://tracker.example.com/api/health
-```
-
-The public health response includes:
-
-- Backend status
-- Build version and Git commit
-
-The authenticated admin health endpoint additionally includes:
-
-- Database connectivity
-- Provider status and diagnostics
-- Current event state
-- Player/cache state
-- Refresh scheduler state
-
-The public endpoint is useful for deployment verification and lightweight health monitoring.
-
----
-
-## Prometheus metrics
-
-Prometheus-compatible metrics are exposed at:
-
-```text
-GET /metrics
-```
-
-Metrics include application availability, player/cache state, provider connectivity, scheduler state, refresh success/failure counters, refresh timing and Riot API rate-limit information.
-
-Example Prometheus scrape configuration:
-
-```yaml
-scrape_configs:
-  - job_name: lp-tracker
-    authorization:
-      type: Bearer
-      credentials_file: /run/secrets/lp_tracker_metrics_token
-    static_configs:
-      - targets:
-          - lp-tracker-backend:3000
-```
-
-The token in credentials_file must match the backend METRICS_TOKEN.
-
-The /metrics endpoint is disabled when METRICS_TOKEN is not configured. When enabled, every scrape request must authenticate using the configured Bearer token.
-
-Prefer scraping the backend directly from an internal monitoring network. Bearer authentication should be used in addition to network or reverse-proxy restrictions, not as a replacement for them.
-
----
-
-# Updating LP-Tracker
-
-Before updating a production deployment:
-
-1. Create a PostgreSQL backup.
-2. Record the currently deployed image digest, release or commit.
-3. Pull or build the new frontend and backend versions.
-4. Deploy the backend and allow startup migrations to complete.
-5. Deploy/restart the frontend.
-6. Verify `/api/health`.
-7. Verify the leaderboard and admin login.
-8. Verify `/metrics` if monitoring is enabled.
-
-## Updating Docker images
-
-Pull the current images:
-
-```bash
-docker pull safhdev/lp-tracker:backend
-docker pull safhdev/lp-tracker:frontend
-```
-
-Redeploy the services using your Docker Compose, Docker Swarm, Portainer or other container orchestration configuration.
-
-After deployment, check the build information shown in the leaderboard footer and `/api/health` to verify the running backend commit.
-
-## Updating a source deployment
-
-Update your local checkout:
-
-```bash
-git switch main
-git pull --ff-only
-```
-
-Rebuild the images:
-
-```bash
-docker build -f Dockerfile.backend -t lp-tracker-backend .
-docker build -f Dockerfile.frontend -t lp-tracker-frontend .
-```
-
-Then redeploy your containers.
-
-Avoid blindly updating production from an unreviewed development branch.
-
----
-
-# Backup and recovery
-
-PostgreSQL contains the persistent application state, including players, events, participants, snapshots, match data and provider/cache-related state.
-
-Back up PostgreSQL regularly and always before upgrades that include database migrations.
-
-A container image is replaceable. The database is not.
-
-For production environments, test restore procedures instead of relying only on successful backup jobs.
-
----
-
-# Troubleshooting
-
-## Frontend loads but API requests fail
-
-Verify that:
-
-- the backend is running;
-- `/api/*` is routed to the backend;
-- frontend and backend are reachable through the expected reverse-proxy configuration;
-- the backend can reach PostgreSQL.
-
-Check:
-
-```text
-/api/health
-```
-
----
-
-## Database connection errors
-
-Verify:
-
-- `DATABASE_HOST`
-- `DATABASE_PORT`
-- `DATABASE_NAME`
-- `DATABASE_USER`
-- `DATABASE_PASSWORD`
-- PostgreSQL firewall and `pg_hba.conf` rules
-- network connectivity between backend and PostgreSQL
-
-Do not delete the database volume as a first troubleshooting step.
-
----
-
-## Player data does not refresh
-
-Check backend logs and the authenticated `/api/admin/health` endpoint for provider diagnostics.
-
-For Riot deployments, also inspect rate-limit state and `/metrics`. Development or Personal Riot API keys may substantially reduce refresh throughput.
-
----
-
-## Admin login stops working after a restart
-
-This is expected. Existing admin sessions are invalidated during backend startup and administrators must sign in again.
-
----
-
-## Version information shows `dev`
-
-`dev` means the backend image was built without a `GIT_COMMIT_SHA` build argument.
-
-CI builds inject the Git commit automatically. For manual builds, provide:
-
-```bash
---build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)"
-```
-
----
-
-# Development and project policy
-
-Development and Pull Request guidelines are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Security issues and vulnerability reporting are documented in [SECURITY.md](SECURITY.md).
-
-Project repository:
-
-https://github.com/Sysadminfromhell/LP-Tracker
-
----
-
-# License
+## License
 
 Copyright (C) 2026 Sysadminfromhell.
 
-LP-Tracker is licensed under the [GNU Affero General Public License v3.0](LICENSE), version 3 only.
+LP-Tracker is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only). Network deployment of modified versions has corresponding source-sharing obligations under the license; review the full license text for the applicable terms.
 
-You are free to use, modify and redistribute LP-Tracker under the terms of the AGPL-3.0.
-
-If you modify LP-Tracker and make the modified software available to users over a network, you must make the corresponding source code of that modified version available under the same license.
