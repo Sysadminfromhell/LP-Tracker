@@ -39,12 +39,12 @@ For user-facing instructions, see the [User Guide](docs/user-guide/leaderboard.m
 
 ```mermaid
 flowchart LR
-    U\[Browser / OBS] --> F\[React / Vite]
-    F -->|REST / SSE| B\[Fastify API]
-    B --> D\[(PostgreSQL)]
-    B --> P\[League data provider]
-    P --> O\[OP.GG MCP]
-    P --> R\[Riot Games API]
+    U[Browser / OBS] --> F[React / Vite]
+    F -->|REST / SSE| B[Fastify API]
+    B --> D[(PostgreSQL)]
+    B --> P[League data provider]
+    P --> O[OP.GG MCP]
+    P --> R[Riot Games API]
 ```
 
 The frontend is served as static files through Nginx; the backend owns API, database and provider access. In production, a reverse proxy normally exposes the frontend and `/api/\*` under the same origin.
