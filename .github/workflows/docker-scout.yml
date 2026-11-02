@@ -1,0 +1,45 @@
+
+name: Docker Scout Security Scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 5 * * *"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            image: docker.io/safhdev/kryvex:backend-staging
+          - component: frontend
+            image: docker.io/safhdev/kryvex:frontend-staging
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Docker Hub Login
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker Scout CVE Scan
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: registry://${{ matrix.image }}
+          sarif-file: scout.sarif
+          write-comment: false
+
+      - name: Upload Security Findings
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: scout.sarif
+          category: docker-scout-${{ matrix.component }}
