@@ -12,13 +12,13 @@ The metrics endpoint is disabled when `METRICS_TOKEN` is not configured.
 
 ```yaml
 scrape_configs:
-  - job_name: lp-tracker
+  - job_name: KRYVEX
     authorization:
       type: Bearer
-      credentials_file: /run/secrets/lp_tracker_metrics_token
+      credentials_file: /run/secrets/KRYVEX_metrics_token
     static_configs:
       - targets:
-          - lp-tracker-backend:3000
+          - KRYVEX-backend:3000
 ```
 
 Keep metrics access on a trusted internal network in addition to token authentication.

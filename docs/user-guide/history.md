@@ -1,6 +1,6 @@
 # Player & Event History
 
-LP-Tracker preserves completed event results and player history separately from the latest live leaderboard.
+KRYVEX preserves completed event results and player history separately from the latest live leaderboard.
 
 | Page | Route |
 | --- | --- |

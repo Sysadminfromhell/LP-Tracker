@@ -1,4 +1,4 @@
-# LP-Tracker Frontend
+# KRYVEX Frontend
 
 React / Vite frontend for LP-Tracker.
 
