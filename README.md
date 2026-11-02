@@ -90,7 +90,7 @@ These pull commands download the images; they do not by themselves configure or 
 
 ```bash
 git clone https://github.com/Sysadminfromhell/KRYVEX.git
-cd LP-Tracker
+cd kryvex
 docker build -f Dockerfile.backend -t KRYVEX-backend .
 docker build -f Dockerfile.frontend -t KRYVEX-frontend .
 ```
