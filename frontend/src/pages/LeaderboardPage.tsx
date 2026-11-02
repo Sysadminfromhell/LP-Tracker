@@ -1238,8 +1238,8 @@ function LeaderboardPage() {
               href="https://github.com/Sysadminfromhell/LP-Tracker"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="LP-Tracker on GitHub"
-              title="Open LP-Tracker on GitHub"
+              aria-label="KRYVEX on GitHub"
+              title="Open KRYVEX on GitHub"
             >
               <GitHubIcon />
             </a>

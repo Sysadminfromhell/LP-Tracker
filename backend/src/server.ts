@@ -13,7 +13,7 @@ const shutdown = createShutdownHandler(fastify);
 
 async function main(): Promise<void> {
   log(caller, 'info', ``);
-  log(caller, 'info', `LP Tracker`);
+  log(caller, 'info', `KRYVEX`);
   log(caller, 'info', `==========`);
   log(caller, 'info', ``);
   const { event } = await bootstrapApplication();

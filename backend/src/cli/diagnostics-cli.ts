@@ -6,7 +6,7 @@ let databaseLoaded = false;
 
 
 function printHelp(): void {
-  log(caller, 'info', `LP Tracker Diagnostics`);
+  log(caller, 'info', `KRYVEX Diagnostics`);
   log(caller, 'info', `Usage:`);
   log(caller, 'info', `diagnose <command> [options]`);
   log(caller, 'info', ``);
@@ -41,7 +41,7 @@ function printCheck(check: DiagnosticCheck): void {
 
 function printReport(report: DiagnosticReport): void {
   log(caller, 'info', '');
-  log(caller, 'info', `LP Tracker Diagnostics · ${report.scope}`);
+  log(caller, 'info', `KRYVEX Diagnostics · ${report.scope}`);
   log(caller, 'info', '================================');
   log(caller, 'info', '');
   for (const check of report.checks) {

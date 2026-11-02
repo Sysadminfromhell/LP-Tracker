@@ -98,7 +98,7 @@ function EventHistoryPage() {
           <div className="player-details-section-heading">
             <span>ARCHIVE</span>
             <h1>Event History</h1>
-            <span>Completed LP Tracker events and final standings.</span>
+            <span>Completed KRYVEX events and final standings.</span>
           </div>
         </header>
         {error && <div className="player-details-empty error">{error}</div>}
