@@ -10,6 +10,7 @@ import type {
   AdminDatabaseTableDetailsResponse,
 } from '@lp-tracker/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
+import KryvexBrand from '../components/KryvexBrand';
 
 const maintenanceLabels: Record<AdminDatabaseMaintenanceOperation, string> = {
   analyze: 'ANALYZE',
@@ -184,15 +185,18 @@ function AdminDatabaseTablePage({ username, onLogout }: AdminDatabaseTablePagePr
     <main className="admin-page">
       <section className="admin-shell">
         <header className="admin-topbar">
-          <div>
-            <span className="eyebrow">DATABASE TABLE</span>
-            <h1>{details?.table.label ?? tableName}</h1>
+          <div className="kryvex-admin-heading">
+            <KryvexBrand iconOnly />
+            <div className="kryvex-admin-heading__copy">
+              <span className="eyebrow">KRYVEX</span>
+              <h1>{details?.table.label ?? tableName}</h1>
 
-            {details && (
-              <span className="admin-database-table-name">
-                {details.table.schema}.{details.table.name}
-              </span>
-            )}
+              {details && (
+                <span className="admin-database-table-name">
+                  {details.table.schema}.{details.table.name}
+                </span>
+              )}
+            </div>
           </div>
           <div className="admin-topbar-actions">
             <Link className="admin-back-link admin-back-link-top" to="/admin/database">

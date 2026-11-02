@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { EventHistoryResponse } from '@lp-tracker/contracts';
 import PublicLegalLinks from '../components/PublicLegalLinks';
-import KryvexBrand from '../components/KryvexBrand';
 
 function formatEventDate(date: string): string {
   return new Date(date).toLocaleString('de-DE', {
@@ -97,8 +96,7 @@ function EventHistoryPage() {
       <div className="player-details">
         <header className="player-details-header">
           <div className="player-details-section-heading">
-            <KryvexBrand compact />
-            <span>ARCHIVE</span>
+            <span>KRYVEX / ARCHIVE</span>
             <h1>Event History</h1>
             <span>Completed KRYVEX events and final standings.</span>
           </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import KryvexBrand from '../components/KryvexBrand';
 import AdminToastHost, {
   type AdminToastMessage,
   type AdminToastVariant,
@@ -472,9 +473,12 @@ function AdminDatabaseAdvancedPage({ username, onLogout }: AdminDatabaseAdvanced
       <AdminToastHost toasts={toasts} onDismiss={dismissToast} />
       <section className="admin-shell">
         <header className="admin-topbar">
-          <div>
-            <span className="eyebrow">LP GAIN EVENT</span>
-            <h1>Database Advanced</h1>
+          <div className="kryvex-admin-heading">
+            <KryvexBrand iconOnly />
+            <div className="kryvex-admin-heading__copy">
+              <span className="eyebrow">KRYVEX</span>
+              <h1>Database Advanced</h1>
+            </div>
           </div>
           <div className="admin-topbar-actions">
             <Link className="admin-back-link admin-back-link-top" to="/admin">

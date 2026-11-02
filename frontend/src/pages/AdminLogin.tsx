@@ -57,7 +57,6 @@ function AdminLogin({ onLogin }: AdminLoginProps) {
         <div className="admin-login-topbar">
           <div className="admin-login-heading">
             <KryvexBrand compact />
-            <span className="eyebrow">LP GAIN EVENT</span>
             <h1>Admin</h1>
             <p>Sign in to manage the event.</p>
           </div>

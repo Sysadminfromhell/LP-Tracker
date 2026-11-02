@@ -867,9 +867,10 @@ function LeaderboardPage() {
       )}
       <section className="tracker">
         <header className="topbar">
-          <div>
-            <KryvexBrand />
-            <span className="eyebrow">CURRENT EVENT</span>
+          <div className="kryvex-leaderboard-heading">
+            <KryvexBrand iconOnly />
+            <div className="kryvex-leaderboard-details">
+              <span className="eyebrow">CURRENT EVENT</span>
             <h1>{leaderboard?.event.name ?? 'Leaderboard'}</h1>
             <div className="event-window">
               <div className="event-window-item">
@@ -885,6 +886,7 @@ function LeaderboardPage() {
                   {formatEventDate(leaderboard?.event.endsAt ?? null)}
                 </strong>
               </div>
+            </div>
             </div>
           </div>
           <div

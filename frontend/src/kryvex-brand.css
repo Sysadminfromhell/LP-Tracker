@@ -29,7 +29,7 @@
   align-items: center;
   gap: 13px;
   min-width: 0;
-  margin-bottom: 17px;
+  margin-bottom: 0;
 }
 
 .kryvex-brand__mark {
@@ -65,7 +65,7 @@
 
 .kryvex-brand--compact {
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .kryvex-brand--compact .kryvex-brand__mark {
@@ -108,7 +108,72 @@
   box-shadow: 0 0 0 3px rgba(145, 129, 181, 0.12);
 }
 
+/* Single-line branding: preserve header height and navigation alignment. */
+.kryvex-brand--icon-only {
+  gap: 0;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.kryvex-brand--icon-only .kryvex-brand__mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.topbar {
+  align-items: flex-start;
+}
+
+.kryvex-leaderboard-heading {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 12px;
+}
+
+.kryvex-leaderboard-details {
+  min-width: 0;
+}
+
+.topbar .live {
+  align-self: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Admin and database use the same header hierarchy as the leaderboard. */
+.kryvex-admin-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.kryvex-admin-heading__copy {
+  min-width: 0;
+}
+
+.kryvex-admin-heading__copy .eyebrow {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.kryvex-admin-heading .kryvex-brand--icon-only .kryvex-brand__mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
 @media (max-width: 650px) {
+  .topbar .live {
+    justify-content: flex-start;
+  }
+
+  .kryvex-leaderboard-heading {
+    gap: 10px;
+  }
+
   .kryvex-brand__mark {
     width: 44px;
     height: 44px;

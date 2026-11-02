@@ -337,10 +337,12 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       <AdminToastHost toasts={toasts} onDismiss={dismissToast} />
       <section className="admin-shell">
         <header className="admin-topbar">
-          <div>
-            <KryvexBrand compact />
-            <span className="eyebrow">LP GAIN EVENT</span>
-            <h1>Admin</h1>
+          <div className="kryvex-admin-heading">
+            <KryvexBrand iconOnly />
+            <div className="kryvex-admin-heading__copy">
+              <span className="eyebrow">KRYVEX</span>
+              <h1>Administration</h1>
+            </div>
           </div>
 
           <div className="admin-topbar-actions">
