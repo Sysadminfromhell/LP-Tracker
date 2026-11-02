@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { createPlayerOverlayPath } from '../routing';
-import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
+import type { LeaderboardPlayer, LeaderboardResponse } from '@kryvex/contracts';
 
 function OverlayGenerator() {
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);

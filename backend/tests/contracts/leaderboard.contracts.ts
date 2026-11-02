@@ -1,4 +1,4 @@
-import type { LeaderboardResponse } from '@lp-tracker/contracts';
+import type { LeaderboardResponse } from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import { leaderboardResponseSchema } from '../../src/routes/schemas/leaderboard.schemas';
 

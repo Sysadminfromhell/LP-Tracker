@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { HealthResponse } from '@lp-tracker/contracts';
+import type { HealthResponse } from '@kryvex/contracts';
 
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),

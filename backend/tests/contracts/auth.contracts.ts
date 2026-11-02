@@ -3,7 +3,7 @@ import type {
   ErrorResponse,
   LoginResponse,
   OkResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import {
   adminMeResponseSchema,

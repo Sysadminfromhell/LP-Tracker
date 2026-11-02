@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { EventHistoryResponse } from '@lp-tracker/contracts';
+import type { EventHistoryResponse } from '@kryvex/contracts';
 import PublicLegalLinks from '../components/PublicLegalLinks';
 
 function formatEventDate(date: string): string {

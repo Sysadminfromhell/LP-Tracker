@@ -6,7 +6,7 @@ import type {
   LeaderboardPlayer,
   LeaderboardResponse,
   PlayerRefreshedLiveUpdate,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import PublicLegalLinks from '../components/PublicLegalLinks';
 import KryvexBrand from '../components/KryvexBrand';

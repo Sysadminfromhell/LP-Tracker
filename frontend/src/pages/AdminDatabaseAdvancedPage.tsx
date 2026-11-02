@@ -19,7 +19,7 @@ import type {
   AdminDatabasePlayerDeleteDependencies,
   AdminPlayer,
   AdminPlayersResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import AdminResetConfirmDialog from '../components/AdminResetConfirmDialog';
 

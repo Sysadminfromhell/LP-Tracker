@@ -4,7 +4,7 @@ import type {
   LegalPage as LegalPageData,
   LegalPageResponse,
   LegalPageSlug,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import PublicLegalLinks from '../components/PublicLegalLinks';
 
 const LEGAL_NAV_ITEMS: Array<{

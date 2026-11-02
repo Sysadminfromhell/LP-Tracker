@@ -1,4 +1,4 @@
-import type { MatchDetailsResponse } from '@lp-tracker/contracts';
+import type { MatchDetailsResponse } from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import { matchDetailsResponseSchema } from '../../src/routes/schemas/match-details.schemas';
 

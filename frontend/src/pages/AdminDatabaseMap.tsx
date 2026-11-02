@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import type { AdminDatabaseRelationship, AdminDatabaseTableOverview } from '@lp-tracker/contracts';
+import type { AdminDatabaseRelationship, AdminDatabaseTableOverview } from '@kryvex/contracts';
 
 interface AdminDatabaseMapProps {
   tables: AdminDatabaseTableOverview[];

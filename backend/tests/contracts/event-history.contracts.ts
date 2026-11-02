@@ -3,7 +3,7 @@ import type {
   EventHistoryResponse,
   EventHistoryStanding,
   EventHistorySummary,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import {
   eventHistoryDetailsResponseSchema,

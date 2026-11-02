@@ -7,7 +7,7 @@ import type {
   EventParticipantPenaltiesResponse,
   EventParticipantPenalty,
   EventParticipantPenaltyResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import type { AdminToastVariant } from '../components/AdminToastHost';
 

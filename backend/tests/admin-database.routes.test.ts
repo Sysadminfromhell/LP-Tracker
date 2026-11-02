@@ -10,7 +10,7 @@ import type {
   AdminDatabasePlayerCacheCleanupResponse,
   AdminDatabaseResetResponse,
   AdminDatabaseTableDetailsResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),

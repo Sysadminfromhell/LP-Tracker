@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { AdminDatabaseDeleteEndedEventResponse } from '@lp-tracker/contracts';
+import type { AdminDatabaseDeleteEndedEventResponse } from '@kryvex/contracts';
 import { db } from './client';
 import { log } from '../utils/logging';
 

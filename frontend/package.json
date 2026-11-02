@@ -1,5 +1,5 @@
 {
-  "name": "lp-tracker-frontend",
+  "name": "kryvex-frontend",
   "private": true,
   "version": "2.5.6",
   "license": "AGPL-3.0-only",
@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@lp-tracker/contracts": "file:../contracts",
+    "@kryvex/contracts": "file:../contracts",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import KryvexBrand from '../components/KryvexBrand';
-import type { LoginResponse } from '@lp-tracker/contracts';
+import type { LoginResponse } from '@kryvex/contracts';
 
 interface AdminLoginProps {
   onLogin: () => void;

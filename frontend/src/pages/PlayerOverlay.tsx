@@ -5,7 +5,7 @@ import type {
   LeaderboardPlayer,
   LeaderboardResponse,
   PlayerRefreshedLiveUpdate,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import { loadChampionIcons } from '../championIcons';
 import { shouldReloadOverlayForLeaderboard } from '../overlay-live';
 import { createPlayerOverlayPath } from '../routing';

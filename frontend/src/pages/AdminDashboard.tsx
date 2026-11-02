@@ -9,7 +9,7 @@ import type {
   HealthResponse,
   ProviderHealth,
   ProviderHealthLiveUpdate,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import AdminToastHost, {
   type AdminToastMessage,
   type AdminToastVariant,

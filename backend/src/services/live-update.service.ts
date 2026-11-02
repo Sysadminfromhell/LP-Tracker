@@ -4,7 +4,7 @@ import type {
   LiveUpdateEvent,
   PlayerRefreshedLiveUpdate,
   ProviderHealthLiveUpdate,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 
 type EmptyLiveUpdateEvent = Exclude<
   LiveUpdateEvent,

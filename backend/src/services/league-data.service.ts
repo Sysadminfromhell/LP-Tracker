@@ -1,4 +1,4 @@
-import type { ProviderHealth } from '@lp-tracker/contracts';
+import type { ProviderHealth } from '@kryvex/contracts';
 import { createLeagueDataProvider } from '../providers/league-data.factory';
 import type {
   LeagueDataProvider,

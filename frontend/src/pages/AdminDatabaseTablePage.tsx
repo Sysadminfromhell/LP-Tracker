@@ -8,7 +8,7 @@ import type {
   AdminDatabaseMaintenanceOperation,
   AdminDatabaseMaintenanceResponse,
   AdminDatabaseTableDetailsResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import KryvexBrand from '../components/KryvexBrand';
 

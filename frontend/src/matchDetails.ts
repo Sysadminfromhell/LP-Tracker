@@ -3,7 +3,7 @@ import type {
   MatchDetailsResponse,
   MatchParticipantPosition,
   MatchParticipantSide,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 
 export type {
   MatchDetailParticipant,
