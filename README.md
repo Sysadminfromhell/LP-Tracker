@@ -63,21 +63,17 @@ See [System Architecture](docs/development/architecture.md) and [REST API & Live
 
 ### Container images
 
-> **Note:** Container images currently retain the legacy
-> `safhdev/lp-tracker` repository name for compatibility.
-> The migration to KRYVEX image names is planned separately.
-
 |Environment|Frontend image|Backend image|
 |-|-|-|
-|Release|`safhdev/lp-tracker:frontend`|`safhdev/lp-tracker:backend`|
-|Staging|`safhdev/lp-tracker:frontend-staging`|`safhdev/lp-tracker:backend-staging`|
-|Main branch|`safhdev/lp-tracker:frontend-main`|`safhdev/lp-tracker:backend-main`|
+|Release|`safhdev/kryvex:frontend`|`safhdev/kryvex:backend`|
+|Staging|`safhdev/kryvex:frontend-staging`|`safhdev/kryvex:backend-staging`|
+|Main branch|`safhdev/kryvex:frontend-main`|`safhdev/kryvex:backend-main`|
 
 Release image tags are published by the version-tag build in Woodpecker CI. Use matching frontend and backend builds. For reproducible production deployments, pin a release-specific image tag or digest.
 
 ```bash
-docker pull safhdev/lp-tracker:frontend
-docker pull safhdev/lp-tracker:backend
+docker pull safhdev/kryvex:frontend
+docker pull safhdev/kryvex:backend
 ```
 
 Expected service ports and routing:
@@ -94,7 +90,7 @@ These pull commands download the images; they do not by themselves configure or 
 
 ```bash
 git clone https://github.com/Sysadminfromhell/KRYVEX.git
-cd LP-Tracker
+cd kryvex
 docker build -f Dockerfile.backend -t KRYVEX-backend .
 docker build -f Dockerfile.frontend -t KRYVEX-frontend .
 ```

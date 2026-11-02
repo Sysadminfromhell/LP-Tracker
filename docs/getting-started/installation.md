@@ -15,15 +15,15 @@ The [Woodpecker pipelines](https://github.com/Sysadminfromhell/KRYVEX/tree/main/
 
 | Environment | Frontend | Backend |
 | --- | --- | --- |
-| Release (published on a version tag) | `safhdev/lp-tracker:frontend` | `safhdev/lp-tracker:backend` |
-| Staging | `safhdev/lp-tracker:frontend-staging` | `safhdev/lp-tracker:backend-staging` |
-| Main branch | `safhdev/lp-tracker:frontend-main` | `safhdev/lp-tracker:backend-main` |
+| Release (published on a version tag) | `safhdev/kryvex:frontend` | `safhdev/kryvex:backend` |
+| Staging | `safhdev/kryvex:frontend-staging` | `safhdev/kryvex:backend-staging` |
+| Main branch | `safhdev/kryvex:frontend-main` | `safhdev/kryvex:backend-main` |
 
 For a released version:
 
 ```bash
-docker pull safhdev/lp-tracker:frontend
-docker pull safhdev/lp-tracker:backend
+docker pull safhdev/kryvex:frontend
+docker pull safhdev/kryvex:backend
 ```
 
 The frontend serves on port `80`, and the backend serves on port `3000`. Pin a release-specific tag or digest for reproducible deployments, and deploy matching frontend and backend versions.
