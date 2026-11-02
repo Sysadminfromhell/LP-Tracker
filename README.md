@@ -90,9 +90,15 @@ These pull commands download the images; they do not by themselves configure or 
 
 ```bash
 git clone https://github.com/Sysadminfromhell/KRYVEX.git
+<<<<<<< HEAD
 cd KRYVEX
 docker build -f Dockerfile.backend -t kryvex-backend .
 docker build -f Dockerfile.frontend -t kryvex-frontend .
+=======
+cd LP-Tracker
+docker build -f Dockerfile.backend -t KRYVEX-backend .
+docker build -f Dockerfile.frontend -t KRYVEX-frontend .
+>>>>>>> a308662 (rename all lasts links)
 ```
 
 For identifiable backend builds, pass `--build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)"` to the backend Docker build. The CI pipeline supplies the commit SHA automatically; manual builds without it may report `dev`.
