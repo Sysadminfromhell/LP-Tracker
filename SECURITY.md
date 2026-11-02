@@ -23,7 +23,7 @@ Preferred reporting method:
 
 Repository:
 
-https://github.com/Sysadminfromhell/LP-Tracker
+https://github.com/Sysadminfromhell/KRYVEX
 
 Please include enough information to reproduce and assess the issue:
 

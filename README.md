@@ -93,10 +93,10 @@ These pull commands download the images; they do not by themselves configure or 
 ### Build from source
 
 ```bash
-git clone https://github.com/Sysadminfromhell/LP-Tracker.git
+git clone https://github.com/Sysadminfromhell/KRYVEX.git
 cd LP-Tracker
-docker build -f Dockerfile.backend -t lp-tracker-backend .
-docker build -f Dockerfile.frontend -t lp-tracker-frontend .
+docker build -f Dockerfile.backend -t KRYVEX-backend .
+docker build -f Dockerfile.frontend -t KRYVEX-frontend .
 ```
 
 For identifiable backend builds, pass `--build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)"` to the backend Docker build. The CI pipeline supplies the commit SHA automatically; manual builds without it may report `dev`.
@@ -142,7 +142,7 @@ Application health is available at `GET /api/health`; detailed administrative he
 * [Roadmap](ROADMAP.md) — shipped milestones and planned features
 * [Contributing](CONTRIBUTING.md) — development workflow and pull requests
 * [Security Policy](SECURITY.md) — vulnerability reporting and deployment security
-* [Issues](https://github.com/Sysadminfromhell/LP-Tracker/issues) — bugs and feature requests
+* [Issues](https://github.com/Sysadminfromhell/KRYVEX/issues) — bugs and feature requests
 
 ## License
 
