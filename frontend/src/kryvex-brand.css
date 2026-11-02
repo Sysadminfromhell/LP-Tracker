@@ -1,0 +1,184 @@
+/* KRYVEX brand layer.
+   Keep this independent of existing gameplay/rank/status colors. */
+:root {
+  --kryvex-background: #0b0d14;
+  --kryvex-surface: rgba(18, 20, 29, 0.94);
+  --kryvex-silver: #e5e7ee;
+  --kryvex-muted: #9ba0af;
+  --kryvex-accent: #9181b5;
+  --kryvex-accent-hover: #b0a0cf;
+  --kryvex-outline: rgba(164, 146, 200, 0.2);
+}
+
+.page,
+.admin-page,
+.generator-page {
+  background: radial-gradient(circle at 50% -20%, #242337 0%, #15151f 39%, var(--kryvex-background) 78%);
+}
+
+.tracker,
+.admin-shell,
+.admin-login-card,
+.generator-card {
+  border-color: rgba(197, 195, 210, 0.085);
+  background: var(--kryvex-surface);
+}
+
+.kryvex-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.kryvex-brand__mark {
+  display: block;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  object-fit: contain;
+}
+
+.kryvex-brand__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kryvex-brand__name {
+  color: var(--kryvex-silver);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1.1;
+}
+
+.kryvex-brand__tagline {
+  color: var(--kryvex-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.095em;
+}
+
+.kryvex-brand--compact {
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.kryvex-brand--compact .kryvex-brand__mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.kryvex-brand--compact .kryvex-brand__name {
+  font-size: 16px;
+}
+
+.kryvex-brand--compact .kryvex-brand__tagline {
+  font-size: 9px;
+}
+
+.topbar .eyebrow,
+.admin-topbar .eyebrow,
+.admin-login-heading .eyebrow {
+  color: var(--kryvex-accent-hover);
+}
+
+.overlay-link:hover,
+.admin-back-link:hover {
+  color: var(--kryvex-accent-hover);
+}
+
+.admin-primary-button {
+  border-color: var(--kryvex-outline);
+  background: #353043;
+}
+
+.admin-primary-button:hover:not(:disabled) {
+  border-color: rgba(176, 160, 207, 0.33);
+  background: #48405d;
+}
+
+.admin-login-form input:focus {
+  border-color: var(--kryvex-accent);
+  box-shadow: 0 0 0 3px rgba(145, 129, 181, 0.12);
+}
+
+/* Single-line branding: preserve header height and navigation alignment. */
+.kryvex-brand--icon-only {
+  gap: 0;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.kryvex-brand--icon-only .kryvex-brand__mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.topbar {
+  align-items: flex-start;
+}
+
+.kryvex-leaderboard-heading {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 12px;
+}
+
+.kryvex-leaderboard-details {
+  min-width: 0;
+}
+
+.topbar .live {
+  align-self: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Admin and database use the same header hierarchy as the leaderboard. */
+.kryvex-admin-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.kryvex-admin-heading__copy {
+  min-width: 0;
+}
+
+.kryvex-admin-heading__copy .eyebrow {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.kryvex-admin-heading .kryvex-brand--icon-only .kryvex-brand__mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+@media (max-width: 650px) {
+  .topbar .live {
+    justify-content: flex-start;
+  }
+
+  .kryvex-leaderboard-heading {
+    gap: 10px;
+  }
+
+  .kryvex-brand__mark {
+    width: 44px;
+    height: 44px;
+  }
+  .kryvex-brand__name {
+    font-size: 18px;
+  }
+}

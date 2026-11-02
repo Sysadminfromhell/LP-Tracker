@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
-import type { LegalPage, LegalPagesResponse } from '@lp-tracker/contracts';
+import type { LegalPage, LegalPagesResponse } from '@kryvex/contracts';
 import AdminToastHost, { type AdminToastMessage } from '../components/AdminToastHost';
 
 function Editor({

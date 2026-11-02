@@ -17,7 +17,7 @@ export class OpggClient implements LeagueDataProvider {
   private readonly matchDetailCache = new Map<string, SummonerMatch['participants']>();
   constructor() {
     this.client = new Client({
-      name: 'lp-tracker',
+      name: 'kryvex',
       version: '0.1.0',
     });
     this.transport = new StreamableHTTPClientTransport(new URL(MCP_URL));

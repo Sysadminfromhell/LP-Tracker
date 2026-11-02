@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { createPlayerOverlayPath } from '../routing';
-import type { LeaderboardPlayer, LeaderboardResponse } from '@lp-tracker/contracts';
+import type { LeaderboardPlayer, LeaderboardResponse } from '@kryvex/contracts';
 
 function OverlayGenerator() {
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
@@ -120,7 +120,7 @@ function OverlayGenerator() {
       <section className="generator-card">
         <div className="generator-heading">
           <div>
-            <span className="eyebrow">LP GAIN EVENT</span>
+            <span className="eyebrow">KRYVEX / OVERLAYS</span>
             <h1>OBS Overlay</h1>
             <p>Select a player and add the generated URL as an OBS Browser Source.</p>
           </div>

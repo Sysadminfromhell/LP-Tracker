@@ -1,5 +1,5 @@
 {
-  "name": "lp-tracker",
+  "name": "kryvex-backend",
   "private": true,
   "license": "AGPL-3.0-only",
   "version": "2.5.6",
@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@fastify/type-provider-json-schema-to-ts": "^5.0.1",
-    "@lp-tracker/contracts": "file:../contracts",
+    "@kryvex/contracts": "file:../contracts",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "@types/sanitize-html": "^2.16.2",

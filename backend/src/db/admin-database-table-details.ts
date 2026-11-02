@@ -6,7 +6,7 @@ import type {
   AdminDatabaseIndex,
   AdminDatabaseTableDetailsResponse,
   AdminDatabaseTableOverview,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import { db } from './client';
 import { getAdminDatabaseRelationships } from './admin-database-relationships';
 import {

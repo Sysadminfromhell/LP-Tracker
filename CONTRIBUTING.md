@@ -1,6 +1,6 @@
-# Contributing to LP-Tracker
+# Contributing to KRYVEX
 
-Thanks for your interest in improving LP-Tracker.
+Thanks for your interest in improving KRYVEX.
 
 The goal of this document is to keep development predictable without turning contribution into unnecessary process. The `main` branch represents the current stable code line; changes should be developed and reviewed on dedicated branches.
 
@@ -8,11 +8,18 @@ The goal of this document is to keep development predictable without turning con
 
 ## Development workflow
 
-Start from an up-to-date `main` branch:
+The repository uses two long-lived branches:
+
+- `main` – stable production releases.
+- `staging` – integration branch for upcoming changes.
+
+Feature and bugfix branches should normally be created
+from the latest `staging` branch.
 
 ```bash
-git switch main
-git pull --ff-only
+git fetch origin
+git switch staging
+git pull --ff-only origin staging
 git switch -c feat/my-change
 ```
 
@@ -43,7 +50,7 @@ Dockerfile.backend
 Dockerfile.frontend
 ```
 
-The backend owns database access, event state and League provider integrations. The frontend communicates only with the LP-Tracker API.
+The backend owns database access, event state and League provider integrations. The frontend communicates only with the KRYVEX API.
 
 When adding provider-specific behavior, keep it behind the provider abstraction instead of coupling provider details into unrelated application code.
 
@@ -212,7 +219,7 @@ Avoid adding dependencies for small UI elements when a simple implementation alr
 
 ## Provider changes
 
-LP-Tracker currently supports OP.GG MCP and Riot Games API implementations behind the League data provider abstraction.
+KRYVEX currently supports OP.GG MCP and Riot Games API implementations behind the League data provider abstraction.
 
 Provider-specific rate limits, authentication and response formats should stay inside provider-specific code whenever possible.
 
@@ -248,4 +255,4 @@ Update documentation when a change affects:
 - Monitoring
 - User-visible workflows
 
-The README should remain focused on operating, deploying, updating and using LP-Tracker. Detailed contribution policy belongs in this file.
+The README should remain focused on operating, deploying, updating and using KRYVEX. Detailed contribution policy belongs in this file.

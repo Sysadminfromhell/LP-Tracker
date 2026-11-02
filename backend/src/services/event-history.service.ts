@@ -2,7 +2,7 @@ import type {
   EventHistoryDetailsResponse,
   EventHistoryResponse,
   EventHistoryStanding,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import {
   getEndedEventHistory,
   getEndedEventHistoryEvent,

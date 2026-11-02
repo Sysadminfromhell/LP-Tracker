@@ -1,6 +1,6 @@
 # Installation
 
-LP-Tracker runs as a React frontend, Fastify backend and PostgreSQL database, normally behind an HTTPS reverse proxy.
+KRYVEX runs as a React frontend, Fastify backend and PostgreSQL database, normally behind an HTTPS reverse proxy.
 
 ## Requirements
 

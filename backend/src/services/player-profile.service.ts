@@ -3,7 +3,7 @@ import type {
   PlayerEventSummary,
   PlayerHistoryMatch,
   PlayerProfileResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import {
   getPlayerEventHistory,
   getPlayerEventMatches,

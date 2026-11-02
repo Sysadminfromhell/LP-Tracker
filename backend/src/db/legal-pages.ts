@@ -1,5 +1,5 @@
 import { db } from './client';
-import type { LegalPage, LegalPageSlug } from '@lp-tracker/contracts';
+import type { LegalPage, LegalPageSlug } from '@kryvex/contracts';
 
 import sanitizeHtml from 'sanitize-html';
 

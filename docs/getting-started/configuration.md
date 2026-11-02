@@ -8,8 +8,8 @@ The source of truth for environment settings is [`backend/.env.example`](https:/
 NODE_ENV=production
 DATABASE_HOST=postgres.example.internal
 DATABASE_PORT=5432
-DATABASE_NAME=lp_tracker
-DATABASE_USER=lp_tracker
+DATABASE_NAME=KRYVEX
+DATABASE_USER=KRYVEX
 DATABASE_PASSWORD=change-me
 ```
 

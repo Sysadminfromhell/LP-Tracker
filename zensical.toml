@@ -1,6 +1,6 @@
 [project]
-site_name = "LP-Tracker"
-site_description = "Official documentation for LP-Tracker"
+site_name = "KRYVEX"
+site_description = "KRYVEX – Rise Above Rivals. Official documentation."
 site_url = "https://sysadminfromhell.github.io/LP-Tracker/"
 repo_url = "https://github.com/Sysadminfromhell/LP-Tracker"
 edit_uri = "edit/main/docs/"
