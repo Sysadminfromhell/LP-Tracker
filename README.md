@@ -148,5 +148,5 @@ Application health is available at `GET /api/health`; detailed administrative he
 
 Copyright (C) 2026 Sysadminfromhell.
 
-LP-Tracker is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only). Network deployment of modified versions has corresponding source-sharing obligations under the license; review the full license text for the applicable terms.
+KRYVEX is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only). Network deployment of modified versions has corresponding source-sharing obligations under the license; review the full license text for the applicable terms.
 

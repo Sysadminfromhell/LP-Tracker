@@ -1,6 +1,6 @@
 # System Architecture
 
-LP-Tracker uses React/Vite on the frontend, a Node.js/Fastify backend, PostgreSQL and interchangeable League data providers.
+KRYVEX uses React/Vite on the frontend, a Node.js/Fastify backend, PostgreSQL and interchangeable League data providers.
 
 ```mermaid
 flowchart LR

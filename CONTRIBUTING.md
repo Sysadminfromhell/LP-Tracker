@@ -219,7 +219,7 @@ Avoid adding dependencies for small UI elements when a simple implementation alr
 
 ## Provider changes
 
-LP-Tracker currently supports OP.GG MCP and Riot Games API implementations behind the League data provider abstraction.
+KRYVEX currently supports OP.GG MCP and Riot Games API implementations behind the League data provider abstraction.
 
 Provider-specific rate limits, authentication and response formats should stay inside provider-specific code whenever possible.
 
@@ -255,4 +255,4 @@ Update documentation when a change affects:
 - Monitoring
 - User-visible workflows
 
-The README should remain focused on operating, deploying, updating and using LP-Tracker. Detailed contribution policy belongs in this file.
+The README should remain focused on operating, deploying, updating and using KRYVEX. Detailed contribution policy belongs in this file.

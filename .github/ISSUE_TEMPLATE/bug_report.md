@@ -8,7 +8,7 @@ type: Bug
 
 ---
 
-Kryvex version / commit:
+KRYVEX version / commit:
 e.g. v2.0.0 or commit SHA
 
 Deployment:
