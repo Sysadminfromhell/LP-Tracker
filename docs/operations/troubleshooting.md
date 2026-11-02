@@ -24,4 +24,4 @@ The backend image was likely built without a `GIT_COMMIT_SHA` build argument. CI
 
 Verify the event/player route, API connectivity and recorded data for the selected participant.
 
-For more detail see [Diagnostics CLI](diagnostics.md) or the [issue tracker](https://github.com/Sysadminfromhell/LP-Tracker/issues).
+For more detail see [Diagnostics CLI](diagnostics.md) or the [issue tracker](https://github.com/Sysadminfromhell/KRYVEX/issues).

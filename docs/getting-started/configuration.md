@@ -1,6 +1,6 @@
 # Configuration
 
-The source of truth for environment settings is [`backend/.env.example`](https://github.com/Sysadminfromhell/LP-Tracker/blob/main/backend/.env.example). Do not commit credentials.
+The source of truth for environment settings is [`backend/.env.example`](https://github.com/Sysadminfromhell/KRYVEX/blob/main/backend/.env.example). Do not commit credentials.
 
 ## Database and application
 

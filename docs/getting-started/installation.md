@@ -11,7 +11,7 @@ KRYVEX runs as a React frontend, Fastify backend and PostgreSQL database, normal
 
 ## Docker images
 
-The [Woodpecker pipelines](https://github.com/Sysadminfromhell/LP-Tracker/tree/main/.woodpecker) define these image tags:
+The [Woodpecker pipelines](https://github.com/Sysadminfromhell/KRYVEX/tree/main/.woodpecker) define these image tags:
 
 | Environment | Frontend | Backend |
 | --- | --- | --- |
