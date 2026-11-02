@@ -6,9 +6,10 @@ import type {
   LeaderboardPlayer,
   LeaderboardResponse,
   PlayerRefreshedLiveUpdate,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import PublicLegalLinks from '../components/PublicLegalLinks';
+import KryvexBrand from '../components/KryvexBrand';
 import { loadChampionIcons } from '../championIcons';
 import {
   getCachedMatchDetails,
@@ -866,8 +867,10 @@ function LeaderboardPage() {
       )}
       <section className="tracker">
         <header className="topbar">
-          <div>
-            <span className="eyebrow">LP EVENT TRACKER</span>
+          <div className="kryvex-leaderboard-heading">
+            <KryvexBrand iconOnly />
+            <div className="kryvex-leaderboard-details">
+              <span className="eyebrow">CURRENT EVENT</span>
             <h1>{leaderboard?.event.name ?? 'Leaderboard'}</h1>
             <div className="event-window">
               <div className="event-window-item">
@@ -883,6 +886,7 @@ function LeaderboardPage() {
                   {formatEventDate(leaderboard?.event.endsAt ?? null)}
                 </strong>
               </div>
+            </div>
             </div>
           </div>
           <div
@@ -1238,8 +1242,8 @@ function LeaderboardPage() {
               href="https://github.com/Sysadminfromhell/LP-Tracker"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="LP-Tracker on GitHub"
-              title="Open LP-Tracker on GitHub"
+              aria-label="KRYVEX on GitHub"
+              title="Open KRYVEX on GitHub"
             >
               <GitHubIcon />
             </a>

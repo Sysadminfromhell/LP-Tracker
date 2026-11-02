@@ -6,7 +6,7 @@ import type {
   EventParticipantPenaltiesResponse,
   EventParticipantPenalty,
   EventParticipantPenaltyResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import {
   adminEventDetailsResponseSchema,

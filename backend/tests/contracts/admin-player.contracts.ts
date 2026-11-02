@@ -5,7 +5,7 @@ import type {
   AdminPlayersRefreshResponse,
   AdminPlayersResponse,
   ErrorResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import {
   adminPlayerErrorResponseSchema,

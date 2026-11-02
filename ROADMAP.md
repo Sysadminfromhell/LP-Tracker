@@ -24,6 +24,6 @@ This file describes the next Roadmap milestones and feature sets currently plann
 | v2.11.0 | Add player/event comparisons and performance insights | No |
 | v2.12.0 | Expand administration and event management capabilities | No |
 | v2.13.0 | Add Log insights in Admin Panel for analytic purposes | No |
-| v3.0.0 | Generalize LP-Tracker into a modular and extensible event platform | No |
+| v3.0.0 | Generalize KRYVEX into a modular and extensible event platform | No |
 | v3.1.0 | Add team entities, team events, team scoring, standings and team-aware overlays | No |
 | v3.1.5 | Remoddel team-aware overlays for highlighting streamer | No |

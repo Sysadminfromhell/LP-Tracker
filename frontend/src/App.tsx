@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { getLegacyRedirect } from './routing';
 import './App.css';
+import './kryvex-brand.css';
 
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const OverlayGenerator = lazy(() => import('./pages/OverlayGenerator'));
@@ -25,38 +26,38 @@ function App() {
     const legalTitle = LEGAL_PAGE_TITLES[location.pathname];
 
     if (legalTitle) {
-      document.title = `LP Gain Event - ${legalTitle}`;
+      document.title = `KRYVEX | ${legalTitle}`;
       return;
     }
     if (location.pathname.startsWith('/admin/database/tables/')) {
-      document.title = 'LP Gain Event - Database Table';
+      document.title = 'KRYVEX | Database Table';
       return;
     }
     if (location.pathname === '/admin/database') {
-      document.title = 'LP Gain Event - Database Advanced';
+      document.title = 'KRYVEX | Database Advanced';
       return;
     }
     if (location.pathname.startsWith('/admin')) {
-      document.title = 'LP Gain Event - Admin';
+      document.title = 'KRYVEX | Admin';
       return;
     }
     if (location.pathname === '/overlay-generator') {
-      document.title = 'LP Gain Event - OBS Overlay';
+      document.title = 'KRYVEX | OBS Overlay';
       return;
     }
     if (location.pathname === '/overlay' || location.pathname.startsWith('/overlay/events/')) {
-      document.title = 'LP Gain Event - Player Overlay';
+      document.title = 'KRYVEX | Player Overlay';
       return;
     }
     if (location.pathname.startsWith('/players/')) {
-      document.title = 'LP Gain Event - Player Details';
+      document.title = 'KRYVEX | Player Details';
       return;
     }
     if (location.pathname === '/history' || location.pathname.startsWith('/history/')) {
-      document.title = 'LP Gain Event - Event History';
+      document.title = 'KRYVEX | Event History';
       return;
     }
-    document.title = 'LP Gain Event - Leaderboard';
+    document.title = 'KRYVEX | Leaderboard';
   }, [location.pathname]);
 
   if (legacyRedirect) {

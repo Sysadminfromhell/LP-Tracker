@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { EventHistoryResponse } from '@lp-tracker/contracts';
+import type { EventHistoryResponse } from '@kryvex/contracts';
 import PublicLegalLinks from '../components/PublicLegalLinks';
 
 function formatEventDate(date: string): string {
@@ -96,9 +96,9 @@ function EventHistoryPage() {
       <div className="player-details">
         <header className="player-details-header">
           <div className="player-details-section-heading">
-            <span>ARCHIVE</span>
+            <span>KRYVEX / ARCHIVE</span>
             <h1>Event History</h1>
-            <span>Completed LP Tracker events and final standings.</span>
+            <span>Completed KRYVEX events and final standings.</span>
           </div>
         </header>
         {error && <div className="player-details-empty error">{error}</div>}

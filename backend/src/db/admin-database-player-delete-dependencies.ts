@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { AdminDatabasePlayerDeleteDependencies } from '@lp-tracker/contracts';
+import type { AdminDatabasePlayerDeleteDependencies } from '@kryvex/contracts';
 import { db } from './client';
 
 type DatabasePool = Pick<Pool, 'query'>;

@@ -1,4 +1,4 @@
-import type { HealthResponse, PublicHealthResponse } from '@lp-tracker/contracts';
+import type { HealthResponse, PublicHealthResponse } from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import {
   healthResponseSchema,

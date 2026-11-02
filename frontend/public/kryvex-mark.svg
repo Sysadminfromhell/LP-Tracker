@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">KRYVEX KX monogram</title>
+  <desc id="desc">Angular metallic K and X mark with a restrained violet accent.</desc>
+  <defs>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#20232E"/>
+      <stop offset="1" stop-color="#101219"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0.84" y2="1">
+      <stop offset="0" stop-color="#F4F5F7"/>
+      <stop offset="0.48" stop-color="#BFC4D1"/>
+      <stop offset="1" stop-color="#737B8D"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#A899C6"/>
+      <stop offset="1" stop-color="#74608F"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="244" height="244" rx="48" fill="url(#frame)" stroke="#535666" stroke-width="2"/>
+  <path d="M48 54h33v61l48-61h43l-61 76 63 72h-44l-49-57v57H48z" fill="url(#metal)"/>
+  <path d="M145 54h34l17 32 17-32h34l-34 72 34 76h-35l-17-37-18 37h-35l36-76z" fill="url(#metal)"/>
+  <path d="M213 54h34l-34 72-17-40z" fill="url(#violet)"/>
+  <path d="M47 213h162" stroke="#76668E" stroke-width="2" opacity="0.55"/>
+</svg>

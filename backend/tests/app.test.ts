@@ -63,7 +63,7 @@ describe('app request origin protection', () => {
         method: 'POST',
         url: '/api/admin/test',
         headers: {
-          host: 'lp-tracker.example.com',
+          host: 'kryvex.example.com',
         },
       });
       expect(response.statusCode).toBe(403);
@@ -82,7 +82,7 @@ describe('app request origin protection', () => {
         method: 'PATCH',
         url: '/api/admin/test',
         headers: {
-          host: 'lp-tracker.example.com',
+          host: 'kryvex.example.com',
           origin: 'definitely-not-a-url',
         },
       });
@@ -102,7 +102,7 @@ describe('app request origin protection', () => {
         method: 'DELETE',
         url: '/api/admin/test',
         headers: {
-          host: 'lp-tracker.example.com',
+          host: 'kryvex.example.com',
           origin: 'https://evil.example.com',
         },
       });
@@ -122,8 +122,8 @@ describe('app request origin protection', () => {
         method: 'POST',
         url: '/api/admin/test',
         headers: {
-          host: 'lp-tracker.example.com',
-          origin: 'https://lp-tracker.example.com',
+          host: 'kryvex.example.com',
+          origin: 'https://kryvex.example.com',
         },
       });
       expect(response.statusCode).toBe(200);
@@ -159,7 +159,7 @@ describe('app request origin protection', () => {
         method: 'GET',
         url: '/api/admin/test',
         headers: {
-          host: 'lp-tracker.example.com',
+          host: 'kryvex.example.com',
         },
       });
       expect(response.statusCode).toBe(200);
@@ -178,7 +178,7 @@ describe('app request origin protection', () => {
         method: 'POST',
         url: '/api/public-test',
         headers: {
-          host: 'lp-tracker.example.com',
+          host: 'kryvex.example.com',
         },
       });
       expect(response.statusCode).toBe(200);

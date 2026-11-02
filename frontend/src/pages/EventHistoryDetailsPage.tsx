@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import type { EventHistoryDetailsResponse, EventHistoryStanding } from '@lp-tracker/contracts';
+import type { EventHistoryDetailsResponse, EventHistoryStanding } from '@kryvex/contracts';
 import { getRankIconUrl } from '../rankIcons';
 import PublicLegalLinks from '../components/PublicLegalLinks';
 

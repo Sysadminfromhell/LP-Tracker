@@ -11,7 +11,7 @@ import type {
   PlayerEventDetailsResponse,
   PlayerEventSummary,
   PlayerProfileResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import { loadChampionIcons } from '../championIcons';
 import { loadItemIconUrls } from '../itemIcons';
 import {

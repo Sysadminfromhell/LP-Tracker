@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { AdminDatabasePlayerCacheCleanupResponse } from '@lp-tracker/contracts';
+import type { AdminDatabasePlayerCacheCleanupResponse } from '@kryvex/contracts';
 import { db } from './client';
 import { log } from '../utils/logging';
 

@@ -6,7 +6,7 @@ Security reports are taken seriously. Please avoid public disclosure of a vulner
 
 ## Supported versions
 
-Security fixes are intended for the latest released LP-Tracker version.
+Security fixes are intended for the latest released KRYVEX version.
 
 Older releases, development branches and historical commits may not receive security updates. Operators should keep production deployments on a maintained release or a known reviewed commit.
 
@@ -18,7 +18,7 @@ Older releases, development branches and historical commits may not receive secu
 
 Preferred reporting method:
 
-1. Use GitHub's private vulnerability reporting / Security Advisory feature for the LP-Tracker repository when available.
+1. Use GitHub's private vulnerability reporting / Security Advisory feature for the KRYVEX repository when available.
 2. If private vulnerability reporting is not available, contact the repository owner privately through GitHub before publishing technical details.
 
 Repository:
@@ -27,7 +27,7 @@ https://github.com/Sysadminfromhell/LP-Tracker
 
 Please include enough information to reproduce and assess the issue:
 
-- Affected LP-Tracker version or Git commit
+- Affected KRYVEX version or Git commit
 - Affected component (`frontend`, `backend`, provider, deployment, etc.)
 - Vulnerability type and expected impact
 - Reproduction steps or proof of concept
@@ -54,7 +54,7 @@ Examples that should be reported privately include:
 - Exposure of private application or database data
 - Unsafe secret handling
 - Vulnerabilities that allow modification of event/player data without authorization
-- Dependency vulnerabilities that are practically exploitable in LP-Tracker
+- Dependency vulnerabilities that are practically exploitable in KRYVEX
 
 Normal bugs, UI issues, provider outages and feature requests can be reported through normal project channels when they do not expose sensitive information or create a security impact.
 
@@ -62,7 +62,7 @@ Normal bugs, UI issues, provider outages and feature requests can be reported th
 
 # Deployment security
 
-LP-Tracker is self-hosted software. The operator is responsible for securing the surrounding infrastructure.
+KRYVEX is self-hosted software. The operator is responsible for securing the surrounding infrastructure.
 
 ## Use production mode
 
@@ -96,7 +96,7 @@ The committed `backend/.env.example` file must contain examples/placeholders onl
 
 ## Database privileges
 
-The normal LP-Tracker database user should have access only to the application database it requires.
+The normal KRYVEX database user should have access only to the application database it requires.
 
 Do not run the application permanently with a PostgreSQL superuser account.
 
@@ -145,7 +145,7 @@ Use a strong, unique administrator password.
 
 The initial admin credentials are used only when no administrator exists. Do not leave example credentials unchanged in a real deployment.
 
-LP-Tracker invalidates existing admin sessions during backend startup. An administrator must sign in again after a backend restart.
+KRYVEX invalidates existing admin sessions during backend startup. An administrator must sign in again after a backend restart.
 
 Do not share admin session cookies or include them in public logs/screenshots.
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { AdminDatabaseOverviewResponse } from '@lp-tracker/contracts';
+import type { AdminDatabaseOverviewResponse } from '@kryvex/contracts';
 import type { AdminToastVariant } from '../components/AdminToastHost';
 import AdminDatabaseMap from './AdminDatabaseMap';
 

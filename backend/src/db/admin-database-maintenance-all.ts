@@ -2,7 +2,7 @@ import type { Pool } from 'pg';
 import type {
   AdminDatabaseMaintenanceAllResponse,
   AdminDatabaseMaintenanceOperation,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import { db } from './client';
 import { runAdminDatabaseMaintenance } from './admin-database-maintenance';
 import { getAdminDatabaseTableDefinitions } from './admin-database-registry';

@@ -2,7 +2,7 @@ import type {
   EventPlayerReadyResponse,
   EventPlayerResponse,
   EventPlayerUnavailableResponse,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import type { FromSchema } from 'json-schema-to-ts';
 import {
   eventPlayerReadyResponseSchema,

@@ -22,7 +22,7 @@ import type {
   AdminDatabaseResetResponse,
   AdminDatabaseTableDetailsResponse,
   AdminDatabaseTableOverview,
-} from '@lp-tracker/contracts';
+} from '@kryvex/contracts';
 import {
   adminDatabaseColumnSchema,
   adminDatabaseConstraintSchema,

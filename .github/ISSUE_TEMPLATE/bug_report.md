@@ -8,7 +8,7 @@ type: Bug
 
 ---
 
-LP-Tracker version / commit:
+KRYVEX version / commit:
 e.g. v2.0.0 or commit SHA
 
 Deployment:

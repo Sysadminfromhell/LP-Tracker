@@ -1,6 +1,6 @@
 # Administration
 
-Open `/admin` to manage the LP-Tracker installation.
+Open `/admin` to manage the KRYVEX installation.
 
 Administrators can manage tracked League players, event schedules and participants, refresh actions, profile information, legal pages and selected database maintenance features.
 

@@ -1,4 +1,4 @@
-import type { LeaderboardLiveUpdate } from '@lp-tracker/contracts';
+import type { LeaderboardLiveUpdate } from '@kryvex/contracts';
 
 export function shouldReloadOverlayForLeaderboard(
   eventIdParam: string | undefined,

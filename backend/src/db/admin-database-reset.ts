@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { AdminDatabaseResetResponse } from '@lp-tracker/contracts';
+import type { AdminDatabaseResetResponse } from '@kryvex/contracts';
 import { db } from './client';
 import { log } from '../utils/logging';
 

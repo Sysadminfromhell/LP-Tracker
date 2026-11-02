@@ -1,4 +1,4 @@
-import type { LeaderboardLiveUpdate, PlayerRefreshedLiveUpdate } from '@lp-tracker/contracts';
+import type { LeaderboardLiveUpdate, PlayerRefreshedLiveUpdate } from '@kryvex/contracts';
 
 function parsePlayerId(playerIdParam: string | undefined): number | null {
   const playerId = Number(playerIdParam);

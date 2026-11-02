@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
-import type { AdminMeResponse, AdminSessionUser } from '@lp-tracker/contracts';
+import type { AdminMeResponse, AdminSessionUser } from '@kryvex/contracts';
 import AdminDashboard from './AdminDashboard';
 import AdminDatabaseAdvancedPage from './AdminDatabaseAdvancedPage';
 import AdminDatabaseTablePage from './AdminDatabaseTablePage';
