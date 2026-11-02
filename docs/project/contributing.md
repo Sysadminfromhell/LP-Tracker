@@ -1,8 +1,8 @@
 # Contributing & Security
 
-KRYVEX is developed in the public [GitHub repository](https://github.com/Sysadminfromhell/LP-Tracker).
+KRYVEX is developed in the public [GitHub repository](https://github.com/Sysadminfromhell/KRYVEX).
 
-Read [CONTRIBUTING.md](https://github.com/Sysadminfromhell/LP-Tracker/blob/main/CONTRIBUTING.md) before submitting a pull request. It explains the repository layout, tests and project conventions.
+Read [CONTRIBUTING.md](https://github.com/Sysadminfromhell/KRYVEX/blob/main/CONTRIBUTING.md) before submitting a pull request. It explains the repository layout, tests and project conventions.
 
 ## Documentation changes
 
@@ -12,4 +12,4 @@ Changes to API behavior, event rules, environment variables and public features 
 
 ## Vulnerability reporting
 
-Follow [SECURITY.md](https://github.com/Sysadminfromhell/LP-Tracker/blob/main/SECURITY.md). Do not publish sensitive exploit details as a public issue.
+Follow [SECURITY.md](https://github.com/Sysadminfromhell/KRYVEX/blob/main/SECURITY.md). Do not publish sensitive exploit details as a public issue.

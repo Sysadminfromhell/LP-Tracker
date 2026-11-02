@@ -1,6 +1,6 @@
 # Roadmap
 
-The authoritative milestone list is the repository's [ROADMAP.md](https://github.com/Sysadminfromhell/LP-Tracker/blob/main/ROADMAP.md).
+The authoritative milestone list is the repository's [ROADMAP.md](https://github.com/Sysadminfromhell/KRYVEX/blob/main/ROADMAP.md).
 
 Current main-line capabilities include LP-based events, historical event/player views, live updates, streaming overlays, administrator workflows and diagnostics.
 

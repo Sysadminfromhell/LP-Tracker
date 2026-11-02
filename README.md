@@ -63,21 +63,17 @@ See [System Architecture](docs/development/architecture.md) and [REST API & Live
 
 ### Container images
 
-> **Note:** Container images currently retain the legacy
-> `safhdev/lp-tracker` repository name for compatibility.
-> The migration to KRYVEX image names is planned separately.
-
 |Environment|Frontend image|Backend image|
 |-|-|-|
-|Release|`safhdev/lp-tracker:frontend`|`safhdev/lp-tracker:backend`|
-|Staging|`safhdev/lp-tracker:frontend-staging`|`safhdev/lp-tracker:backend-staging`|
-|Main branch|`safhdev/lp-tracker:frontend-main`|`safhdev/lp-tracker:backend-main`|
+|Release|`safhdev/kryvex:frontend`|`safhdev/kryvex:backend`|
+|Staging|`safhdev/kryvex:frontend-staging`|`safhdev/kryvex:backend-staging`|
+|Main branch|`safhdev/kryvex:frontend-main`|`safhdev/kryvex:backend-main`|
 
 Release image tags are published by the version-tag build in Woodpecker CI. Use matching frontend and backend builds. For reproducible production deployments, pin a release-specific image tag or digest.
 
 ```bash
-docker pull safhdev/lp-tracker:frontend
-docker pull safhdev/lp-tracker:backend
+docker pull safhdev/kryvex:frontend
+docker pull safhdev/kryvex:backend
 ```
 
 Expected service ports and routing:
@@ -93,10 +89,10 @@ These pull commands download the images; they do not by themselves configure or 
 ### Build from source
 
 ```bash
-git clone https://github.com/Sysadminfromhell/LP-Tracker.git
-cd LP-Tracker
-docker build -f Dockerfile.backend -t lp-tracker-backend .
-docker build -f Dockerfile.frontend -t lp-tracker-frontend .
+git clone https://github.com/Sysadminfromhell/KRYVEX.git
+cd KRYVEX
+docker build -f Dockerfile.backend -t kryvex-backend .
+docker build -f Dockerfile.frontend -t kryvex-frontend .
 ```
 
 For identifiable backend builds, pass `--build-arg GIT_COMMIT_SHA="$(git rev-parse HEAD)"` to the backend Docker build. The CI pipeline supplies the commit SHA automatically; manual builds without it may report `dev`.
@@ -142,7 +138,7 @@ Application health is available at `GET /api/health`; detailed administrative he
 * [Roadmap](ROADMAP.md) — shipped milestones and planned features
 * [Contributing](CONTRIBUTING.md) — development workflow and pull requests
 * [Security Policy](SECURITY.md) — vulnerability reporting and deployment security
-* [Issues](https://github.com/Sysadminfromhell/LP-Tracker/issues) — bugs and feature requests
+* [Issues](https://github.com/Sysadminfromhell/KRYVEX/issues) — bugs and feature requests
 
 ## License
 
