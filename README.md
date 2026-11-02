@@ -1,4 +1,4 @@
-<img src="frontend/public/kryvex-mark.svg" alt="KRYVEX Logo" width="100" />
+<div align="center"><img src="frontend/public/kryvex-mark.svg" alt="KRYVEX Logo" width="100" />
 
 # KRYVEX
 
