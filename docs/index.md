@@ -1,8 +1,10 @@
-# LP-Tracker Documentation
+# KRYVEX Documentation
 
-**Track League of Legends LP progression, events and player performance in one place.**
+**Rise Above Rivals.**
 
-LP-Tracker is a self-hosted platform for League of Legends player tracking and competitive LP events. This wiki is organized by task and audience.
+Welcome to the official KRYVEX documentation.
+
+KRYVEX is a self-hosted competitive gaming event platform, currently focused on League of Legends LP tracking, leaderboards, event history and streaming integrations.
 
 ## Start here
 

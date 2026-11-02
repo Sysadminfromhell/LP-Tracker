@@ -1,6 +1,6 @@
-# Contributing to LP-Tracker
+# Contributing to KRYVEX
 
-Thanks for your interest in improving LP-Tracker.
+Thanks for your interest in improving KRYVEX.
 
 The goal of this document is to keep development predictable without turning contribution into unnecessary process. The `main` branch represents the current stable code line; changes should be developed and reviewed on dedicated branches.
 
@@ -8,11 +8,18 @@ The goal of this document is to keep development predictable without turning con
 
 ## Development workflow
 
-Start from an up-to-date `main` branch:
+The repository uses two long-lived branches:
+
+- `main` – stable production releases.
+- `staging` – integration branch for upcoming changes.
+
+Feature and bugfix branches should normally be created
+from the latest `staging` branch.
 
 ```bash
-git switch main
-git pull --ff-only
+git fetch origin
+git switch staging
+git pull --ff-only origin staging
 git switch -c feat/my-change
 ```
 

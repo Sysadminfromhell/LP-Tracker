@@ -1,10 +1,12 @@
-<div align="center">
+<img src="frontend/public/kryvex-mark.svg" alt="KRYVEX Logo" width="100" />
 
-# LP-Tracker
+# KRYVEX
 
-**Track League of Legends LP progression, events and player performance in one place.**
+**Rise Above Rivals.**
 
-A self-hosted platform for competitive LP events, live leaderboards, player history and OBS overlays.
+A self-hosted competitive gaming event platform.
+
+Currently focused on League of Legends LP tracking, live leaderboards, player performance, event history and OBS overlays.
 
 ![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
@@ -21,7 +23,11 @@ A self-hosted platform for competitive LP events, live leaderboards, player hist
 
 ## Overview
 
-LP-Tracker tracks League of Legends players across scheduled LP events. It stores player, match and event data in PostgreSQL, calculates LP progression relative to event start snapshots and provides live standings to browsers and stream overlays.
+KRYVEX is a self-hosted competitive event management platform, currently focused on League of Legends.
+
+It tracks player performance across scheduled events, stores match and event history in PostgreSQL, calculates LP progression and provides live leaderboards and stream overlays.
+
+Future releases aim to expand KRYVEX into a multi-game competitive event platform.
 
 ### Highlights
 
@@ -56,6 +62,10 @@ See [System Architecture](docs/development/architecture.md) and [REST API & Live
 **Requirements:** Docker Engine, PostgreSQL with persistent storage, a reverse proxy with HTTPS, and access to a supported data provider.
 
 ### Container images
+
+> **Note:** Container images currently retain the legacy
+> `safhdev/lp-tracker` repository name for compatibility.
+> The migration to KRYVEX image names is planned separately.
 
 |Environment|Frontend image|Backend image|
 |-|-|-|
