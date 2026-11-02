@@ -4,28 +4,22 @@
 .github
 .woodpecker
 
-.env
-.env.\*
-!.env.example
+# Environment files
+**/.env
+**/.env.*
+!**/.env.example
 
-backend/.env
-backend/.env.\*
-!backend/.env.example
+# Dependencies and build artifacts
+**/node_modules
+**/dist
 
-frontend/.env
-frontend/.env.\*
-!frontend/.env.example
-
-\*\*/node_modules
-
-backend/dist
-frontend/dist
-
+# Runtime data
 backend/data
 
-\*_/_.log
+# Logs
+**/*.log
 
+# Development files
 .vscode
 .idea
-
 README.md
