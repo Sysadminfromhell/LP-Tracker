@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
+import KryvexBrand from '../components/KryvexBrand';
 import type { LoginResponse } from '@lp-tracker/contracts';
 
 interface AdminLoginProps {
@@ -55,6 +56,7 @@ function AdminLogin({ onLogin }: AdminLoginProps) {
       <section className="admin-login-card">
         <div className="admin-login-topbar">
           <div className="admin-login-heading">
+            <KryvexBrand compact />
             <span className="eyebrow">LP GAIN EVENT</span>
             <h1>Admin</h1>
             <p>Sign in to manage the event.</p>

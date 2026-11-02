@@ -9,6 +9,7 @@ import type {
 } from '@lp-tracker/contracts';
 import MatchDetailsPopover from '../components/MatchDetailsPopover';
 import PublicLegalLinks from '../components/PublicLegalLinks';
+import KryvexBrand from '../components/KryvexBrand';
 import { loadChampionIcons } from '../championIcons';
 import {
   getCachedMatchDetails,
@@ -867,7 +868,8 @@ function LeaderboardPage() {
       <section className="tracker">
         <header className="topbar">
           <div>
-            <span className="eyebrow">LP EVENT TRACKER</span>
+            <KryvexBrand />
+            <span className="eyebrow">CURRENT EVENT</span>
             <h1>{leaderboard?.event.name ?? 'Leaderboard'}</h1>
             <div className="event-window">
               <div className="event-window-item">

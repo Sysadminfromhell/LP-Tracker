@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import KryvexBrand from '../components/KryvexBrand';
 import AdminConfirmDialog from '../components/AdminConfirmDialog';
 import type {
   AdminPlayer,
@@ -337,6 +338,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       <section className="admin-shell">
         <header className="admin-topbar">
           <div>
+            <KryvexBrand compact />
             <span className="eyebrow">LP GAIN EVENT</span>
             <h1>Admin</h1>
           </div>
