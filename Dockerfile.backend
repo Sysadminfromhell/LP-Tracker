@@ -26,7 +26,12 @@ COPY contracts ../contracts
 COPY backend/package.json backend/package-lock.json ./
 RUN apk upgrade --no-cache \
     && rm -rf /var/cache/apk/* /var/lib/cache/* /var/lib/log/* /var/log/*
-RUN npm ci --omit=dev && npm cache clean --force
+#RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev \
+    && npm cache clean --force \
+    && rm -rf /usr/local/lib/node_modules/npm \
+              /usr/local/bin/npm \
+              /usr/local/bin/npx
 
 COPY --from=build /app/backend/dist ./dist
 COPY backend/migrations ./migrations
