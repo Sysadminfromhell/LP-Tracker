@@ -1239,7 +1239,7 @@ function LeaderboardPage() {
             <span className="build-separator">·</span>
             <a
               className="github-build-link"
-              href="https://github.com/Sysadminfromhell/LP-Tracker"
+              href="https://github.com/Sysadminfromhell/KRYVEX"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="KRYVEX on GitHub"
@@ -1250,7 +1250,7 @@ function LeaderboardPage() {
             {buildInfo?.gitHead && buildInfo.gitHead !== 'dev' ? (
               <a
                 className="git-head-link"
-                href={`https://github.com/Sysadminfromhell/LP-Tracker/commit/${buildInfo.gitHead}`}
+                href={`https://github.com/Sysadminfromhell/KRYVEX/commit/${buildInfo.gitHead}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Open commit ${buildInfo.gitHead}`}

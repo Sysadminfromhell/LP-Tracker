@@ -29,7 +29,7 @@ npm --prefix backend run build
 npm --prefix frontend run build
 ```
 
-Consult [CONTRIBUTING.md](https://github.com/Sysadminfromhell/LP-Tracker/blob/main/CONTRIBUTING.md) for branch policy, testing and project standards.
+Consult [CONTRIBUTING.md](https://github.com/Sysadminfromhell/KRYVEX/blob/main/CONTRIBUTING.md) for branch policy, testing and project standards.
 
 ## Wiki preview on Windows
 

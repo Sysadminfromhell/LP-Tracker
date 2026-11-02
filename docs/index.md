@@ -22,6 +22,6 @@ Roadmap features are **not** necessarily present in the current release. In part
 
 ## Project
 
-- [GitHub repository](https://github.com/Sysadminfromhell/LP-Tracker)
+- [GitHub repository](https://github.com/Sysadminfromhell/KRYVEX)
 - [Roadmap](project/roadmap.md)
 - [Contributing and Security](project/contributing.md)
