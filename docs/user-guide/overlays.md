@@ -1,6 +1,6 @@
 # OBS Overlays
 
-LP-Tracker offers player overlays that can be used as OBS Browser Sources.
+KRYVEX offers player overlays that can be used as OBS Browser Sources.
 
 ## Create an overlay
 

@@ -605,7 +605,7 @@ function AdminEventPanel({ players, onUnauthorized, onNotify }: AdminEventPanelP
           <span className="admin-section-eyebrow">EVENT CONTROL</span>
           <h2>Event</h2>
           <p>
-            Schedule, monitor and control LP Gain Events.
+            Schedule, monitor and manage competitive events.
             {activeEventCount > 0 || scheduledEventCount > 0
               ? ` ${activeEventCount} active, ${scheduledEventCount} scheduled.`
               : ' No active or scheduled events.'}

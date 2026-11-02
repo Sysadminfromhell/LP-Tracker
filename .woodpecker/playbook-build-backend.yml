@@ -23,7 +23,7 @@ steps:
     privileged: true
     settings:
       registry: https://index.docker.io/v1/
-      repo: safhdev/lp-tracker
+      repo: safhdev/lp-tracker,safhdev/kryvex
       username:
         from_secret: docker_username
       password:
@@ -58,7 +58,7 @@ steps:
     privileged: true
     settings:
       registry: https://index.docker.io/v1/
-      repo: safhdev/lp-tracker
+      repo: safhdev/lp-tracker,safhdev/kryvex
       username:
         from_secret: docker_username
       password:
@@ -92,7 +92,7 @@ steps:
     privileged: true
     settings:
       registry: https://index.docker.io/v1/
-      repo: safhdev/lp-tracker
+      repo: safhdev/lp-tracker,safhdev/kryvex
       username:
         from_secret: docker_username
       password:
@@ -126,7 +126,7 @@ steps:
     privileged: true
     settings:
       registry: https://index.docker.io/v1/
-      repo: safhdev/lp-tracker
+      repo: safhdev/lp-tracker,safhdev/kryvex
       username:
         from_secret: docker_username
       password:
@@ -160,7 +160,7 @@ steps:
     privileged: true
     settings:
       registry: https://index.docker.io/v1/
-      repo: safhdev/lp-tracker
+      repo: safhdev/lp-tracker,safhdev/kryvex
       username:
         from_secret: docker_username
       password:

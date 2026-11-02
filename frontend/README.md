@@ -1,6 +1,6 @@
 # KRYVEX Frontend
 
-React / Vite frontend for LP-Tracker.
+React / Vite frontend for KRYVEX.
 
 For deployment, configuration and usage documentation, see the main [README](../README.md).
 

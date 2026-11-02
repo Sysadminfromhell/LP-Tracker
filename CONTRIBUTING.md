@@ -50,7 +50,7 @@ Dockerfile.backend
 Dockerfile.frontend
 ```
 
-The backend owns database access, event state and League provider integrations. The frontend communicates only with the LP-Tracker API.
+The backend owns database access, event state and League provider integrations. The frontend communicates only with the KRYVEX API.
 
 When adding provider-specific behavior, keep it behind the provider abstraction instead of coupling provider details into unrelated application code.
 

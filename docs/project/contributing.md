@@ -1,6 +1,6 @@
 # Contributing & Security
 
-LP-Tracker is developed in the public [GitHub repository](https://github.com/Sysadminfromhell/LP-Tracker).
+KRYVEX is developed in the public [GitHub repository](https://github.com/Sysadminfromhell/LP-Tracker).
 
 Read [CONTRIBUTING.md](https://github.com/Sysadminfromhell/LP-Tracker/blob/main/CONTRIBUTING.md) before submitting a pull request. It explains the repository layout, tests and project conventions.
 
